@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git -C \"C:/Users/bnssh/Dev/My Workspace\" diff)",
-      "Bash(git -C \"C:/Users/bnssh/Dev/My Workspace\" status)"
-    ]
-  }
-}
