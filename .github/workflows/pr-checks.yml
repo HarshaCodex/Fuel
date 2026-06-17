@@ -1,0 +1,97 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+
+  # ── 1. Format check ────────────────────────────────────────────────────────
+  format:
+    name: Format Check (Spotless)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Check code formatting
+        run: mvn spotless:check --no-transfer-progress -f Fuel/backend/pom.xml
+
+  # ── 2. Compile ─────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: format
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Compile
+        run: mvn compile --no-transfer-progress -DskipTests -f Fuel/backend/pom.xml
+
+  # ── 3. Unit tests ──────────────────────────────────────────────────────────
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Run tests
+        run: mvn test --no-transfer-progress -f Fuel/backend/pom.xml
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: Fuel/backend/target/surefire-reports/TEST-*.xml
+          reporter: java-junit
+
+  # ── 4. Security scan (non-blocking) ────────────────────────────────────────
+  security:
+    name: Security Scan (OWASP)
+    runs-on: ubuntu-latest
+    needs: build
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: OWASP Dependency Check
+        run: >
+          mvn org.owasp:dependency-check-maven:check
+          --no-transfer-progress
+          -DfailBuildOnCVSS=9
+          -f Fuel/backend/pom.xml
+        continue-on-error: true
+
+      - name: Upload vulnerability report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-report
+          path: Fuel/backend/target/dependency-check-report.html
+          retention-days: 30
