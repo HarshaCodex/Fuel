@@ -9,4 +9,9 @@ public class FuelApplication {
     public static void main(String[] args) {
         SpringApplication.run(FuelApplication.class, args);
     }
+
+    @PostConstruct
+    public String sayHello() {
+        System.out.println("Hello")
+    }
 }
