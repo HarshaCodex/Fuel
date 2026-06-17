@@ -20,7 +20,7 @@ jobs:
           cache: maven
 
       - name: Check code formatting
-        run: mvn spotless:check --no-transfer-progress
+        run: mvn spotless:check --no-transfer-progress -f Fuel/backend/pom.xml
 
   # ── 2. Compile ─────────────────────────────────────────────────────────────
   build:
@@ -37,13 +37,7 @@ jobs:
           cache: maven
 
       - name: Compile
-        run: mvn compile --no-transfer-progress -DskipTests
-
-      - name: Cache compiled classes
-        uses: actions/cache/save@v4
-        with:
-          path: target/classes
-          key: compiled-${{ github.sha }}
+        run: mvn compile --no-transfer-progress -DskipTests -f Fuel/backend/pom.xml
 
   # ── 3. Unit tests ──────────────────────────────────────────────────────────
   test:
@@ -61,14 +55,14 @@ jobs:
           cache: maven
 
       - name: Run tests
-        run: mvn test --no-transfer-progress
+        run: mvn test --no-transfer-progress -f Fuel/backend/pom.xml
 
       - name: Publish test results
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: Test Results
-          path: target/surefire-reports/TEST-*.xml
+          path: Fuel/backend/target/surefire-reports/TEST-*.xml
           reporter: java-junit
 
   # ── 4. Security scan (non-blocking) ────────────────────────────────────────
@@ -91,7 +85,7 @@ jobs:
           mvn org.owasp:dependency-check-maven:check
           --no-transfer-progress
           -DfailBuildOnCVSS=9
-          -DsuppressionFile=.github/owasp-suppressions.xml
+          -f Fuel/backend/pom.xml
         continue-on-error: true
 
       - name: Upload vulnerability report
@@ -99,5 +93,5 @@ jobs:
         if: always()
         with:
           name: owasp-report
-          path: target/dependency-check-report.html
+          path: Fuel/backend/target/dependency-check-report.html
           retention-days: 30
