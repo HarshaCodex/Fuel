@@ -1,4 +1,4 @@
-package com.lazybuff.fuel.Config;
+package com.lazybuff.fuel.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
