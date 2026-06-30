@@ -33,3 +33,7 @@ replay_pid*
 /build/
 
 .claude/
+Fuel/Design/Fuel_Product_Design_Document.docx
+Fuel/Design/fuel-api-reference.md
+Fuel/Design/fuel-backend-blueprint.html
+Fuel/Design/fuel-database-schema.md
