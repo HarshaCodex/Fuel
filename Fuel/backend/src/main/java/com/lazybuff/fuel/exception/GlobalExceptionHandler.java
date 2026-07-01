@@ -63,6 +63,6 @@ public class GlobalExceptionHandler {
                         .message(ex.getMessage())
                         .build();
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR.value()).body(errorResponse);
+        return ResponseEntity.internalServerError().body(errorResponse);
     }
 }
