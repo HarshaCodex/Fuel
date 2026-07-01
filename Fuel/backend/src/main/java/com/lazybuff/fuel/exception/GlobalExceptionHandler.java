@@ -55,6 +55,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+    @ExceptionHandler(FuelException.class)
+    public ResponseEntity<ErrorResponse> handleFuelException(FuelException ex) {
+        ErrorResponse errorResponse =
+                ErrorResponse.builder()
+                        .status(ex.getHttpStatus().value())
+                        .message(ex.getMessage())
+                        .build();
+        return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         ErrorResponse errorResponse =

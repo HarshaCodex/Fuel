@@ -15,7 +15,7 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 @Builder
-public class User {
+public class UserData {
 
     private String userId;
     private String email;

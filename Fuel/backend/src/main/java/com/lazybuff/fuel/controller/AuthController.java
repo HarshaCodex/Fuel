@@ -1,10 +1,11 @@
 package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
-import com.lazybuff.fuel.dto.User;
+import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
+import com.lazybuff.fuel.service.AuthService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,17 +15,19 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public class AuthController {
+
+    private final AuthService authService;
 
     @PostMapping(
             path = "/register",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponse<User>> register(
+    public ResponseEntity<ApiResponse<UserData>> register(
             @Valid @RequestBody UserRegisterRequest userRegisterRequest) {
 
-        ApiResponse<User> response =
-                ApiResponse.<User>builder().status(HttpStatus.OK.value()).message("Ok").build();
+        ApiResponse<UserData> response = authService.register(userRegisterRequest);
         return ResponseEntity.ok(response);
     }
 }
