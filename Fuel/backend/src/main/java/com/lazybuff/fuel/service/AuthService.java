@@ -13,6 +13,7 @@ import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.AuthProvider;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -75,6 +76,7 @@ public class AuthService {
                     .status(HttpStatus.CREATED.value())
                     .message("Registration successful. Verification email sent.")
                     .data(userData)
+                    .timestamp(LocalDateTime.now())
                     .build();
 
         } catch (Exception ex) {
