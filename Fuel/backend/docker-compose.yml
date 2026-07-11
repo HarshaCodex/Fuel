@@ -1,4 +1,25 @@
 services:
+  app:
+    build: .
+    container_name: fuel-app
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/fuel
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
@@ -13,7 +34,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fuel_user -d fuel"]
+      test: [ "CMD-SHELL", "pg_isready -U fuel_user -d fuel" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +47,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
