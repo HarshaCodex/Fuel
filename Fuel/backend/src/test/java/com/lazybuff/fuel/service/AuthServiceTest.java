@@ -110,7 +110,7 @@ class AuthServiceTest {
             assertThat(data.getAccessToken()).isEqualTo(ACCESS_TOKEN);
             assertThat(data.getRefreshToken()).isEqualTo(REFRESH_TOKEN);
             assertThat(data.getAccessTokenExpiresIn())
-                    .isEqualTo(TestDataFactory.ACCESS_TOKEN_EXPIRY);
+                    .isEqualTo(TestDataFactory.ACCESS_TOKEN_EXPIRY_SECONDS);
             assertThat(data.getRefreshTokenExpiresIn())
                     .isEqualTo(TestDataFactory.REFRESH_TOKEN_EXPIRY_SECONDS);
         }

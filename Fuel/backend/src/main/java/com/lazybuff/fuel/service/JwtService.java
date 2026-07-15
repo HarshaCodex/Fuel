@@ -32,7 +32,7 @@ public class JwtService {
                 .expiration(
                         new Date(
                                 System.currentTimeMillis()
-                                        + jwtConfig.getAccessTokenExpirySeconds()))
+                                        + jwtConfig.getAccessTokenExpirySeconds() * 1000))
                 .signWith(getSigningKey())
                 .compact();
     }

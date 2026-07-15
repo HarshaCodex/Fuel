@@ -14,6 +14,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -52,10 +53,12 @@ public class RefreshTokenService {
         }
     }
 
+    @Transactional
     public void revoke(String rawToken) throws NoSuchAlgorithmException {
         refreshTokenRepository.deleteByTokenHash(TokenHasher.sha256Hex(rawToken));
     }
 
+    @Transactional
     public void revokeAll(UUID userId) {
         refreshTokenRepository.deleteByUser_Id(userId);
     }

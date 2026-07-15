@@ -24,9 +24,7 @@ final class TestDataFactory {
                             "this-is-a-very-long-and-secure-jwt-signing-secret-for-tests!!"
                                     .getBytes(StandardCharsets.UTF_8));
 
-    // NOTE: JwtService adds accessTokenExpirySeconds directly onto millis, so this value is treated
-    // as milliseconds by the code under test. Keep it large enough to stay valid during a test run.
-    static final long ACCESS_TOKEN_EXPIRY = 3_600_000L;
+    static final long ACCESS_TOKEN_EXPIRY_SECONDS = 3_600L; // 1 hour
     static final long REFRESH_TOKEN_EXPIRY_SECONDS = 604_800L; // 7 days
 
     static final UUID USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
@@ -38,7 +36,7 @@ final class TestDataFactory {
     static final String IP_ADDRESS = "203.0.113.42";
 
     static JwtConfig jwtConfig() {
-        return jwtConfig(JWT_SECRET, ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY_SECONDS);
+        return jwtConfig(JWT_SECRET, ACCESS_TOKEN_EXPIRY_SECONDS, REFRESH_TOKEN_EXPIRY_SECONDS);
     }
 
     static JwtConfig jwtConfig(String secret, long accessExpiry, long refreshExpiry) {

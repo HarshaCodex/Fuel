@@ -51,10 +51,10 @@ class JwtServiceTest {
             assertThat(claims.get("email", String.class)).isEqualTo(TestDataFactory.EMAIL);
             assertThat(claims.getIssuedAt()).isNotNull();
             // JWT exp is stored at whole-second precision, so allow a 1s slack on the lower bound.
+            long expiryMillis = TestDataFactory.ACCESS_TOKEN_EXPIRY_SECONDS * 1000L;
             assertThat(claims.getExpiration())
-                    .isAfterOrEqualTo(
-                            new Date(before + TestDataFactory.ACCESS_TOKEN_EXPIRY - 1000L))
-                    .isBeforeOrEqualTo(new Date(after + TestDataFactory.ACCESS_TOKEN_EXPIRY));
+                    .isAfterOrEqualTo(new Date(before + expiryMillis - 1000L))
+                    .isBeforeOrEqualTo(new Date(after + expiryMillis));
         }
 
         @Test
@@ -123,7 +123,7 @@ class JwtServiceTest {
                     new JwtService(
                             TestDataFactory.jwtConfig(
                                     otherSecret,
-                                    TestDataFactory.ACCESS_TOKEN_EXPIRY,
+                                    TestDataFactory.ACCESS_TOKEN_EXPIRY_SECONDS,
                                     TestDataFactory.REFRESH_TOKEN_EXPIRY_SECONDS));
             String foreignToken = foreignService.generateToken("intruder", "intruder@example.com");
 

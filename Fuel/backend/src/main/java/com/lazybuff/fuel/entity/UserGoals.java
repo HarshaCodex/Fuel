@@ -67,11 +67,11 @@ public class UserGoals {
     @Builder.Default
     private int calorieAdjustment = 0;
 
-    @Column(name = "created_at", updatable = false)
+    @Column(name = "created_at", updatable = false, nullable = false)
     @CreationTimestamp
     private OffsetDateTime createdAt;
 
-    @Column(name = "updated_at", updatable = false)
+    @Column(name = "updated_at", nullable = false)
     @UpdateTimestamp
     private OffsetDateTime updatedAt;
 }

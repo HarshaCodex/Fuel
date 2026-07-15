@@ -3,6 +3,8 @@ package com.lazybuff.fuel.exception;
 import com.lazybuff.fuel.dto.Error;
 import com.lazybuff.fuel.dto.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +31,12 @@ public class GlobalExceptionHandler {
                         .toList();
 
         ErrorResponse errorResponse =
-                ErrorResponse.builder().errors(errors).message("Validation failed").build();
+                ErrorResponse.builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .errors(errors)
+                        .message("Validation failed")
+                        .timestamp(LocalDateTime.now())
+                        .build();
 
         return ResponseEntity.badRequest().body(errorResponse);
     }
@@ -52,6 +59,7 @@ public class GlobalExceptionHandler {
                         .status(HttpStatus.BAD_REQUEST.value())
                         .message("Validation failed")
                         .errors(errors)
+                        .timestamp(LocalDateTime.now())
                         .build();
 
         return ResponseEntity.badRequest().body(errorResponse);
@@ -64,6 +72,7 @@ public class GlobalExceptionHandler {
                 ErrorResponse.builder()
                         .status(HttpStatus.UNAUTHORIZED.value())
                         .message("Invalid or missing credentials.")
+                        .timestamp(LocalDateTime.now())
                         .build();
 
         return ResponseEntity.status(errorResponse.getStatus()).body(errorResponse);
@@ -76,6 +85,7 @@ public class GlobalExceptionHandler {
                 ErrorResponse.builder()
                         .status(HttpStatus.FORBIDDEN.value())
                         .message("You do not have permission to access this resource.")
+                        .timestamp(LocalDateTime.now())
                         .build();
 
         return ResponseEntity.status(errorResponse.getStatus()).body(errorResponse);
@@ -87,6 +97,7 @@ public class GlobalExceptionHandler {
                 ErrorResponse.builder()
                         .status(ex.getHttpStatus().value())
                         .message(ex.getMessage())
+                        .timestamp(LocalDateTime.now())
                         .build();
         return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
     }
@@ -97,6 +108,7 @@ public class GlobalExceptionHandler {
                 ErrorResponse.builder()
                         .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                         .message(ex.getMessage())
+                        .timestamp(LocalDateTime.now())
                         .build();
 
         return ResponseEntity.internalServerError().body(errorResponse);

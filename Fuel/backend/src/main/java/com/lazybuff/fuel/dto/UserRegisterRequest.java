@@ -29,7 +29,7 @@ public class UserRegisterRequest {
     private String email;
 
     @NotBlank(message = "Password field cannot be blank.")
-    @Size(min = 8, max = 30, message = "Password must be between 8 and 20 characters.")
+    @Size(min = 8, max = 20, message = "Password must be between 8 and 20 characters.")
     @Pattern(
             regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
             message =
