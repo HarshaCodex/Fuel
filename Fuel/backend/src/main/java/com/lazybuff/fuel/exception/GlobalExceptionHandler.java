@@ -3,7 +3,6 @@ package com.lazybuff.fuel.exception;
 import com.lazybuff.fuel.dto.Error;
 import com.lazybuff.fuel.dto.ErrorResponse;
 import jakarta.validation.ConstraintViolationException;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.http.HttpStatus;
