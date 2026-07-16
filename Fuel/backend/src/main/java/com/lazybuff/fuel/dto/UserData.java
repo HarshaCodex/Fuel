@@ -15,8 +15,14 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 @Builder
-public class Error {
+public class UserData {
 
-    private String field;
-    private String message;
+    private String userId;
+    private String email;
+    private String name;
+    private boolean emailVerified;
+    private String accessToken;
+    private String refreshToken;
+    private long accessTokenExpiresIn;
+    private long refreshTokenExpiresIn;
 }
