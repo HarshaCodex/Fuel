@@ -1,0 +1,21 @@
+CREATE TABLE user_goals (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL,
+    calorie_goal        INTEGER NOT NULL DEFAULT 2000,
+    protein_goal        DECIMAL(5,1) NOT NULL DEFAULT 50.0,
+    carb_goal           DECIMAL(5,1) NOT NULL DEFAULT 250.0,
+    fat_goal            DECIMAL(5,1) NOT NULL DEFAULT 65.0,
+    is_auto_calculated  BOOLEAN NOT NULL DEFAULT FALSE,
+    goal_type           VARCHAR(10) DEFAULT 'MAINTAIN',
+    calorie_adjustment  INTEGER DEFAULT 0,
+    created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_user_goals_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT uq_user_goals_user UNIQUE (user_id),
+    CONSTRAINT chk_goals_type CHECK (goal_type IN ('LOSE', 'MAINTAIN', 'GAIN')),
+    CONSTRAINT chk_goals_calorie CHECK (calorie_goal BETWEEN 800 AND 10000),
+    CONSTRAINT chk_goals_protein CHECK (protein_goal >= 0),
+    CONSTRAINT chk_goals_carb CHECK (carb_goal >= 0),
+    CONSTRAINT chk_goals_fat CHECK (fat_goal >= 0),
+    CONSTRAINT chk_goals_adjustment CHECK (calorie_adjustment BETWEEN -1000 AND 1000)
+);
