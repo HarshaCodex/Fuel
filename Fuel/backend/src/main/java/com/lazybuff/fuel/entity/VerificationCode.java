@@ -22,6 +22,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @Table(name = "verification_codes")
@@ -39,11 +40,11 @@ public class VerificationCode {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id", nullable = false)
-    private UUID user_id;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "code_hash", nullable = false, length = 255)
-    private String code_hash;
+    private String codeHash;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
@@ -53,8 +54,9 @@ public class VerificationCode {
     private Instant expires_at;
 
     @Column(name = "used_at")
-    private Instant used_at;
+    private Instant usedAt;
 
+    @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime created_at;
+    private OffsetDateTime createdAt;
 }

@@ -41,6 +41,8 @@ public class AuthService {
 
     private final JwtConfig jwtConfig;
 
+    private final VerificationCodeService verificationCodeService;
+
     @Transactional
     @NoLogging
     public ApiResponse<UserData> register(UserRegisterRequest userRegisterRequest)
@@ -57,6 +59,8 @@ public class AuthService {
             saveUserAuthProvider(userRegisterRequest, user);
 
             saveUserGoals(user);
+
+            verificationCodeService.generateVerificationCode(user);
 
             UserData userData =
                     UserData.builder()

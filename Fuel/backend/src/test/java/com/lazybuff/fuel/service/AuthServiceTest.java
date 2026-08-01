@@ -42,6 +42,7 @@ class AuthServiceTest {
     @Mock private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private JwtService jwtService;
+    @Mock private VerificationCodeService verificationCodeService;
 
     // Real config holder so the expiry values flow through to the response untouched.
     private final JwtConfig jwtConfig = TestDataFactory.jwtConfig();
@@ -68,7 +69,8 @@ class AuthServiceTest {
                         passwordEncoder,
                         refreshTokenService,
                         jwtService,
-                        jwtConfig);
+                        jwtConfig,
+                        verificationCodeService);
         request = TestDataFactory.registerRequest();
         persistedUser = TestDataFactory.persistedUser();
     }
