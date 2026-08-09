@@ -106,8 +106,29 @@ public class VerificationCodeService {
         }
     }
 
+    @Transactional
     public ApiResponse<VerifyEmailResponse> resendVerification(
             ResendVerificationRequest resendVerificationRequest) {
-        return null;
+
+        try {
+
+            User user =
+                    userRepository.findByEmailAndDeletedAtIsNull(
+                            resendVerificationRequest.getEmail());
+
+            verificationCodeRepository.invalidateAllVerificationCodes(
+                    user, VerifyType.EMAIL_VERIFY);
+
+            generateVerificationCode(user);
+        } catch (Exception e) {
+            log.error("Error while resending verification: ", e);
+        }
+
+        return ApiResponse.<VerifyEmailResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message(
+                        "If this email is registered and unverified, a new verification email has been sent.")
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 }

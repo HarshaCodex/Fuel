@@ -59,6 +59,9 @@ public class AuthController {
     public ResponseEntity<ApiResponse<VerifyEmailResponse>> resendVerification(
             @Valid @RequestBody ResendVerificationRequest resendVerificationRequest) {
 
-        return ResponseEntity.status(HttpStatus.OK).body(null);
+        ApiResponse<VerifyEmailResponse> response =
+                verificationCodeService.resendVerification(resendVerificationRequest);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 }
