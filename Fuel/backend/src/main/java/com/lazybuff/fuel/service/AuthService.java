@@ -13,6 +13,7 @@ import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.AuthProvider;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
@@ -60,7 +61,7 @@ public class AuthService {
 
             saveUserGoals(user);
 
-            verificationCodeService.generateVerificationCode(user);
+            sendVerificationCode(user);
 
             UserData userData =
                     UserData.builder()
@@ -132,5 +133,9 @@ public class AuthService {
 
     private String hashedPassword(String password) {
         return passwordEncoder.encode(password);
+    }
+
+    private void sendVerificationCode(User user) throws NoSuchAlgorithmException {
+        verificationCodeService.generateVerificationCode(user);
     }
 }

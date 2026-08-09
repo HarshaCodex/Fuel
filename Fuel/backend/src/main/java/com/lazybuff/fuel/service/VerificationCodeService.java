@@ -1,8 +1,13 @@
 package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.annotation.NoLogging;
+import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.VerifyEmailRequest;
+import com.lazybuff.fuel.dto.VerifyEmailResponse;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.VerificationCode;
+import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.repository.VerificationCodeRepository;
 import com.lazybuff.fuel.util.TokenHasher;
 import com.lazybuff.fuel.util.VerifyType;
@@ -10,9 +15,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,6 +28,8 @@ import org.springframework.stereotype.Service;
 public class VerificationCodeService {
 
     private final VerificationCodeRepository verificationCodeRepository;
+
+    private final UserRepository userRepository;
 
     @NoLogging
     public String generateVerificationCode(User user) throws NoSuchAlgorithmException {
@@ -44,5 +53,49 @@ public class VerificationCodeService {
         verificationCodeRepository.save(verificationCode);
 
         return code.toString();
+    }
+
+    public ApiResponse<VerifyEmailResponse> verifyEmail(VerifyEmailRequest verifyEmailRequest)
+            throws NoSuchAlgorithmException {
+
+        try {
+
+            String codeHash = TokenHasher.sha256Hex(verifyEmailRequest.getVerificationCode());
+
+            User user = userRepository.findByEmailAndDeletedAtIsNull(verifyEmailRequest.getEmail());
+
+            if (user.isEmailVerified()) {
+                throw new FuelException(HttpStatus.CONFLICT, "Email already verified");
+            }
+
+            Optional<VerificationCode> verificationCode =
+                    verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
+                            user.getId(), VerifyType.EMAIL_VERIFY, codeHash);
+
+            verificationCode.ifPresent(
+                    code -> {
+                        if (code.getExpires_at().isAfter(Instant.now())) {
+                            code.setUsedAt(Instant.now());
+                            user.setEmailVerified(true);
+                        } else {
+                            throw new FuelException(
+                                    HttpStatus.UNAUTHORIZED,
+                                    "Invalid or expired verification code");
+                        }
+                    });
+
+            return ApiResponse.<VerifyEmailResponse>builder()
+                    .status(HttpStatus.ACCEPTED.value())
+                    .message("Email verified successfully")
+                    .data(VerifyEmailResponse.builder().emailVerified(true).build())
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+        } catch (Exception e) {
+            log.error(
+                    "Exception while veriying email for user with email:{}",
+                    verifyEmailRequest.getEmail());
+            throw e;
+        }
     }
 }
