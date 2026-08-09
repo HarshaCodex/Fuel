@@ -2,6 +2,7 @@ package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.annotation.NoLogging;
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.ResendVerificationRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
 import com.lazybuff.fuel.dto.VerifyEmailResponse;
 import com.lazybuff.fuel.entity.User;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Slf4j
@@ -59,6 +61,7 @@ public class VerificationCodeService {
         return code.toString();
     }
 
+    @Transactional
     public ApiResponse<VerifyEmailResponse> verifyEmail(VerifyEmailRequest verifyEmailRequest)
             throws NoSuchAlgorithmException {
 
@@ -89,7 +92,7 @@ public class VerificationCodeService {
                     });
 
             return ApiResponse.<VerifyEmailResponse>builder()
-                    .status(HttpStatus.ACCEPTED.value())
+                    .status(HttpStatus.OK.value())
                     .message("Email verified successfully")
                     .data(VerifyEmailResponse.builder().emailVerified(true).build())
                     .timestamp(LocalDateTime.now())
@@ -101,5 +104,10 @@ public class VerificationCodeService {
                     verifyEmailRequest.getEmail());
             throw e;
         }
+    }
+
+    public ApiResponse<VerifyEmailResponse> resendVerification(
+            ResendVerificationRequest resendVerificationRequest) {
+        return null;
     }
 }

@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.ResendVerificationRequest;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
@@ -38,12 +39,26 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping(
+            path = "/verify-email",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<VerifyEmailResponse>> verifyEmail(
             @Valid @RequestBody VerifyEmailRequest verifyEmailRequest)
             throws NoSuchAlgorithmException {
 
         ApiResponse<VerifyEmailResponse> response =
                 verificationCodeService.verifyEmail(verifyEmailRequest);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PostMapping(
+            path = "/resend-verification",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<VerifyEmailResponse>> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest resendVerificationRequest) {
+
+        return ResponseEntity.status(HttpStatus.OK).body(null);
     }
 }
