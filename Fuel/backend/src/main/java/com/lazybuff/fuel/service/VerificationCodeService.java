@@ -31,6 +31,8 @@ public class VerificationCodeService {
 
     private final UserRepository userRepository;
 
+    private final EmailService emailService;
+
     @NoLogging
     public String generateVerificationCode(User user) throws NoSuchAlgorithmException {
 
@@ -49,6 +51,8 @@ public class VerificationCodeService {
                         .expires_at(Instant.now().plus(Duration.ofHours(24)))
                         .usedAt(null)
                         .build();
+
+        emailService.sendEmail(user.getEmail(), code.toString());
 
         verificationCodeRepository.save(verificationCode);
 
