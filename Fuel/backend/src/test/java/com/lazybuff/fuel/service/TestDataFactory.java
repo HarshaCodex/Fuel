@@ -4,7 +4,12 @@ import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.entity.RefreshToken;
 import com.lazybuff.fuel.entity.User;
+import com.lazybuff.fuel.entity.VerificationCode;
+import com.lazybuff.fuel.util.TokenHasher;
+import com.lazybuff.fuel.util.VerifyType;
 import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
@@ -35,6 +40,8 @@ final class TestDataFactory {
     static final String DEVICE_INFO = "iPhone 15 / iOS 18";
     static final String IP_ADDRESS = "203.0.113.42";
 
+    static final String VALID_CODE = "12345";
+
     static JwtConfig jwtConfig() {
         return jwtConfig(JWT_SECRET, ACCESS_TOKEN_EXPIRY_SECONDS, REFRESH_TOKEN_EXPIRY_SECONDS);
     }
@@ -60,6 +67,34 @@ final class TestDataFactory {
 
     static UserRegisterRequest registerRequest() {
         return UserRegisterRequest.builder().email(EMAIL).password(RAW_PASSWORD).name(NAME).build();
+    }
+
+    /**
+     * An unused EMAIL_VERIFY code whose hash matches {@code rawCode}, expiring at {@code
+     * expiresAt}.
+     */
+    static VerificationCode verificationCode(User user, String rawCode, Instant expiresAt) {
+        return VerificationCode.builder()
+                .id(UUID.randomUUID())
+                .user(user)
+                .codeHash(sha256(rawCode))
+                .type(VerifyType.EMAIL_VERIFY)
+                .expires_at(expiresAt)
+                .usedAt(null)
+                .build();
+    }
+
+    /** A currently valid (unexpired, unused) EMAIL_VERIFY code for the given user. */
+    static VerificationCode validVerificationCode(User user) {
+        return verificationCode(user, VALID_CODE, Instant.now().plus(Duration.ofHours(24)));
+    }
+
+    static String sha256(String value) {
+        try {
+            return TokenHasher.sha256Hex(value);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     static RefreshToken refreshToken(User user) {

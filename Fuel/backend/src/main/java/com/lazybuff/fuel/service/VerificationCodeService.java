@@ -17,7 +17,6 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -42,7 +41,7 @@ public class VerificationCodeService {
         StringBuilder code = new StringBuilder();
 
         for (int i = 0; i < 5; i++) {
-            code.append(secureRandom.nextInt(5));
+            code.append(secureRandom.nextInt(10));
         }
 
         VerificationCode verificationCode =
@@ -54,14 +53,15 @@ public class VerificationCodeService {
                         .usedAt(null)
                         .build();
 
-        emailService.sendEmail(user.getEmail(), code.toString());
-
         verificationCodeRepository.save(verificationCode);
+
+        emailService.sendEmail(user.getEmail(), code.toString());
 
         return code.toString();
     }
 
     @Transactional
+    @NoLogging
     public ApiResponse<VerifyEmailResponse> verifyEmail(VerifyEmailRequest verifyEmailRequest)
             throws NoSuchAlgorithmException {
 
@@ -71,25 +71,32 @@ public class VerificationCodeService {
 
             User user = userRepository.findByEmailAndDeletedAtIsNull(verifyEmailRequest.getEmail());
 
+            if (user == null) {
+                throw new FuelException(
+                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
+            }
+
             if (user.isEmailVerified()) {
                 throw new FuelException(HttpStatus.CONFLICT, "Email already verified");
             }
 
-            Optional<VerificationCode> verificationCode =
-                    verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
-                            user.getId(), VerifyType.EMAIL_VERIFY, codeHash);
+            VerificationCode code =
+                    verificationCodeRepository
+                            .findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
+                                    user.getId(), VerifyType.EMAIL_VERIFY, codeHash)
+                            .orElseThrow(
+                                    () ->
+                                            new FuelException(
+                                                    HttpStatus.UNAUTHORIZED,
+                                                    "Invalid or expired verification code"));
 
-            verificationCode.ifPresent(
-                    code -> {
-                        if (code.getExpires_at().isAfter(Instant.now())) {
-                            code.setUsedAt(Instant.now());
-                            user.setEmailVerified(true);
-                        } else {
-                            throw new FuelException(
-                                    HttpStatus.UNAUTHORIZED,
-                                    "Invalid or expired verification code");
-                        }
-                    });
+            if (!code.getExpires_at().isAfter(Instant.now())) {
+                throw new FuelException(
+                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
+            }
+
+            code.setUsedAt(Instant.now());
+            user.setEmailVerified(true);
 
             return ApiResponse.<VerifyEmailResponse>builder()
                     .status(HttpStatus.OK.value())
@@ -100,13 +107,14 @@ public class VerificationCodeService {
 
         } catch (Exception e) {
             log.error(
-                    "Exception while veriying email for user with email:{}",
+                    "Exception while verifying email for user with email:{}",
                     verifyEmailRequest.getEmail());
             throw e;
         }
     }
 
     @Transactional
+    @NoLogging
     public ApiResponse<VerifyEmailResponse> resendVerification(
             ResendVerificationRequest resendVerificationRequest) {
 
