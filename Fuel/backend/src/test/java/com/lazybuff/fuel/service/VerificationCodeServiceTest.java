@@ -3,6 +3,7 @@ package com.lazybuff.fuel.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.lazybuff.fuel.config.RateLimitConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
@@ -21,6 +23,7 @@ import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.repository.VerificationCodeRepository;
 import com.lazybuff.fuel.util.VerifyType;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Optional;
@@ -44,6 +47,8 @@ class VerificationCodeServiceTest {
     @Mock private VerificationCodeRepository verificationCodeRepository;
     @Mock private UserRepository userRepository;
     @Mock private EmailService emailService;
+    @Mock private RateLimitConfig rateLimitConfig;
+    @Mock private RateLimiterService rateLimiterService;
 
     private VerificationCodeService verificationCodeService;
 
@@ -59,7 +64,11 @@ class VerificationCodeServiceTest {
     void setUp() {
         verificationCodeService =
                 new VerificationCodeService(
-                        verificationCodeRepository, userRepository, emailService);
+                        verificationCodeRepository,
+                        userRepository,
+                        emailService,
+                        rateLimiterService,
+                        rateLimitConfig);
         user = TestDataFactory.persistedUser();
     }
 
@@ -268,9 +277,15 @@ class VerificationCodeServiceTest {
             return ResendVerificationRequest.builder().email(TestDataFactory.EMAIL).build();
         }
 
+        /** The rate limiter permits the call; the vast majority of resends are within budget. */
+        private void stubWithinRateLimit() {
+            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(true);
+        }
+
         @Test
         @DisplayName("invalidates existing codes then issues and emails a fresh one")
         void invalidatesThenReissues() {
+            stubWithinRateLimit();
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(user);
 
@@ -291,6 +306,7 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("still returns the generic 200 message for an unregistered email")
         void hidesUnregisteredEmail() {
+            stubWithinRateLimit();
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(null);
 
@@ -302,6 +318,45 @@ class VerificationCodeServiceTest {
             assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
             assertThat(response.getMessage()).isEqualTo(RESEND_MESSAGE);
             verify(emailService, never()).sendEmail(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("throws 429 and does no work once the hourly limit is exceeded")
+        void throttlesWhenRateLimited() {
+            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(false);
+
+            assertThatThrownBy(() -> verificationCodeService.resendVerification(resendRequest()))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Too many verification requests. Please try again later!")
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+
+            // A blocked request must not touch the DB, invalidate codes, or send an email.
+            verifyNoInteractions(userRepository, emailService);
+            verify(verificationCodeRepository, never())
+                    .invalidateAllVerificationCodes(any(), any());
+        }
+
+        @Test
+        @DisplayName("checks the limiter with a lower-cased key and the configured limit/window")
+        void usesNormalisedKeyAndConfiguredLimits() {
+            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(true);
+            when(rateLimitConfig.getMaxRequests()).thenReturn(3);
+            when(rateLimitConfig.getWindow()).thenReturn(Duration.ofHours(1));
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(user);
+
+            // Mixed-case email must resolve to the same (lower-cased) budget key.
+            verificationCodeService.resendVerification(
+                    ResendVerificationRequest.builder()
+                            .email(TestDataFactory.EMAIL.toUpperCase())
+                            .build());
+
+            verify(rateLimiterService)
+                    .isAllowed(
+                            eq("rate_limit:resend-verification:" + TestDataFactory.EMAIL),
+                            eq(3),
+                            eq(Duration.ofHours(1)));
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.annotation.NoLogging;
+import com.lazybuff.fuel.config.RateLimitConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
@@ -33,6 +34,10 @@ public class VerificationCodeService {
     private final UserRepository userRepository;
 
     private final EmailService emailService;
+
+    private final RateLimiterService rateLimiterService;
+
+    private final RateLimitConfig rateLimitConfig;
 
     @NoLogging
     public String generateVerificationCode(User user) throws NoSuchAlgorithmException {
@@ -117,6 +122,17 @@ public class VerificationCodeService {
     @NoLogging
     public ApiResponse<VerifyEmailResponse> resendVerification(
             ResendVerificationRequest resendVerificationRequest) {
+
+        String key =
+                "rate_limit:resend-verification:"
+                        + resendVerificationRequest.getEmail().toLowerCase();
+
+        if (!rateLimiterService.isAllowed(
+                key, rateLimitConfig.getMaxRequests(), rateLimitConfig.getWindow())) {
+            throw new FuelException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many verification requests. Please try again later!");
+        }
 
         try {
 
