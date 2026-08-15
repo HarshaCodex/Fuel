@@ -14,6 +14,7 @@ import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.AuthProvider;
 import java.security.NoSuchAlgorithmException;
+import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
@@ -99,7 +100,7 @@ public class AuthService {
                 User.builder()
                         .email(userRegisterRequest.getEmail())
                         .name(userRegisterRequest.getName())
-                        .timezone(getTimeZone())
+                        .timezone(resolveTimeZone(userRegisterRequest.getTimezone()))
                         .build();
 
         return userRepository.save(user);
@@ -127,8 +128,16 @@ public class AuthService {
         return userRepository.existsByEmailAndDeletedAtIsNull(email);
     }
 
-    private String getTimeZone() {
-        return ZoneId.systemDefault().toString();
+    private String resolveTimeZone(String timezone) {
+        if (timezone == null || timezone.isBlank()) {
+            return "UTC";
+        }
+        try {
+            // Normalises to the canonical IANA id (e.g. trims and validates "Asia/Kolkata").
+            return ZoneId.of(timezone).getId();
+        } catch (DateTimeException e) {
+            throw new FuelException(HttpStatus.BAD_REQUEST, "Invalid timezone: " + timezone);
+        }
     }
 
     private String hashedPassword(String password) {

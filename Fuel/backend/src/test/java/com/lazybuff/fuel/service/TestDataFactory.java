@@ -39,6 +39,7 @@ final class TestDataFactory {
     static final String HASHED_PASSWORD = "$2a$10$hashedpasswordvalueforunittesting123456789";
     static final String DEVICE_INFO = "iPhone 15 / iOS 18";
     static final String IP_ADDRESS = "203.0.113.42";
+    static final String TIMEZONE = "Asia/Kolkata";
 
     static final String VALID_CODE = "12345";
 
@@ -66,7 +67,12 @@ final class TestDataFactory {
     }
 
     static UserRegisterRequest registerRequest() {
-        return UserRegisterRequest.builder().email(EMAIL).password(RAW_PASSWORD).name(NAME).build();
+        return UserRegisterRequest.builder()
+                .email(EMAIL)
+                .password(RAW_PASSWORD)
+                .name(NAME)
+                .timezone(TIMEZONE)
+                .build();
     }
 
     /**
