@@ -23,6 +23,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
 
+    @Override
     protected void doFilterInternal(
             HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse,
@@ -38,7 +39,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 var auth = new UsernamePasswordAuthenticationToken(userId, null, List.of());
                 auth.setDetails(jws.getPayload().get("email", String.class));
                 SecurityContextHolder.getContext().setAuthentication(auth);
-            } catch (JwtException exception) {
+            } catch (JwtException | IllegalArgumentException exception) {
                 SecurityContextHolder.clearContext();
             }
         }

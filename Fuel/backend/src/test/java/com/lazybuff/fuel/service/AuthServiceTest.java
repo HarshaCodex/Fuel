@@ -21,7 +21,6 @@ import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.AuthProvider;
-import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -42,6 +41,7 @@ class AuthServiceTest {
     @Mock private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private JwtService jwtService;
+    @Mock private VerificationCodeService verificationCodeService;
 
     // Real config holder so the expiry values flow through to the response untouched.
     private final JwtConfig jwtConfig = TestDataFactory.jwtConfig();
@@ -68,7 +68,8 @@ class AuthServiceTest {
                         passwordEncoder,
                         refreshTokenService,
                         jwtService,
-                        jwtConfig);
+                        jwtConfig,
+                        verificationCodeService);
         request = TestDataFactory.registerRequest();
         persistedUser = TestDataFactory.persistedUser();
     }
@@ -116,7 +117,7 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("persists the user with request details and the system timezone")
+        @DisplayName("persists the user with request details and the client-supplied timezone")
         void persistsUserFromRequest() throws Exception {
             stubSuccessfulRegistration();
 
@@ -126,7 +127,19 @@ class AuthServiceTest {
             User saved = userCaptor.getValue();
             assertThat(saved.getEmail()).isEqualTo(TestDataFactory.EMAIL);
             assertThat(saved.getName()).isEqualTo(TestDataFactory.NAME);
-            assertThat(saved.getTimezone()).isEqualTo(ZoneId.systemDefault().toString());
+            assertThat(saved.getTimezone()).isEqualTo(TestDataFactory.TIMEZONE);
+        }
+
+        @Test
+        @DisplayName("falls back to UTC when the request omits a timezone")
+        void defaultsToUtcWhenTimezoneMissing() throws Exception {
+            stubSuccessfulRegistration();
+            request.setTimezone(null);
+
+            authService.register(request);
+
+            verify(userRepository).save(userCaptor.capture());
+            assertThat(userCaptor.getValue().getTimezone()).isEqualTo("UTC");
         }
 
         @Test
@@ -240,6 +253,23 @@ class AuthServiceTest {
             verify(userGoalsRepository).save(any(UserGoals.class));
             verify(jwtService)
                     .generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL);
+        }
+
+        @Test
+        @DisplayName("throws 400 BAD_REQUEST for an invalid timezone and persists nothing")
+        void throwsBadRequestForInvalidTimezone() {
+            when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(false);
+            request.setTimezone("Not/AZone");
+
+            assertThatThrownBy(() -> authService.register(request))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Invalid timezone: Not/AZone")
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+
+            verify(userRepository, never()).save(any());
+            verifyNoInteractions(userAuthProviderRepository, userGoalsRepository);
         }
 
         @Test

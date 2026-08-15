@@ -39,4 +39,8 @@ public class UserRegisterRequest {
     @NotBlank(message = "Name cannot be blank")
     @Size(min = 1, max = 100, message = "Name must be between 1 and 100 characters.")
     private String name;
+
+    @NotBlank(message = "Timezone cannot be blank.")
+    @Size(max = 50, message = "Timezone must be at most 50 characters.")
+    private String timezone;
 }

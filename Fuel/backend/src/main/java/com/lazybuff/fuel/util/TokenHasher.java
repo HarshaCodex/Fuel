@@ -9,10 +9,10 @@ public final class TokenHasher {
 
     private TokenHasher() {}
 
-    public static String sha256Hex(String refreshToken) throws NoSuchAlgorithmException {
+    public static String sha256Hex(String token) throws NoSuchAlgorithmException {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
 
-        byte[] hash = messageDigest.digest(refreshToken.getBytes(StandardCharsets.UTF_8));
+        byte[] hash = messageDigest.digest(token.getBytes(StandardCharsets.UTF_8));
         return HexFormat.of().formatHex(hash);
     }
 }
