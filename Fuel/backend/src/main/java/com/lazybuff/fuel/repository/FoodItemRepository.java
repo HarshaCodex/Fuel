@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface FoodItemRepository extends JpaRepository<FoodItem, String> {
+public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
 
     @EntityGraph(attributePaths = "servingSizes")
     Optional<FoodItem> findWithServingSizesById(UUID id);

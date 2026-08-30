@@ -6,6 +6,7 @@ public enum ServingUnit {
     OZ,
     CUP,
     TBSP,
+    TSP,
     PIECE,
     SERVING
 }

@@ -32,7 +32,7 @@ CREATE TABLE food_items (
 );
 
 CREATE UNIQUE INDEX uq_food_source_id ON food_items(source, source_id)
-    WHERE source_id IS NOT NULL;
+    WHERE source_id IS NOT NULL AND deleted_at IS NULL;
 
 CREATE INDEX idx_food_items_barcode ON food_items(barcode)
     WHERE barcode IS NOT NULL;

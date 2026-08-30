@@ -23,7 +23,7 @@ public class FoodService {
 
     private final FoodItemToFoodItemDetailMapper foodItemDetailMapper;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public ApiResponse<FoodItemDetail> getFoodById(UUID id) {
 
         try {
@@ -31,10 +31,9 @@ public class FoodService {
                     foodItemRepository
                             .findWithServingSizesById(id)
                             .orElseThrow(
-                                    () -> {
-                                        throw new FuelException(
-                                                HttpStatus.NOT_FOUND, "Food item not found");
-                                    });
+                                    () ->
+                                            new FuelException(
+                                                    HttpStatus.NOT_FOUND, "Food item not found"));
 
             return ApiResponse.<FoodItemDetail>builder()
                     .status(HttpStatus.OK.value())
@@ -42,8 +41,11 @@ public class FoodService {
                     .data(foodItemDetailMapper.foodItemToFoodItemDetail(foodItem))
                     .timestamp(LocalDateTime.now())
                     .build();
+        } catch (FuelException exception) {
+            log.warn("Food item lookup failed for id:{} - {}", id, exception.getMessage());
+            throw exception;
         } catch (Exception exception) {
-            log.error("Exception occurred while fetching food item for id:{}", id);
+            log.error("Exception occurred while fetching food item for id:{}", id, exception);
             throw exception;
         }
     }
