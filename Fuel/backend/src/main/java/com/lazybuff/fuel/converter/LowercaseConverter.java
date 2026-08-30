@@ -9,12 +9,12 @@ import java.util.Locale;
 public class LowercaseConverter implements AttributeConverter<ServingUnit, String> {
 
     @Override
-    public String convertToDatabaseColumn(String attribute) {
-        return attribute == null ? null : attribute.toLowerCase(Locale.ROOT);
+    public String convertToDatabaseColumn(ServingUnit attribute) {
+        return attribute == null ? null : attribute.toString().toLowerCase(Locale.ROOT);
     }
 
     @Override
-    public String convertToEntityAttribute(String dbData) {
-        return dbData;
+    public ServingUnit convertToEntityAttribute(String dbData) {
+        return dbData == null ? null : ServingUnit.valueOf(dbData.toUpperCase(Locale.ROOT));
     }
 }

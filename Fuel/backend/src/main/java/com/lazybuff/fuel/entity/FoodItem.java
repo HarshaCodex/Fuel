@@ -1,5 +1,6 @@
 package com.lazybuff.fuel.entity;
 
+import com.lazybuff.fuel.converter.LowercaseConverter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -22,8 +23,6 @@ import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
-
-import com.lazybuff.fuel.converter.LowercaseConverter;
 
 @Entity
 @Table(name = "food_items")
