@@ -1,17 +1,25 @@
 package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.config.JwtConfig;
+import com.lazybuff.fuel.dto.FoodItemDetail;
+import com.lazybuff.fuel.dto.ServingSizeData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
+import com.lazybuff.fuel.entity.FoodItem;
+import com.lazybuff.fuel.entity.FoodServingSize;
 import com.lazybuff.fuel.entity.RefreshToken;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.VerificationCode;
+import com.lazybuff.fuel.util.FoodSource;
+import com.lazybuff.fuel.util.ServingUnit;
 import com.lazybuff.fuel.util.TokenHasher;
 import com.lazybuff.fuel.util.VerifyType;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -111,6 +119,64 @@ final class TestDataFactory {
                 .expiresAt(Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRY_SECONDS))
                 .deviceInfo(DEVICE_INFO)
                 .ipAddress(IP_ADDRESS)
+                .build();
+    }
+
+    static final UUID FOOD_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+    static final String FOOD_NAME = "Rolled Oats";
+    static final String FOOD_BRAND = "Quaker";
+    static final String FOOD_SOURCE_ID = "173904";
+
+    static FoodItem persistedFoodItem() {
+        FoodItem foodItem =
+                FoodItem.builder()
+                        .id(FOOD_ID)
+                        .name(FOOD_NAME)
+                        .brand(FOOD_BRAND)
+                        .source(FoodSource.USDA)
+                        .sourceId(FOOD_SOURCE_ID)
+                        .servingSize(new BigDecimal("40.0"))
+                        .servingUnit(ServingUnit.G)
+                        .calories(new BigDecimal("150.0"))
+                        .protein(new BigDecimal("5.00"))
+                        .carbs(new BigDecimal("27.00"))
+                        .fat(new BigDecimal("3.00"))
+                        .fiber(new BigDecimal("4.00"))
+                        .build();
+
+        foodItem.getServingSizes().add(servingSize(foodItem, "1 cup", new BigDecimal("81.0")));
+        return foodItem;
+    }
+
+    static FoodServingSize servingSize(FoodItem foodItem, String label, BigDecimal grams) {
+        return FoodServingSize.builder()
+                .id(UUID.randomUUID())
+                .foodItem(foodItem)
+                .label(label)
+                .quantityInGrams(grams)
+                .build();
+    }
+
+    static FoodItemDetail foodItemDetail() {
+        return FoodItemDetail.builder()
+                .id(FOOD_ID)
+                .name(FOOD_NAME)
+                .brand(FOOD_BRAND)
+                .source(FoodSource.USDA.name())
+                .sourceId(FOOD_SOURCE_ID)
+                .servingSize(new BigDecimal("40.0"))
+                .servingUnit("g")
+                .servingSizeDatas(
+                        List.of(
+                                ServingSizeData.builder()
+                                        .label("1 cup")
+                                        .grams(new BigDecimal("81.0"))
+                                        .build()))
+                .calories(new BigDecimal("150.0"))
+                .protein(new BigDecimal("5.00"))
+                .carbs(new BigDecimal("27.00"))
+                .fat(new BigDecimal("3.00"))
+                .fiber(new BigDecimal("4.00"))
                 .build();
     }
 }
