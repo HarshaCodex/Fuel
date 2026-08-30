@@ -1,13 +1,7 @@
 package com.lazybuff.fuel.entity;
 
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -16,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -23,6 +19,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.lazybuff.fuel.converter.LowercaseConverter;
 
 @Entity
 @Table(name = "food_items")
@@ -63,6 +64,7 @@ public class FoodItem {
     private String servingSize;
 
     @Column(name = "serving_unit", nullable = false)
+    @Convert(converter = LowercaseConverter.class)
     private String servingUnit;
 
     @Column(name = "calories", nullable = false)
@@ -94,5 +96,4 @@ public class FoodItem {
 
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
-
 }
