@@ -304,7 +304,7 @@ class AuthServiceTest {
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(persistedUser);
             when(userAuthProviderRepository.findByUser_IdAndProvider(
-                            persistedUser, AuthProvider.EMAIL))
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
                     .thenReturn(authProvider);
             when(passwordEncoder.matches(
                             TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
@@ -364,7 +364,7 @@ class AuthServiceTest {
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(persistedUser);
             when(userAuthProviderRepository.findByUser_IdAndProvider(
-                            persistedUser, AuthProvider.EMAIL))
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
                     .thenReturn(null);
 
             assertThatThrownBy(() -> authService.login(loginRequest))
@@ -385,7 +385,7 @@ class AuthServiceTest {
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(persistedUser);
             when(userAuthProviderRepository.findByUser_IdAndProvider(
-                            persistedUser, AuthProvider.EMAIL))
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
                     .thenReturn(authProvider);
             when(passwordEncoder.matches(
                             TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
@@ -409,7 +409,7 @@ class AuthServiceTest {
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(persistedUser);
             when(userAuthProviderRepository.findByUser_IdAndProvider(
-                            persistedUser, AuthProvider.EMAIL))
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
                     .thenReturn(authProvider);
             when(passwordEncoder.matches(
                             TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
@@ -434,7 +434,7 @@ class AuthServiceTest {
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(persistedUser);
             when(userAuthProviderRepository.findByUser_IdAndProvider(
-                            persistedUser, AuthProvider.EMAIL))
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
                     .thenReturn(authProvider);
             when(passwordEncoder.matches(
                             TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))

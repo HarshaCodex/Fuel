@@ -107,7 +107,8 @@ public class AuthService {
             }
 
             UserAuthProvider userAuthProvider =
-                    userAuthProviderRepository.findByUser_IdAndProvider(user, AuthProvider.EMAIL);
+                    userAuthProviderRepository.findByUser_IdAndProvider(
+                            user.getId(), AuthProvider.EMAIL);
 
             if (userAuthProvider == null) {
                 throw new FuelException(HttpStatus.UNAUTHORIZED, "Invalid email or password!");
