@@ -1,0 +1,15 @@
+package com.lazybuff.fuel.repository;
+
+import com.lazybuff.fuel.entity.FoodItem;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
+
+    @EntityGraph(attributePaths = "servingSizes")
+    Optional<FoodItem> findWithServingSizesById(UUID id);
+}

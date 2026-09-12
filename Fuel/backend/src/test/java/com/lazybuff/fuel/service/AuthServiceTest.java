@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.entity.User;
@@ -21,7 +22,6 @@ import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.AuthProvider;
-import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -42,6 +42,7 @@ class AuthServiceTest {
     @Mock private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private JwtService jwtService;
+    @Mock private VerificationCodeService verificationCodeService;
 
     // Real config holder so the expiry values flow through to the response untouched.
     private final JwtConfig jwtConfig = TestDataFactory.jwtConfig();
@@ -68,7 +69,8 @@ class AuthServiceTest {
                         passwordEncoder,
                         refreshTokenService,
                         jwtService,
-                        jwtConfig);
+                        jwtConfig,
+                        verificationCodeService);
         request = TestDataFactory.registerRequest();
         persistedUser = TestDataFactory.persistedUser();
     }
@@ -116,7 +118,7 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("persists the user with request details and the system timezone")
+        @DisplayName("persists the user with request details and the client-supplied timezone")
         void persistsUserFromRequest() throws Exception {
             stubSuccessfulRegistration();
 
@@ -126,7 +128,19 @@ class AuthServiceTest {
             User saved = userCaptor.getValue();
             assertThat(saved.getEmail()).isEqualTo(TestDataFactory.EMAIL);
             assertThat(saved.getName()).isEqualTo(TestDataFactory.NAME);
-            assertThat(saved.getTimezone()).isEqualTo(ZoneId.systemDefault().toString());
+            assertThat(saved.getTimezone()).isEqualTo(TestDataFactory.TIMEZONE);
+        }
+
+        @Test
+        @DisplayName("falls back to UTC when the request omits a timezone")
+        void defaultsToUtcWhenTimezoneMissing() throws Exception {
+            stubSuccessfulRegistration();
+            request.setTimezone(null);
+
+            authService.register(request);
+
+            verify(userRepository).save(userCaptor.capture());
+            assertThat(userCaptor.getValue().getTimezone()).isEqualTo("UTC");
         }
 
         @Test
@@ -243,6 +257,23 @@ class AuthServiceTest {
         }
 
         @Test
+        @DisplayName("throws 400 BAD_REQUEST for an invalid timezone and persists nothing")
+        void throwsBadRequestForInvalidTimezone() {
+            when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(false);
+            request.setTimezone("Not/AZone");
+
+            assertThatThrownBy(() -> authService.register(request))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Invalid timezone: Not/AZone")
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+
+            verify(userRepository, never()).save(any());
+            verifyNoInteractions(userAuthProviderRepository, userGoalsRepository);
+        }
+
+        @Test
         @DisplayName("propagates persistence failures while saving the user")
         void propagatesUserSaveFailure() {
             when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
@@ -257,6 +288,166 @@ class AuthServiceTest {
             verify(userAuthProviderRepository, never()).save(any());
             verify(userGoalsRepository, never()).save(any());
             verify(jwtService, never()).generateToken(any(), eq(TestDataFactory.EMAIL));
+        }
+    }
+
+    @Nested
+    @DisplayName("login - success")
+    class LoginSuccess {
+
+        @Test
+        @DisplayName("returns a 200 response carrying tokens and user data for valid credentials")
+        void returnsOkResponse() throws Exception {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);
+
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(authProvider);
+            when(passwordEncoder.matches(
+                            TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
+                    .thenReturn(true);
+            when(jwtService.generateToken(
+                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+                    .thenReturn(ACCESS_TOKEN);
+            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+                    .thenReturn(REFRESH_TOKEN);
+
+            ApiResponse<UserData> response = authService.login(loginRequest);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMessage()).isEqualTo("Login successful.");
+
+            UserData data = response.getData();
+            assertThat(data).isNotNull();
+            assertThat(data.getUserId()).isEqualTo(TestDataFactory.USER_ID.toString());
+            assertThat(data.getEmail()).isEqualTo(TestDataFactory.EMAIL);
+            assertThat(data.getName()).isEqualTo(TestDataFactory.NAME);
+            assertThat(data.getAccessToken()).isEqualTo(ACCESS_TOKEN);
+            assertThat(data.getRefreshToken()).isEqualTo(REFRESH_TOKEN);
+            assertThat(data.getAccessTokenExpiresIn())
+                    .isEqualTo(TestDataFactory.ACCESS_TOKEN_EXPIRY_SECONDS);
+            assertThat(data.getRefreshTokenExpiresIn())
+                    .isEqualTo(TestDataFactory.REFRESH_TOKEN_EXPIRY_SECONDS);
+        }
+    }
+
+    @Nested
+    @DisplayName("login - failures")
+    class LoginFailure {
+
+        @Test
+        @DisplayName("throws 401 UNAUTHORIZED when no user exists for the given email")
+        void throwsUnauthorizedWhenUserNotFound() {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(null);
+
+            assertThatThrownBy(() -> authService.login(loginRequest))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Invalid email or password!")
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
+
+            verifyNoInteractions(
+                    userAuthProviderRepository, passwordEncoder, jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName(
+                "throws 401 UNAUTHORIZED when the user has no EMAIL auth provider (e.g."
+                        + " Google-only account)")
+        void throwsUnauthorizedWhenEmailProviderMissing() {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(null);
+
+            assertThatThrownBy(() -> authService.login(loginRequest))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Invalid email or password!")
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
+
+            verifyNoInteractions(passwordEncoder, jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("throws 401 UNAUTHORIZED when the password does not match")
+        void throwsUnauthorizedWhenPasswordDoesNotMatch() {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);
+
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(authProvider);
+            when(passwordEncoder.matches(
+                            TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> authService.login(loginRequest))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Invalid email or password!")
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
+
+            verifyNoInteractions(jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("propagates access-token generation failures after credentials are verified")
+        void propagatesTokenGenerationFailure() throws Exception {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);
+
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(authProvider);
+            when(passwordEncoder.matches(
+                            TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
+                    .thenReturn(true);
+            when(jwtService.generateToken(
+                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+                    .thenThrow(new RuntimeException("signing key unavailable"));
+
+            assertThatThrownBy(() -> authService.login(loginRequest))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("signing key unavailable");
+
+            verify(refreshTokenService, never()).issueRefreshToken(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("propagates refresh-token issuance failures (e.g. downstream 500)")
+        void propagatesRefreshTokenFailure() throws Exception {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);
+
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(authProvider);
+            when(passwordEncoder.matches(
+                            TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
+                    .thenReturn(true);
+            when(jwtService.generateToken(
+                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+                    .thenReturn(ACCESS_TOKEN);
+            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+                    .thenThrow(new RuntimeException("refresh store unavailable"));
+
+            assertThatThrownBy(() -> authService.login(loginRequest))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("refresh store unavailable");
         }
     }
 }

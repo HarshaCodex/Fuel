@@ -19,7 +19,7 @@ import lombok.ToString;
 @ToString
 @EqualsAndHashCode
 @Builder
-public class UserRegisterRequest {
+public class LoginReqeust {
 
     @NotBlank(message = "Email field cannot be blank.")
     @Email(
@@ -35,12 +35,4 @@ public class UserRegisterRequest {
             message =
                     "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character")
     private String password;
-
-    @NotBlank(message = "Name cannot be blank")
-    @Size(min = 1, max = 100, message = "Name must be between 1 and 100 characters.")
-    private String name;
-
-    @NotBlank(message = "Timezone cannot be blank.")
-    @Size(max = 50, message = "Timezone must be at most 50 characters.")
-    private String timezone;
 }

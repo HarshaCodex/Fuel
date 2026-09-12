@@ -30,7 +30,11 @@ public class LoggingAspect {
             log.info("Completed method execution in {}ms: Response: {}", timeTaken, result);
 
             return result;
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
+            long timeTaken = System.currentTimeMillis() - start;
+
+            log.error("Method execution failed after {}ms: {}", timeTaken, methodName, ex);
+
             throw ex;
         }
     }

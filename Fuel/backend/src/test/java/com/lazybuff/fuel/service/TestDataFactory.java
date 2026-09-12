@@ -1,12 +1,28 @@
 package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.config.JwtConfig;
+import com.lazybuff.fuel.dto.FoodItemDetail;
+import com.lazybuff.fuel.dto.LoginReqeust;
+import com.lazybuff.fuel.dto.ServingSizeData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
+import com.lazybuff.fuel.entity.FoodItem;
+import com.lazybuff.fuel.entity.FoodServingSize;
 import com.lazybuff.fuel.entity.RefreshToken;
 import com.lazybuff.fuel.entity.User;
+import com.lazybuff.fuel.entity.UserAuthProvider;
+import com.lazybuff.fuel.entity.VerificationCode;
+import com.lazybuff.fuel.util.AuthProvider;
+import com.lazybuff.fuel.util.FoodSource;
+import com.lazybuff.fuel.util.ServingUnit;
+import com.lazybuff.fuel.util.TokenHasher;
+import com.lazybuff.fuel.util.VerifyType;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -34,6 +50,9 @@ final class TestDataFactory {
     static final String HASHED_PASSWORD = "$2a$10$hashedpasswordvalueforunittesting123456789";
     static final String DEVICE_INFO = "iPhone 15 / iOS 18";
     static final String IP_ADDRESS = "203.0.113.42";
+    static final String TIMEZONE = "Asia/Kolkata";
+
+    static final String VALID_CODE = "12345";
 
     static JwtConfig jwtConfig() {
         return jwtConfig(JWT_SECRET, ACCESS_TOKEN_EXPIRY_SECONDS, REFRESH_TOKEN_EXPIRY_SECONDS);
@@ -59,7 +78,54 @@ final class TestDataFactory {
     }
 
     static UserRegisterRequest registerRequest() {
-        return UserRegisterRequest.builder().email(EMAIL).password(RAW_PASSWORD).name(NAME).build();
+        return UserRegisterRequest.builder()
+                .email(EMAIL)
+                .password(RAW_PASSWORD)
+                .name(NAME)
+                .timezone(TIMEZONE)
+                .build();
+    }
+
+    static LoginReqeust loginRequest() {
+        return LoginReqeust.builder().email(EMAIL).password(RAW_PASSWORD).build();
+    }
+
+    /** The EMAIL auth provider row for a user who registered with email/password. */
+    static UserAuthProvider emailAuthProvider(User user) {
+        return UserAuthProvider.builder()
+                .id(UUID.randomUUID())
+                .user(user)
+                .provider(AuthProvider.EMAIL)
+                .passwordHash(HASHED_PASSWORD)
+                .build();
+    }
+
+    /**
+     * An unused EMAIL_VERIFY code whose hash matches {@code rawCode}, expiring at {@code
+     * expiresAt}.
+     */
+    static VerificationCode verificationCode(User user, String rawCode, Instant expiresAt) {
+        return VerificationCode.builder()
+                .id(UUID.randomUUID())
+                .user(user)
+                .codeHash(sha256(rawCode))
+                .type(VerifyType.EMAIL_VERIFY)
+                .expires_at(expiresAt)
+                .usedAt(null)
+                .build();
+    }
+
+    /** A currently valid (unexpired, unused) EMAIL_VERIFY code for the given user. */
+    static VerificationCode validVerificationCode(User user) {
+        return verificationCode(user, VALID_CODE, Instant.now().plus(Duration.ofHours(24)));
+    }
+
+    static String sha256(String value) {
+        try {
+            return TokenHasher.sha256Hex(value);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     static RefreshToken refreshToken(User user) {
@@ -70,6 +136,64 @@ final class TestDataFactory {
                 .expiresAt(Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRY_SECONDS))
                 .deviceInfo(DEVICE_INFO)
                 .ipAddress(IP_ADDRESS)
+                .build();
+    }
+
+    static final UUID FOOD_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+    static final String FOOD_NAME = "Rolled Oats";
+    static final String FOOD_BRAND = "Quaker";
+    static final String FOOD_SOURCE_ID = "173904";
+
+    static FoodItem persistedFoodItem() {
+        FoodItem foodItem =
+                FoodItem.builder()
+                        .id(FOOD_ID)
+                        .name(FOOD_NAME)
+                        .brand(FOOD_BRAND)
+                        .source(FoodSource.USDA)
+                        .sourceId(FOOD_SOURCE_ID)
+                        .servingSize(new BigDecimal("40.0"))
+                        .servingUnit(ServingUnit.G)
+                        .calories(new BigDecimal("150.0"))
+                        .protein(new BigDecimal("5.00"))
+                        .carbs(new BigDecimal("27.00"))
+                        .fat(new BigDecimal("3.00"))
+                        .fiber(new BigDecimal("4.00"))
+                        .build();
+
+        foodItem.getServingSizes().add(servingSize(foodItem, "1 cup", new BigDecimal("81.0")));
+        return foodItem;
+    }
+
+    static FoodServingSize servingSize(FoodItem foodItem, String label, BigDecimal grams) {
+        return FoodServingSize.builder()
+                .id(UUID.randomUUID())
+                .foodItem(foodItem)
+                .label(label)
+                .quantityInGrams(grams)
+                .build();
+    }
+
+    static FoodItemDetail foodItemDetail() {
+        return FoodItemDetail.builder()
+                .id(FOOD_ID)
+                .name(FOOD_NAME)
+                .brand(FOOD_BRAND)
+                .source(FoodSource.USDA.name())
+                .sourceId(FOOD_SOURCE_ID)
+                .servingSize(new BigDecimal("40.0"))
+                .servingUnit("g")
+                .servingSizeDatas(
+                        List.of(
+                                ServingSizeData.builder()
+                                        .label("1 cup")
+                                        .grams(new BigDecimal("81.0"))
+                                        .build()))
+                .calories(new BigDecimal("150.0"))
+                .protein(new BigDecimal("5.00"))
+                .carbs(new BigDecimal("27.00"))
+                .fat(new BigDecimal("3.00"))
+                .fiber(new BigDecimal("4.00"))
                 .build();
     }
 }

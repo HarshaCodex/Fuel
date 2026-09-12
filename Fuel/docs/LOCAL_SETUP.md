@@ -179,12 +179,18 @@ The app starts on port `8080`.
 ```bash
 curl -i -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"name":"Test User","email":"test@example.com","password":"Password123!"}'
+  -d '{"name":"Test User","email":"test@example.com","password":"Password123!","timezone":"Asia/Kolkata"}'
 ```
 
 A `201 Created` response confirms the app, database, and JWT config are all wired up.
-The password must be 8–30 chars with at least one uppercase, one lowercase, one digit, and
-one special character (`@$!%*?&`).
+
+Request field rules:
+
+- `password` — 8–30 chars with at least one uppercase, one lowercase, one digit, and one
+  special character (`@$!%*?&`).
+- `timezone` — required IANA zone id (e.g. `Asia/Kolkata`, `America/New_York`, `UTC`). The
+  client is expected to send its own zone; an unrecognised value returns `400 Bad Request`.
+  It is stored per-user (no longer derived from the server's clock).
 
 ---
 
