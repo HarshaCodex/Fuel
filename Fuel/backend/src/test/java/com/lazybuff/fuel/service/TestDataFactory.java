@@ -2,13 +2,16 @@ package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.FoodItemDetail;
+import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.ServingSizeData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.entity.FoodServingSize;
 import com.lazybuff.fuel.entity.RefreshToken;
 import com.lazybuff.fuel.entity.User;
+import com.lazybuff.fuel.entity.UserAuthProvider;
 import com.lazybuff.fuel.entity.VerificationCode;
+import com.lazybuff.fuel.util.AuthProvider;
 import com.lazybuff.fuel.util.FoodSource;
 import com.lazybuff.fuel.util.ServingUnit;
 import com.lazybuff.fuel.util.TokenHasher;
@@ -80,6 +83,20 @@ final class TestDataFactory {
                 .password(RAW_PASSWORD)
                 .name(NAME)
                 .timezone(TIMEZONE)
+                .build();
+    }
+
+    static LoginReqeust loginRequest() {
+        return LoginReqeust.builder().email(EMAIL).password(RAW_PASSWORD).build();
+    }
+
+    /** The EMAIL auth provider row for a user who registered with email/password. */
+    static UserAuthProvider emailAuthProvider(User user) {
+        return UserAuthProvider.builder()
+                .id(UUID.randomUUID())
+                .user(user)
+                .provider(AuthProvider.EMAIL)
+                .passwordHash(HASHED_PASSWORD)
                 .build();
     }
 

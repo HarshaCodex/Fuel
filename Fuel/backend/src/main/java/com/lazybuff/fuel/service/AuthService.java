@@ -3,6 +3,7 @@ package com.lazybuff.fuel.service;
 import com.lazybuff.fuel.annotation.NoLogging;
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.entity.User;
@@ -91,6 +92,60 @@ public class AuthService {
                     userRegisterRequest.getEmail(),
                     ex);
             throw ex;
+        }
+    }
+
+    @NoLogging
+    public ApiResponse<UserData> login(LoginReqeust loginReqeust) throws Exception {
+
+        try {
+
+            User user = userRepository.findByEmailAndDeletedAtIsNull(loginReqeust.getEmail());
+
+            if (user == null) {
+                throw new FuelException(HttpStatus.UNAUTHORIZED, "Invalid email or password!");
+            }
+
+            UserAuthProvider userAuthProvider =
+                    userAuthProviderRepository.findByUser_IdAndProvider(
+                            user.getId(), AuthProvider.EMAIL);
+
+            if (userAuthProvider == null) {
+                throw new FuelException(HttpStatus.UNAUTHORIZED, "Invalid email or password!");
+            }
+
+            if (!passwordEncoder.matches(
+                    loginReqeust.getPassword(), userAuthProvider.getPasswordHash())) {
+                throw new FuelException(HttpStatus.UNAUTHORIZED, "Invalid email or password!");
+            }
+
+            UserData userData =
+                    UserData.builder()
+                            .userId(user.getId().toString())
+                            .email(user.getEmail())
+                            .name(user.getName())
+                            .emailVerified(user.isEmailVerified())
+                            .accessToken(
+                                    jwtService.generateToken(
+                                            user.getId().toString(), user.getEmail()))
+                            .refreshToken(refreshTokenService.issueRefreshToken(user, null, null))
+                            .accessTokenExpiresIn(jwtConfig.getAccessTokenExpirySeconds())
+                            .refreshTokenExpiresIn(jwtConfig.getRefreshTokenExpirySeconds())
+                            .build();
+
+            return ApiResponse.<UserData>builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Login successful.")
+                    .data(userData)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+        } catch (Exception exception) {
+            log.error(
+                    "Exception during login for user with email: {}, exception:",
+                    loginReqeust.getEmail(),
+                    exception);
+            throw exception;
         }
     }
 
