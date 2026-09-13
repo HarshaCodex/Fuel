@@ -59,6 +59,11 @@ public class RefreshTokenService {
     }
 
     @Transactional
+    public void revokeForUser(String rawToken, UUID userId) throws NoSuchAlgorithmException {
+        refreshTokenRepository.deleteByTokenHashAndUser_Id(TokenHasher.sha256Hex(rawToken), userId);
+    }
+
+    @Transactional
     public void revokeAll(UUID userId) {
         refreshTokenRepository.deleteByUser_Id(userId);
     }
