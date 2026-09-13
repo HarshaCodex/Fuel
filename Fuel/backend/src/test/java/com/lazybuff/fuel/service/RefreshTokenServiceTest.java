@@ -149,7 +149,8 @@ class RefreshTokenServiceTest {
 
             ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
             verify(refreshTokenRepository)
-                    .deleteByTokenHashAndUser_Id(hashCaptor.capture(), org.mockito.Mockito.eq(userId));
+                    .deleteByTokenHashAndUser_Id(
+                            hashCaptor.capture(), org.mockito.Mockito.eq(userId));
             assertThat(hashCaptor.getValue()).isEqualTo(TokenHasher.sha256Hex(raw));
         }
 
@@ -160,7 +161,9 @@ class RefreshTokenServiceTest {
             UUID userId = TestDataFactory.USER_ID;
             doThrow(new RuntimeException("db down"))
                     .when(refreshTokenRepository)
-                    .deleteByTokenHashAndUser_Id(org.mockito.ArgumentMatchers.anyString(), org.mockito.Mockito.eq(userId));
+                    .deleteByTokenHashAndUser_Id(
+                            org.mockito.ArgumentMatchers.anyString(),
+                            org.mockito.Mockito.eq(userId));
 
             assertThatThrownBy(() -> refreshTokenService.revokeForUser(raw, userId))
                     .isInstanceOf(RuntimeException.class)

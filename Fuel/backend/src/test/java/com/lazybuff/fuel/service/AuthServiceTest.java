@@ -485,8 +485,7 @@ class AuthServiceTest {
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getMessage()).isEqualTo("Logout successful.");
-            verify(refreshTokenService)
-                    .revokeForUser(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID);
+            verify(refreshTokenService).revokeForUser(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID);
         }
 
         @Test
