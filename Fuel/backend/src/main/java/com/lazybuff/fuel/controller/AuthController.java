@@ -2,6 +2,7 @@ package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.LoginReqeust;
+import com.lazybuff.fuel.dto.LogoutRequest;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
@@ -74,6 +75,18 @@ public class AuthController {
             @RequestBody @Valid LoginReqeust loginReqeust) throws Exception {
 
         ApiResponse<UserData> response = authService.login(loginReqeust);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PostMapping(
+            path = "/logout",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody @Valid LogoutRequest logoutRequest)
+            throws Exception {
+
+        ApiResponse<Void> response = authService.logout(logoutRequest);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

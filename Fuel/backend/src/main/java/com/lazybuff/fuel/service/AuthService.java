@@ -4,6 +4,7 @@ import com.lazybuff.fuel.annotation.NoLogging;
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.LoginReqeust;
+import com.lazybuff.fuel.dto.LogoutRequest;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.entity.User;
@@ -18,9 +19,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -145,6 +149,29 @@ public class AuthService {
                     "Exception during login for user with email: {}, exception:",
                     loginReqeust.getEmail(),
                     exception);
+            throw exception;
+        }
+    }
+
+    @NoLogging
+    public ApiResponse<Void> logout(LogoutRequest logoutRequest) throws Exception {
+
+        try {
+
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            UUID userId = UUID.fromString(authentication.getPrincipal().toString());
+
+            refreshTokenService.revokeForUser(logoutRequest.getRefreshToken(), userId);
+
+            return ApiResponse.<Void>builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Logout successful.")
+                    .timestamp(LocalDateTime.now())
+                    .build();
+
+        } catch (Exception exception) {
+            log.error("Exception while logging out, exception:", exception);
             throw exception;
         }
     }

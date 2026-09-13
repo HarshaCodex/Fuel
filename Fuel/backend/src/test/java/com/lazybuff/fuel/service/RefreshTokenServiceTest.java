@@ -136,6 +136,39 @@ class RefreshTokenServiceTest {
     }
 
     @Nested
+    @DisplayName("revokeForUser")
+    class RevokeForUser {
+
+        @Test
+        @DisplayName("deletes only the token row matching both the hash and the user id")
+        void revokesByHashAndUser() throws Exception {
+            String raw = "some-raw-refresh-token-value";
+            UUID userId = TestDataFactory.USER_ID;
+
+            refreshTokenService.revokeForUser(raw, userId);
+
+            ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
+            verify(refreshTokenRepository)
+                    .deleteByTokenHashAndUser_Id(hashCaptor.capture(), org.mockito.Mockito.eq(userId));
+            assertThat(hashCaptor.getValue()).isEqualTo(TokenHasher.sha256Hex(raw));
+        }
+
+        @Test
+        @DisplayName("propagates repository failures to the caller")
+        void propagatesRepositoryFailure() {
+            String raw = "some-raw-refresh-token-value";
+            UUID userId = TestDataFactory.USER_ID;
+            doThrow(new RuntimeException("db down"))
+                    .when(refreshTokenRepository)
+                    .deleteByTokenHashAndUser_Id(org.mockito.ArgumentMatchers.anyString(), org.mockito.Mockito.eq(userId));
+
+            assertThatThrownBy(() -> refreshTokenService.revokeForUser(raw, userId))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("db down");
+        }
+    }
+
+    @Nested
     @DisplayName("revokeAll")
     class RevokeAll {
 

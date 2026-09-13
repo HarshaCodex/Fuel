@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.LoginReqeust;
+import com.lazybuff.fuel.dto.LogoutRequest;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.entity.User;
@@ -22,6 +23,8 @@ import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.AuthProvider;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +34,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AuthService")
@@ -73,6 +78,11 @@ class AuthServiceTest {
                         verificationCodeService);
         request = TestDataFactory.registerRequest();
         persistedUser = TestDataFactory.persistedUser();
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
     }
 
     /** Wires the happy-path collaborators; individual tests override as needed. */
@@ -448,6 +458,65 @@ class AuthServiceTest {
             assertThatThrownBy(() -> authService.login(loginRequest))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("refresh store unavailable");
+        }
+    }
+
+    @Nested
+    @DisplayName("logout")
+    class Logout {
+
+        private static final String RAW_REFRESH_TOKEN = "raw-refresh-token";
+
+        private void authenticateAs(UUID userId) {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(
+                            new UsernamePasswordAuthenticationToken(
+                                    userId.toString(), null, java.util.List.of()));
+        }
+
+        @Test
+        @DisplayName("revokes the caller's refresh token and returns a 200 response")
+        void revokesRefreshTokenForAuthenticatedUser() throws Exception {
+            authenticateAs(TestDataFactory.USER_ID);
+            LogoutRequest logoutRequest =
+                    LogoutRequest.builder().refreshToken(RAW_REFRESH_TOKEN).build();
+
+            ApiResponse<Void> response = authService.logout(logoutRequest);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMessage()).isEqualTo("Logout successful.");
+            verify(refreshTokenService)
+                    .revokeForUser(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID);
+        }
+
+        @Test
+        @DisplayName("scopes revocation to the authenticated user's id, not just the token")
+        void doesNotRevokeForADifferentUser() throws Exception {
+            UUID otherUserId = UUID.fromString("22222222-2222-2222-2222-222222222222");
+            authenticateAs(otherUserId);
+            LogoutRequest logoutRequest =
+                    LogoutRequest.builder().refreshToken(RAW_REFRESH_TOKEN).build();
+
+            authService.logout(logoutRequest);
+
+            verify(refreshTokenService).revokeForUser(RAW_REFRESH_TOKEN, otherUserId);
+            verify(refreshTokenService, never())
+                    .revokeForUser(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID);
+        }
+
+        @Test
+        @DisplayName("propagates failures from the underlying revoke call")
+        void propagatesRevokeFailure() throws Exception {
+            authenticateAs(TestDataFactory.USER_ID);
+            LogoutRequest logoutRequest =
+                    LogoutRequest.builder().refreshToken(RAW_REFRESH_TOKEN).build();
+            org.mockito.Mockito.doThrow(new RuntimeException("token store unavailable"))
+                    .when(refreshTokenService)
+                    .revokeForUser(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID);
+
+            assertThatThrownBy(() -> authService.logout(logoutRequest))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("token store unavailable");
         }
     }
 }
