@@ -168,6 +168,8 @@ public class VerificationCodeService {
                 .build();
     }
 
+    @Transactional
+    @NoLogging
     public ApiResponse<Void> forgotPassword(ForgotPasswordRequest forgotPasswordRequest) {
 
         String key = "rate_limit:forgot-password:" + forgotPasswordRequest.getEmail().toLowerCase();
