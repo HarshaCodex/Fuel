@@ -15,6 +15,7 @@ import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.AuthProvider;
+import com.lazybuff.fuel.util.VerifyType;
 import java.security.NoSuchAlgorithmException;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
@@ -227,6 +228,6 @@ public class AuthService {
     }
 
     private void sendVerificationCode(User user) throws NoSuchAlgorithmException {
-        verificationCodeService.generateVerificationCode(user);
+        verificationCodeService.generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
     }
 }

@@ -46,7 +46,7 @@ public class EmailService {
     }
 
     @Async("emailTaskExecutor")
-    public void sendRestPasswordEmail(String to, String verificationCode) {
+    public void sendResetPasswordEmail(String to, String verificationCode) {
 
         try {
 
@@ -56,7 +56,7 @@ public class EmailService {
 
             message.setFrom(fromEmailAddress);
             message.setTo(to);
-            message.setSubject(verificationEmailSubject);
+            message.setSubject(forgotPasswordEmailSubject);
             message.setText("Reset your password: " + resetLink);
 
             javaMailSender.send(message);

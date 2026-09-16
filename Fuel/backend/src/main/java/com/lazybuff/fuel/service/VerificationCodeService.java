@@ -46,35 +46,32 @@ public class VerificationCodeService {
 
         SecureRandom secureRandom = new SecureRandom();
         StringBuilder code = new StringBuilder();
-        VerificationCode verificationCode = new VerificationCode();
 
         for (int i = 0; i < 5; i++) {
             code.append(secureRandom.nextInt(10));
         }
 
-        if (verifyType.equals(VerifyType.PASSWORD_RESET)) {
-            verificationCode =
-                    VerificationCode.builder()
-                            .user(user)
-                            .codeHash(TokenHasher.sha256Hex(code.toString()))
-                            .type(verifyType)
-                            .expires_at(Instant.now().plus(Duration.ofMinutes(15)))
-                            .usedAt(null)
-                            .build();
-        } else {
-            verificationCode =
-                    VerificationCode.builder()
-                            .user(user)
-                            .codeHash(TokenHasher.sha256Hex(code.toString()))
-                            .type(verifyType)
-                            .expires_at(Instant.now().plus(Duration.ofHours(24)))
-                            .usedAt(null)
-                            .build();
-        }
+        Duration expiry =
+                verifyType.equals(VerifyType.PASSWORD_RESET)
+                        ? Duration.ofMinutes(15)
+                        : Duration.ofHours(24);
+
+        VerificationCode verificationCode =
+                VerificationCode.builder()
+                        .user(user)
+                        .codeHash(TokenHasher.sha256Hex(code.toString()))
+                        .type(verifyType)
+                        .expires_at(Instant.now().plus(expiry))
+                        .usedAt(null)
+                        .build();
 
         verificationCodeRepository.save(verificationCode);
 
-        emailService.sendEmail(user.getEmail(), code.toString());
+        if (verifyType.equals(VerifyType.PASSWORD_RESET)) {
+            emailService.sendResetPasswordEmail(user.getEmail(), code.toString());
+        } else {
+            emailService.sendEmail(user.getEmail(), code.toString());
+        }
 
         return code.toString();
     }

@@ -95,7 +95,8 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("persists an unused EMAIL_VERIFY code hashed with a ~24h expiry")
         void persistsHashedCode() throws Exception {
-            String returned = verificationCodeService.generateVerificationCode(user);
+            String returned =
+                    verificationCodeService.generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
 
             verify(verificationCodeRepository).save(codeCaptor.capture());
             VerificationCode saved = codeCaptor.getValue();
@@ -115,7 +116,8 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("emails the raw code to the user after the code is persisted")
         void emailsRawCodeAfterPersisting() throws Exception {
-            String returned = verificationCodeService.generateVerificationCode(user);
+            String returned =
+                    verificationCodeService.generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
 
             verify(emailService).sendEmail(eq(TestDataFactory.EMAIL), emailedCodeCaptor.capture());
             assertThat(emailedCodeCaptor.getValue()).isEqualTo(returned);
@@ -130,7 +132,8 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("returns a 5-digit numeric code")
         void returnsFiveDigitNumericCode() throws Exception {
-            String code = verificationCodeService.generateVerificationCode(user);
+            String code =
+                    verificationCodeService.generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
 
             assertThat(code).hasSize(5);
             assertThat(code).containsPattern("^[0-9]{5}$");
@@ -144,7 +147,9 @@ class VerificationCodeServiceTest {
             Set<Character> seen = new HashSet<>();
             for (int i = 0; i < 200; i++) {
                 for (char c :
-                        verificationCodeService.generateVerificationCode(user).toCharArray()) {
+                        verificationCodeService
+                                .generateVerificationCode(user, VerifyType.EMAIL_VERIFY)
+                                .toCharArray()) {
                     seen.add(c);
                 }
             }
