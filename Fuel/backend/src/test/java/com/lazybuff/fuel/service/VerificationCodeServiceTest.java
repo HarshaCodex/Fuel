@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.lazybuff.fuel.config.RateLimitConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
 import com.lazybuff.fuel.dto.VerifyEmailResponse;
@@ -157,6 +158,48 @@ class VerificationCodeServiceTest {
             for (char digit = '0'; digit <= '9'; digit++) {
                 assertThat(seen).contains(digit);
             }
+        }
+
+        @Test
+        @DisplayName("persists an unused PASSWORD_RESET code hashed with a ~15m expiry")
+        void persistsHashedPasswordResetCode() throws Exception {
+            String returned =
+                    verificationCodeService.generateVerificationCode(
+                            user, VerifyType.PASSWORD_RESET);
+
+            verify(verificationCodeRepository).save(codeCaptor.capture());
+            VerificationCode saved = codeCaptor.getValue();
+
+            assertThat(saved.getUser()).isSameAs(user);
+            assertThat(saved.getType()).isEqualTo(VerifyType.PASSWORD_RESET);
+            assertThat(saved.getUsedAt()).isNull();
+            assertThat(saved.getCodeHash()).isEqualTo(TestDataFactory.sha256(returned));
+            assertThat(saved.getExpires_at())
+                    .isBetween(
+                            Instant.now().plusSeconds(14 * 60), Instant.now().plusSeconds(16 * 60));
+        }
+
+        @Test
+        @DisplayName("emails a PASSWORD_RESET code via sendResetPasswordEmail, never sendEmail")
+        void emailsPasswordResetCodeViaResetPasswordEmail() throws Exception {
+            String returned =
+                    verificationCodeService.generateVerificationCode(
+                            user, VerifyType.PASSWORD_RESET);
+
+            verify(emailService)
+                    .sendResetPasswordEmail(eq(TestDataFactory.EMAIL), emailedCodeCaptor.capture());
+            assertThat(emailedCodeCaptor.getValue()).isEqualTo(returned);
+
+            // Regression: forgot-password must never fall back to the plain OTP email.
+            verify(emailService, never()).sendEmail(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("emails an EMAIL_VERIFY code via sendEmail, never sendResetPasswordEmail")
+        void emailsEmailVerifyCodeViaSendEmailOnly() throws Exception {
+            verificationCodeService.generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
+
+            verify(emailService, never()).sendResetPasswordEmail(anyString(), anyString());
         }
     }
 
@@ -362,6 +405,122 @@ class VerificationCodeServiceTest {
                             eq("rate_limit:resend-verification:" + TestDataFactory.EMAIL),
                             eq(3),
                             eq(Duration.ofHours(1)));
+        }
+    }
+
+    @Nested
+    @DisplayName("forgotPassword")
+    class ForgotPassword {
+
+        private static final String FORGOT_PASSWORD_MESSAGE =
+                "If an account with this email exists, a reset link has been sent.";
+
+        private ForgotPasswordRequest forgotPasswordRequest() {
+            return ForgotPasswordRequest.builder().email(TestDataFactory.EMAIL).build();
+        }
+
+        /** The rate limiter permits the call; the vast majority of requests are within budget. */
+        private void stubWithinRateLimit() {
+            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(true);
+        }
+
+        @Test
+        @DisplayName(
+                "invalidates existing PASSWORD_RESET codes then issues and emails a reset link")
+        void invalidatesThenReissuesResetLink() {
+            stubWithinRateLimit();
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(user);
+
+            ApiResponse<Void> response =
+                    verificationCodeService.forgotPassword(forgotPasswordRequest());
+
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+            assertThat(response.getMessage()).isEqualTo(FORGOT_PASSWORD_MESSAGE);
+
+            // Old codes are invalidated before a new one is persisted/sent, and the reset-link
+            // email (not the plain OTP email) is what actually goes out.
+            InOrder inOrder = inOrder(verificationCodeRepository, emailService);
+            inOrder.verify(verificationCodeRepository)
+                    .invalidateAllVerificationCodes(user, VerifyType.PASSWORD_RESET);
+            inOrder.verify(verificationCodeRepository).save(any(VerificationCode.class));
+            inOrder.verify(emailService)
+                    .sendResetPasswordEmail(eq(TestDataFactory.EMAIL), anyString());
+            verify(emailService, never()).sendEmail(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("still returns the generic 200 message for an unregistered email")
+        void hidesUnregisteredEmail() {
+            stubWithinRateLimit();
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(null);
+
+            ApiResponse<Void> response =
+                    verificationCodeService.forgotPassword(forgotPasswordRequest());
+
+            // Enumeration protection: the response must not differ from the registered case, and
+            // no code should ever be generated/emailed for an address that isn't registered.
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+            assertThat(response.getMessage()).isEqualTo(FORGOT_PASSWORD_MESSAGE);
+            verifyNoInteractions(verificationCodeRepository, emailService);
+        }
+
+        @Test
+        @DisplayName("throws 429 and does no work once the hourly limit is exceeded")
+        void throttlesWhenRateLimited() {
+            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(false);
+
+            assertThatThrownBy(
+                            () -> verificationCodeService.forgotPassword(forgotPasswordRequest()))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Too many forgot password requests. Please try again later!")
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+
+            // A blocked request must not touch the DB, invalidate codes, or send an email.
+            verifyNoInteractions(userRepository, verificationCodeRepository, emailService);
+        }
+
+        @Test
+        @DisplayName("checks the limiter with a lower-cased key and the configured limit/window")
+        void usesNormalisedKeyAndConfiguredLimits() {
+            stubWithinRateLimit();
+            when(rateLimitConfig.getMaxRequests()).thenReturn(3);
+            when(rateLimitConfig.getWindow()).thenReturn(Duration.ofHours(1));
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL.toUpperCase()))
+                    .thenReturn(user);
+
+            // Mixed-case email must resolve to the same (lower-cased) budget key.
+            verificationCodeService.forgotPassword(
+                    ForgotPasswordRequest.builder()
+                            .email(TestDataFactory.EMAIL.toUpperCase())
+                            .build());
+
+            verify(rateLimiterService)
+                    .isAllowed(
+                            eq("rate_limit:forgot-password:" + TestDataFactory.EMAIL),
+                            eq(3),
+                            eq(Duration.ofHours(1)));
+        }
+
+        @Test
+        @DisplayName("swallows an internal failure and still returns the generic message")
+        void swallowsInternalFailure() {
+            stubWithinRateLimit();
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(user);
+            when(verificationCodeRepository.save(any(VerificationCode.class)))
+                    .thenThrow(new RuntimeException("db unavailable"));
+
+            ApiResponse<Void> response =
+                    verificationCodeService.forgotPassword(forgotPasswordRequest());
+
+            // Regression: a persistence failure must not surface as a 500 or leak whether the
+            // account exists.
+            assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+            assertThat(response.getMessage()).isEqualTo(FORGOT_PASSWORD_MESSAGE);
+            verify(emailService, never()).sendResetPasswordEmail(anyString(), anyString());
         }
     }
 }
