@@ -28,6 +28,7 @@ public class ResetPasswordRequest {
     @Size(min = 1, max = 255, message = "Email must be less than 255 characters.")
     private String email;
 
+    @NotBlank(message = "Reset code field cannot be blank.")
     private String resetCode;
 
     @NotBlank(message = "Password field cannot be blank.")

@@ -187,16 +187,28 @@ public class AuthService {
         }
     }
 
+    @Transactional
     @NoLogging
     public ApiResponse<Void> resetPassword(ResetPasswordRequest resetPasswordRequest)
             throws Exception {
 
         try {
 
-            String codeHash = TokenHasher.sha256Hex(resetPasswordRequest.getResetCode());
-
             User user =
                     userRepository.findByEmailAndDeletedAtIsNull(resetPasswordRequest.getEmail());
+
+            if (user == null) {
+                throw new FuelException(
+                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
+            }
+
+            if (!user.isEmailVerified()) {
+                throw new FuelException(
+                        HttpStatus.BAD_REQUEST,
+                        "Please verify your email before resetting your password");
+            }
+
+            String codeHash = TokenHasher.sha256Hex(resetPasswordRequest.getResetCode());
 
             VerificationCode code =
                     verificationCodeRepository
@@ -208,6 +220,11 @@ public class AuthService {
                                                     HttpStatus.UNAUTHORIZED,
                                                     "Invalid or expired verification code"));
 
+            if (!code.getExpires_at().isAfter(Instant.now())) {
+                throw new FuelException(
+                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
+            }
+
             UserAuthProvider userAuthProvider =
                     userAuthProviderRepository.findByUser_IdAndProvider(
                             user.getId(), AuthProvider.EMAIL);
@@ -216,7 +233,7 @@ public class AuthService {
 
             code.setUsedAt(Instant.now());
 
-            refreshTokenRepository.deleteAllByUser_Id(user.getId());
+            refreshTokenRepository.deleteByUser_Id(user.getId());
 
             return ApiResponse.<Void>builder()
                     .status(HttpStatus.OK.value())

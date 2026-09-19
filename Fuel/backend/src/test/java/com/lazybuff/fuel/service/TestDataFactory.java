@@ -3,6 +3,7 @@ package com.lazybuff.fuel.service;
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.FoodItemDetail;
 import com.lazybuff.fuel.dto.LoginReqeust;
+import com.lazybuff.fuel.dto.ResetPasswordRequest;
 import com.lazybuff.fuel.dto.ServingSizeData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.entity.FoodItem;
@@ -90,6 +91,16 @@ final class TestDataFactory {
         return LoginReqeust.builder().email(EMAIL).password(RAW_PASSWORD).build();
     }
 
+    static final String NEW_PASSWORD = "NewPassword1!";
+
+    static ResetPasswordRequest resetPasswordRequest() {
+        return ResetPasswordRequest.builder()
+                .email(EMAIL)
+                .resetCode(VALID_CODE)
+                .newPassword(NEW_PASSWORD)
+                .build();
+    }
+
     /** The EMAIL auth provider row for a user who registered with email/password. */
     static UserAuthProvider emailAuthProvider(User user) {
         return UserAuthProvider.builder()
@@ -105,11 +116,17 @@ final class TestDataFactory {
      * expiresAt}.
      */
     static VerificationCode verificationCode(User user, String rawCode, Instant expiresAt) {
+        return verificationCode(user, rawCode, expiresAt, VerifyType.EMAIL_VERIFY);
+    }
+
+    /** An unused code of the given type whose hash matches {@code rawCode}. */
+    static VerificationCode verificationCode(
+            User user, String rawCode, Instant expiresAt, VerifyType type) {
         return VerificationCode.builder()
                 .id(UUID.randomUUID())
                 .user(user)
                 .codeHash(sha256(rawCode))
-                .type(VerifyType.EMAIL_VERIFY)
+                .type(type)
                 .expires_at(expiresAt)
                 .usedAt(null)
                 .build();
@@ -118,6 +135,12 @@ final class TestDataFactory {
     /** A currently valid (unexpired, unused) EMAIL_VERIFY code for the given user. */
     static VerificationCode validVerificationCode(User user) {
         return verificationCode(user, VALID_CODE, Instant.now().plus(Duration.ofHours(24)));
+    }
+
+    /** A currently valid (unexpired, unused) PASSWORD_RESET code for the given user. */
+    static VerificationCode validPasswordResetCode(User user) {
+        return verificationCode(
+                user, VALID_CODE, Instant.now().plus(Duration.ofMinutes(15)), VerifyType.PASSWORD_RESET);
     }
 
     static String sha256(String value) {
