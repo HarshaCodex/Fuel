@@ -536,8 +536,9 @@ class AuthServiceTest {
     class ResetPasswordSuccess {
 
         @Test
-        @DisplayName("returns a 200 response, re-hashes the password, consumes the code, and"
-                + " revokes existing refresh tokens")
+        @DisplayName(
+                "returns a 200 response, re-hashes the password, consumes the code, and"
+                        + " revokes existing refresh tokens")
         void resetsPasswordAndRevokesSessions() throws Exception {
             persistedUser.setEmailVerified(true);
             UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);

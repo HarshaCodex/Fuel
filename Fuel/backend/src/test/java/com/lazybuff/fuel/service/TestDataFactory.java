@@ -140,7 +140,10 @@ final class TestDataFactory {
     /** A currently valid (unexpired, unused) PASSWORD_RESET code for the given user. */
     static VerificationCode validPasswordResetCode(User user) {
         return verificationCode(
-                user, VALID_CODE, Instant.now().plus(Duration.ofMinutes(15)), VerifyType.PASSWORD_RESET);
+                user,
+                VALID_CODE,
+                Instant.now().plus(Duration.ofMinutes(15)),
+                VerifyType.PASSWORD_RESET);
     }
 
     static String sha256(String value) {
