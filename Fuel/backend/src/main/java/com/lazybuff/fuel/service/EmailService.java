@@ -21,6 +21,12 @@ public class EmailService {
     @Value("${app.mail.verification-subject}")
     private String verificationEmailSubject;
 
+    @Value("${app.frontend.reset-password.url}")
+    private String resetPasswordLink;
+
+    @Value("${app.mail.forgot-password-subject}")
+    private String forgotPasswordEmailSubject;
+
     @Async("emailTaskExecutor")
     public void sendEmail(String to, String verificationCode) {
 
@@ -34,6 +40,27 @@ public class EmailService {
             message.setText("Your verification code is: " + verificationCode);
 
             javaMailSender.send(message);
+        } catch (Exception e) {
+            log.error("Failed to send email to {}, ex", to, e);
+        }
+    }
+
+    @Async("emailTaskExecutor")
+    public void sendResetPasswordEmail(String to, String verificationCode) {
+
+        try {
+
+            String resetLink = resetPasswordLink + verificationCode;
+
+            SimpleMailMessage message = new SimpleMailMessage();
+
+            message.setFrom(fromEmailAddress);
+            message.setTo(to);
+            message.setSubject(forgotPasswordEmailSubject);
+            message.setText("Reset your password: " + resetLink);
+
+            javaMailSender.send(message);
+
         } catch (Exception e) {
             log.error("Failed to send email to {}, ex", to, e);
         }

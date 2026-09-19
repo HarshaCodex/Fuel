@@ -1,9 +1,11 @@
 package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.LogoutRequest;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
+import com.lazybuff.fuel.dto.ResetPasswordRequest;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
@@ -87,6 +89,30 @@ public class AuthController {
             throws Exception {
 
         ApiResponse<Void> response = authService.logout(logoutRequest);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PostMapping(
+            path = "/forgot-password",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest forgotPasswordRequest) {
+
+        ApiResponse<Void> response = verificationCodeService.forgotPassword(forgotPasswordRequest);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PostMapping(
+            path = "/reset-password",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @RequestBody @Valid ResetPasswordRequest resetPasswordRequest) throws Exception {
+
+        ApiResponse<Void> response = authService.resetPassword(resetPasswordRequest);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

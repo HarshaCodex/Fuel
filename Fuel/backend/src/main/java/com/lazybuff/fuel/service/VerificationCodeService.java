@@ -3,6 +3,7 @@ package com.lazybuff.fuel.service;
 import com.lazybuff.fuel.annotation.NoLogging;
 import com.lazybuff.fuel.config.RateLimitConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
 import com.lazybuff.fuel.dto.VerifyEmailResponse;
@@ -40,7 +41,8 @@ public class VerificationCodeService {
     private final RateLimitConfig rateLimitConfig;
 
     @NoLogging
-    public String generateVerificationCode(User user) throws NoSuchAlgorithmException {
+    public String generateVerificationCode(User user, VerifyType verifyType)
+            throws NoSuchAlgorithmException {
 
         SecureRandom secureRandom = new SecureRandom();
         StringBuilder code = new StringBuilder();
@@ -49,18 +51,27 @@ public class VerificationCodeService {
             code.append(secureRandom.nextInt(10));
         }
 
+        Duration expiry =
+                verifyType.equals(VerifyType.PASSWORD_RESET)
+                        ? Duration.ofMinutes(15)
+                        : Duration.ofHours(24);
+
         VerificationCode verificationCode =
                 VerificationCode.builder()
                         .user(user)
                         .codeHash(TokenHasher.sha256Hex(code.toString()))
-                        .type(VerifyType.EMAIL_VERIFY)
-                        .expires_at(Instant.now().plus(Duration.ofHours(24)))
+                        .type(verifyType)
+                        .expires_at(Instant.now().plus(expiry))
                         .usedAt(null)
                         .build();
 
         verificationCodeRepository.save(verificationCode);
 
-        emailService.sendEmail(user.getEmail(), code.toString());
+        if (verifyType.equals(VerifyType.PASSWORD_RESET)) {
+            emailService.sendResetPasswordEmail(user.getEmail(), code.toString());
+        } else {
+            emailService.sendEmail(user.getEmail(), code.toString());
+        }
 
         return code.toString();
     }
@@ -143,7 +154,8 @@ public class VerificationCodeService {
             verificationCodeRepository.invalidateAllVerificationCodes(
                     user, VerifyType.EMAIL_VERIFY);
 
-            generateVerificationCode(user);
+            generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
+
         } catch (Exception e) {
             log.error("Error while resending verification: ", e);
         }
@@ -153,6 +165,47 @@ public class VerificationCodeService {
                 .message(
                         "If this email is registered and unverified, a new verification email has been sent.")
                 .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Transactional
+    @NoLogging
+    public ApiResponse<Void> forgotPassword(ForgotPasswordRequest forgotPasswordRequest) {
+
+        String key = "rate_limit:forgot-password:" + forgotPasswordRequest.getEmail().toLowerCase();
+
+        if (!rateLimiterService.isAllowed(
+                key, rateLimitConfig.getMaxRequests(), rateLimitConfig.getWindow())) {
+            throw new FuelException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many forgot password requests. Please try again later!");
+        }
+
+        try {
+
+            User user =
+                    userRepository.findByEmailAndDeletedAtIsNull(forgotPasswordRequest.getEmail());
+
+            if (user == null) {
+                return ApiResponse.<Void>builder()
+                        .status(HttpStatus.OK.value())
+                        .message(
+                                "If an account with this email exists, a reset link has been sent.")
+                        .build();
+            }
+
+            verificationCodeRepository.invalidateAllVerificationCodes(
+                    user, VerifyType.PASSWORD_RESET);
+
+            generateVerificationCode(user, VerifyType.PASSWORD_RESET);
+
+        } catch (Exception exception) {
+            log.error("Error while resending forgot password link: ", exception);
+        }
+
+        return ApiResponse.<Void>builder()
+                .status(HttpStatus.OK.value())
+                .message("If an account with this email exists, a reset link has been sent.")
                 .build();
     }
 }

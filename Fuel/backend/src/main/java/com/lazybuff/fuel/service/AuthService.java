@@ -5,18 +5,25 @@ import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.LogoutRequest;
+import com.lazybuff.fuel.dto.ResetPasswordRequest;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.UserAuthProvider;
 import com.lazybuff.fuel.entity.UserGoals;
+import com.lazybuff.fuel.entity.VerificationCode;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.repository.RefreshTokenRepository;
 import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
+import com.lazybuff.fuel.repository.VerificationCodeRepository;
 import com.lazybuff.fuel.util.AuthProvider;
+import com.lazybuff.fuel.util.TokenHasher;
+import com.lazybuff.fuel.util.VerifyType;
 import java.security.NoSuchAlgorithmException;
 import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
@@ -34,6 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private final RefreshTokenRepository refreshTokenRepository;
+
     private final UserRepository userRepository;
 
     private final UserAuthProviderRepository userAuthProviderRepository;
@@ -49,6 +58,8 @@ public class AuthService {
     private final JwtConfig jwtConfig;
 
     private final VerificationCodeService verificationCodeService;
+
+    private final VerificationCodeRepository verificationCodeRepository;
 
     @Transactional
     @NoLogging
@@ -176,6 +187,65 @@ public class AuthService {
         }
     }
 
+    @Transactional
+    @NoLogging
+    public ApiResponse<Void> resetPassword(ResetPasswordRequest resetPasswordRequest)
+            throws Exception {
+
+        try {
+
+            User user =
+                    userRepository.findByEmailAndDeletedAtIsNull(resetPasswordRequest.getEmail());
+
+            if (user == null) {
+                throw new FuelException(
+                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
+            }
+
+            if (!user.isEmailVerified()) {
+                throw new FuelException(
+                        HttpStatus.BAD_REQUEST,
+                        "Please verify your email before resetting your password");
+            }
+
+            String codeHash = TokenHasher.sha256Hex(resetPasswordRequest.getResetCode());
+
+            VerificationCode code =
+                    verificationCodeRepository
+                            .findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
+                                    user.getId(), VerifyType.PASSWORD_RESET, codeHash)
+                            .orElseThrow(
+                                    () ->
+                                            new FuelException(
+                                                    HttpStatus.UNAUTHORIZED,
+                                                    "Invalid or expired verification code"));
+
+            if (!code.getExpires_at().isAfter(Instant.now())) {
+                throw new FuelException(
+                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
+            }
+
+            UserAuthProvider userAuthProvider =
+                    userAuthProviderRepository.findByUser_IdAndProvider(
+                            user.getId(), AuthProvider.EMAIL);
+
+            userAuthProvider.setPasswordHash(hashedPassword(resetPasswordRequest.getNewPassword()));
+
+            code.setUsedAt(Instant.now());
+
+            refreshTokenRepository.deleteByUser_Id(user.getId());
+
+            return ApiResponse.<Void>builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Password reset successful. Please log in with your new password.")
+                    .build();
+
+        } catch (Exception exception) {
+            log.error("Exception while resetting password: ", exception);
+            throw exception;
+        }
+    }
+
     private User saveUser(UserRegisterRequest userRegisterRequest) {
 
         User user =
@@ -227,6 +297,6 @@ public class AuthService {
     }
 
     private void sendVerificationCode(User user) throws NoSuchAlgorithmException {
-        verificationCodeService.generateVerificationCode(user);
+        verificationCodeService.generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
     }
 }
