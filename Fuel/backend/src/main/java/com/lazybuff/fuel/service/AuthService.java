@@ -283,12 +283,6 @@ public class AuthService {
         }
     }
 
-    /**
-     * Best-effort identity resolution from an optional, still-valid access token. The refresh
-     * endpoint is permitAll (the whole point is to work once the access token has expired), so this
-     * must never require authentication - it only lets a replay response scope its revokeAll to the
-     * right user when a valid access token happens to be present.
-     */
     private UUID resolveAuthenticatedUserId() {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
