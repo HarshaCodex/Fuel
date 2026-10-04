@@ -532,6 +532,103 @@ class AuthServiceTest {
     }
 
     @Nested
+    @DisplayName("refreshToken")
+    class RefreshToken {
+
+        private static final String RAW_REFRESH_TOKEN = "raw-refresh-token";
+
+        private void authenticateAs(UUID userId) {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(
+                            new UsernamePasswordAuthenticationToken(
+                                    userId.toString(), null, java.util.List.of()));
+        }
+
+        @Test
+        @DisplayName("rotates the token and returns fresh tokens for its owner")
+        void returnsOkResponseForValidToken() throws Exception {
+            com.lazybuff.fuel.dto.RefreshTokenRequest request =
+                    com.lazybuff.fuel.dto.RefreshTokenRequest.builder()
+                            .refreshToken(RAW_REFRESH_TOKEN)
+                            .build();
+            when(refreshTokenService.rotate(RAW_REFRESH_TOKEN, null)).thenReturn(persistedUser);
+            when(jwtService.generateToken(
+                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+                    .thenReturn(ACCESS_TOKEN);
+            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+                    .thenReturn(REFRESH_TOKEN);
+
+            ApiResponse<com.lazybuff.fuel.dto.RefreshTokenResponse> response =
+                    authService.refreshToken(request);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMessage()).isEqualTo("Token refreshed");
+            assertThat(response.getData().getAccessToken()).isEqualTo(ACCESS_TOKEN);
+            assertThat(response.getData().getRefreshToken()).isEqualTo(REFRESH_TOKEN);
+        }
+
+        @Test
+        @DisplayName("does not require an authenticated caller to rotate the token")
+        void worksWithoutAnAccessToken() throws Exception {
+            com.lazybuff.fuel.dto.RefreshTokenRequest request =
+                    com.lazybuff.fuel.dto.RefreshTokenRequest.builder()
+                            .refreshToken(RAW_REFRESH_TOKEN)
+                            .build();
+            when(refreshTokenService.rotate(RAW_REFRESH_TOKEN, null)).thenReturn(persistedUser);
+            when(jwtService.generateToken(
+                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+                    .thenReturn(ACCESS_TOKEN);
+            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+                    .thenReturn(REFRESH_TOKEN);
+
+            authService.refreshToken(request);
+
+            verify(refreshTokenService).rotate(RAW_REFRESH_TOKEN, null);
+        }
+
+        @Test
+        @DisplayName("passes the caller's id through when an access token is present")
+        void passesCallerIdWhenAuthenticated() throws Exception {
+            authenticateAs(TestDataFactory.USER_ID);
+            com.lazybuff.fuel.dto.RefreshTokenRequest request =
+                    com.lazybuff.fuel.dto.RefreshTokenRequest.builder()
+                            .refreshToken(RAW_REFRESH_TOKEN)
+                            .build();
+            when(refreshTokenService.rotate(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID))
+                    .thenReturn(persistedUser);
+            when(jwtService.generateToken(
+                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+                    .thenReturn(ACCESS_TOKEN);
+            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+                    .thenReturn(REFRESH_TOKEN);
+
+            authService.refreshToken(request);
+
+            verify(refreshTokenService).rotate(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID);
+        }
+
+        @Test
+        @DisplayName("propagates the 401 thrown by rotate for an unknown or expired token")
+        void propagatesRotateFailure() throws Exception {
+            com.lazybuff.fuel.dto.RefreshTokenRequest request =
+                    com.lazybuff.fuel.dto.RefreshTokenRequest.builder()
+                            .refreshToken(RAW_REFRESH_TOKEN)
+                            .build();
+            when(refreshTokenService.rotate(RAW_REFRESH_TOKEN, null))
+                    .thenThrow(
+                            new FuelException(
+                                    org.springframework.http.HttpStatus.UNAUTHORIZED,
+                                    "Refresh token invalid, expired or revoked"));
+
+            assertThatThrownBy(() -> authService.refreshToken(request))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Refresh token invalid, expired or revoked");
+
+            verify(refreshTokenService, never()).issueRefreshToken(any(), any(), any());
+        }
+    }
+
+    @Nested
     @DisplayName("resetPassword - success")
     class ResetPasswordSuccess {
 

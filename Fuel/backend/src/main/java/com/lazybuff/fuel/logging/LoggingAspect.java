@@ -12,7 +12,9 @@ import org.springframework.stereotype.Component;
 public class LoggingAspect {
 
     @Around(
-            "execution(public * com.lazybuff.fuel.service..*(..)) && !@annotation(com.lazybuff.fuel.annotation.NoLogging)")
+            "(execution(public * com.lazybuff.fuel.service..*(..)) || execution(public *"
+                    + " com.lazybuff.fuel.scheduler..*(..))) &&"
+                    + " !@annotation(com.lazybuff.fuel.annotation.NoLogging)")
     public Object logPublicMethods(ProceedingJoinPoint joinPoint) throws Throwable {
 
         long start = System.currentTimeMillis();
