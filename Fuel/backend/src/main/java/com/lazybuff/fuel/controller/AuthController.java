@@ -4,6 +4,8 @@ import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.LogoutRequest;
+import com.lazybuff.fuel.dto.RefreshTokenRequest;
+import com.lazybuff.fuel.dto.RefreshTokenResponse;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
 import com.lazybuff.fuel.dto.ResetPasswordRequest;
 import com.lazybuff.fuel.dto.UserData;
@@ -113,6 +115,18 @@ public class AuthController {
             @RequestBody @Valid ResetPasswordRequest resetPasswordRequest) throws Exception {
 
         ApiResponse<Void> response = authService.resetPassword(resetPasswordRequest);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PostMapping(
+            path = "/refresh",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<RefreshTokenResponse>> refreshToken(
+            @RequestBody @Valid RefreshTokenRequest refreshTokenRequest) throws Exception {
+
+        ApiResponse<RefreshTokenResponse> response = authService.refreshToken(refreshTokenRequest);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

@@ -5,6 +5,8 @@ import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.LogoutRequest;
+import com.lazybuff.fuel.dto.RefreshTokenRequest;
+import com.lazybuff.fuel.dto.RefreshTokenResponse;
 import com.lazybuff.fuel.dto.ResetPasswordRequest;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
@@ -30,6 +32,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -243,6 +246,57 @@ public class AuthService {
         } catch (Exception exception) {
             log.error("Exception while resetting password: ", exception);
             throw exception;
+        }
+    }
+
+    @Transactional
+    @NoLogging
+    public ApiResponse<RefreshTokenResponse> refreshToken(RefreshTokenRequest refreshTokenRequest)
+            throws Exception {
+
+        try {
+
+            UUID callerUserId = resolveAuthenticatedUserId();
+
+            User user =
+                    refreshTokenService.rotate(refreshTokenRequest.getRefreshToken(), callerUserId);
+
+            RefreshTokenResponse response =
+                    RefreshTokenResponse.builder()
+                            .accessToken(
+                                    jwtService.generateToken(
+                                            user.getId().toString(), user.getEmail()))
+                            .refreshToken(refreshTokenService.issueRefreshToken(user, null, null))
+                            .accessTokenExpiresIn(jwtConfig.getAccessTokenExpirySeconds())
+                            .refreshTokenExpiresIn(jwtConfig.getRefreshTokenExpirySeconds())
+                            .build();
+
+            return ApiResponse.<RefreshTokenResponse>builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Token refreshed")
+                    .data(response)
+                    .build();
+
+        } catch (Exception exception) {
+            log.error("Exception occurred while refreshing token: ", exception);
+            throw exception;
+        }
+    }
+
+    private UUID resolveAuthenticatedUserId() {
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(authentication.getPrincipal().toString());
+        } catch (IllegalArgumentException exception) {
+            return null;
         }
     }
 

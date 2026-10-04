@@ -2,16 +2,21 @@ package com.lazybuff.fuel.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.entity.RefreshToken;
 import com.lazybuff.fuel.entity.User;
+import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.repository.RefreshTokenRepository;
 import com.lazybuff.fuel.util.TokenHasher;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RefreshTokenService")
@@ -192,6 +198,73 @@ class RefreshTokenServiceTest {
 
             verify(refreshTokenRepository).deleteByUser_Id(TestDataFactory.USER_ID);
             org.mockito.Mockito.verifyNoMoreInteractions(refreshTokenRepository);
+        }
+    }
+
+    @Nested
+    @DisplayName("rotate")
+    class Rotate {
+
+        private static final String RAW_TOKEN = "raw-refresh-token";
+
+        @Test
+        @DisplayName("returns the owner and deletes the old row when the token is valid")
+        void rotatesValidToken() throws Exception {
+            RefreshToken existing = TestDataFactory.refreshToken(user);
+            existing.setTokenHash(TokenHasher.sha256Hex(RAW_TOKEN));
+            when(refreshTokenRepository.findByTokenHash(TokenHasher.sha256Hex(RAW_TOKEN)))
+                    .thenReturn(Optional.of(existing));
+
+            User owner = refreshTokenService.rotate(RAW_TOKEN, null);
+
+            assertThat(owner).isSameAs(user);
+            verify(refreshTokenRepository).deleteByTokenHash(TokenHasher.sha256Hex(RAW_TOKEN));
+            verify(refreshTokenRepository, never()).deleteByUser_Id(any());
+        }
+
+        @Test
+        @DisplayName("deletes the row and throws 401 when the token is expired")
+        void rejectsExpiredToken() throws Exception {
+            RefreshToken expired = TestDataFactory.refreshToken(user);
+            expired.setTokenHash(TokenHasher.sha256Hex(RAW_TOKEN));
+            expired.setExpiresAt(Instant.now().minusSeconds(60));
+            when(refreshTokenRepository.findByTokenHash(TokenHasher.sha256Hex(RAW_TOKEN)))
+                    .thenReturn(Optional.of(expired));
+
+            assertThatThrownBy(() -> refreshTokenService.rotate(RAW_TOKEN, null))
+                    .isInstanceOf(FuelException.class)
+                    .extracting("httpStatus")
+                    .isEqualTo(HttpStatus.UNAUTHORIZED);
+
+            verify(refreshTokenRepository).deleteByTokenHash(TokenHasher.sha256Hex(RAW_TOKEN));
+            verify(refreshTokenRepository, never()).deleteByUser_Id(any());
+        }
+
+        @Test
+        @DisplayName("revokes every token for the resolvable user on replay")
+        void revokesAllOnReplayWhenUserResolvable() {
+            UUID callerUserId = TestDataFactory.USER_ID;
+            when(refreshTokenRepository.findByTokenHash(TestDataFactory.sha256(RAW_TOKEN)))
+                    .thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> refreshTokenService.rotate(RAW_TOKEN, callerUserId))
+                    .isInstanceOf(FuelException.class)
+                    .extracting("httpStatus")
+                    .isEqualTo(HttpStatus.UNAUTHORIZED);
+
+            verify(refreshTokenRepository).deleteByUser_Id(callerUserId);
+        }
+
+        @Test
+        @DisplayName("does not call revokeAll when the caller's identity can't be resolved")
+        void skipsRevokeAllWhenUserNotResolvable() {
+            when(refreshTokenRepository.findByTokenHash(TestDataFactory.sha256(RAW_TOKEN)))
+                    .thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> refreshTokenService.rotate(RAW_TOKEN, null))
+                    .isInstanceOf(FuelException.class);
+
+            verify(refreshTokenRepository, never()).deleteByUser_Id(any());
         }
     }
 

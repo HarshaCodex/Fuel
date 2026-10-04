@@ -4,15 +4,18 @@ import com.lazybuff.fuel.annotation.NoLogging;
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.entity.RefreshToken;
 import com.lazybuff.fuel.entity.User;
+import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.repository.RefreshTokenRepository;
 import com.lazybuff.fuel.util.TokenHasher;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,5 +69,31 @@ public class RefreshTokenService {
     @Transactional
     public void revokeAll(UUID userId) {
         refreshTokenRepository.deleteByUser_Id(userId);
+    }
+
+    @Transactional
+    public User rotate(String rawToken, UUID callerUserId) throws NoSuchAlgorithmException {
+        String tokenHash = TokenHasher.sha256Hex(rawToken);
+
+        Optional<RefreshToken> refreshToken = refreshTokenRepository.findByTokenHash(tokenHash);
+
+        if (refreshToken.isEmpty()) {
+            if (callerUserId != null) {
+                revokeAll(callerUserId);
+            }
+            throw new FuelException(
+                    HttpStatus.UNAUTHORIZED, "Refresh token invalid, expired or revoked");
+        }
+
+        RefreshToken token = refreshToken.get();
+
+        if (token.getExpiresAt().isBefore(Instant.now())) {
+            refreshTokenRepository.deleteByTokenHash(tokenHash);
+            throw new FuelException(
+                    HttpStatus.UNAUTHORIZED, "Refresh token invalid, expired or revoked");
+        }
+
+        refreshTokenRepository.deleteByTokenHash(tokenHash);
+        return token.getUser();
     }
 }
