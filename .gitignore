@@ -33,5 +33,6 @@ replay_pid*
 /build/
 
 .claude/
+CLAUDE.md
 
 .env
