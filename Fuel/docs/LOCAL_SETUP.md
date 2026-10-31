@@ -76,7 +76,7 @@ starting the app.
 | `fuel-app` | `8080` | Spring Boot application |
 | `fuel-postgres` | `5432` | PostgreSQL 16 database |
 | `fuel-redis` | `6379` | Redis 7 cache |
-| `fuel-mailpit` | `1025` (SMTP) / `8025` (UI) | Local mail server |
+| `fuel-mailpit` | `1025` (SMTP) / `8025` (UI) | Local mail catcher (emails never leave your machine; see [EMAIL_SETUP.md](EMAIL_SETUP.md) for real delivery) |
 
 The app image is a multi-stage build (see `Dockerfile`): it compiles with the Temurin 25 JDK
 and runs on the Temurin 25 JRE as an unprivileged user.
@@ -172,7 +172,8 @@ On first startup, Flyway automatically runs any pending database migrations.
 The app starts on port `8080`.
 
 - API base: `http://localhost:8080`
-- Mailpit UI (inspect outgoing emails): `http://localhost:8025`
+- Mailpit UI (inspect outgoing emails): `http://localhost:8025`. Locally, *all* email is caught
+  here. To send to real inboxes, see [EMAIL_SETUP.md](EMAIL_SETUP.md).
 
 **Smoke-test the auth endpoint:**
 
