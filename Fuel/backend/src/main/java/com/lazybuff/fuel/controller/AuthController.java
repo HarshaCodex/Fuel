@@ -4,6 +4,7 @@ import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.LogoutRequest;
+import com.lazybuff.fuel.dto.OAuthGoogleRequest;
 import com.lazybuff.fuel.dto.RefreshTokenRequest;
 import com.lazybuff.fuel.dto.RefreshTokenResponse;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
@@ -13,6 +14,7 @@ import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
 import com.lazybuff.fuel.dto.VerifyEmailResponse;
 import com.lazybuff.fuel.service.AuthService;
+import com.lazybuff.fuel.service.GoogleOAuthService;
 import com.lazybuff.fuel.service.VerificationCodeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -38,6 +40,8 @@ public class AuthController {
     private final AuthService authService;
 
     private final VerificationCodeService verificationCodeService;
+
+    private final GoogleOAuthService googleOAuthService;
 
     @Operation(
             summary = "Register with email and password",
@@ -254,6 +258,43 @@ public class AuthController {
             @RequestBody @Valid RefreshTokenRequest refreshTokenRequest) throws Exception {
 
         ApiResponse<RefreshTokenResponse> response = authService.refreshToken(refreshTokenRequest);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @Operation(
+            summary = "Sign in or sign up with Google",
+            description =
+                    "Send the ID token from Google Sign-In on the device. Logs in the linked user, links"
+                            + " Google to an existing account with the same email, or creates a new"
+                            + " account (isNewUser: true). Linking to an unverified account removes its"
+                            + " password and sessions; see ADR 0001.")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Signed in; returns access and refresh tokens"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "ID token invalid, expired, or issued for another app"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Account already linked to a different Google account"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "503",
+                description = "Google's signing keys could not be fetched")
+    })
+    @PostMapping(
+            path = "/oauth/google",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<UserData>> oauthGoogle(
+            @Valid @RequestBody OAuthGoogleRequest oAuthGoogleRequest) throws Exception {
+
+        ApiResponse<UserData> response = googleOAuthService.authenticate(oAuthGoogleRequest);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
