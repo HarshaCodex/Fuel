@@ -22,8 +22,10 @@ import com.lazybuff.fuel.exception.RateLimitExceededException;
 import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.security.AppleIdTokenVerifier;
+import com.lazybuff.fuel.security.AppleTokenRevoker;
 import com.lazybuff.fuel.security.GoogleIdTokenVerifier;
 import com.lazybuff.fuel.security.OAuthIdentity;
+import com.lazybuff.fuel.security.VerifiedAppleToken;
 import com.lazybuff.fuel.util.AuthProvider;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -56,6 +58,7 @@ class UserServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private GoogleIdTokenVerifier googleIdTokenVerifier;
     @Mock private AppleIdTokenVerifier appleIdTokenVerifier;
+    @Mock private AppleTokenRevoker appleTokenRevoker;
 
     private UserService userService;
 
@@ -72,7 +75,8 @@ class UserServiceTest {
                         passwordEncoder,
                         googleIdTokenVerifier,
                         appleIdTokenVerifier,
-                        new AccountDeletionConfig());
+                        new AccountDeletionConfig(),
+                        appleTokenRevoker);
         user = TestDataFactory.persistedUser();
         user.setEmailVerified(true);
         user.setTimezone(TestDataFactory.TIMEZONE);
@@ -248,6 +252,7 @@ class UserServiceTest {
                     DeleteAccountRequest.builder().googleIdToken("google-token").build());
 
             assertDeleted(List.of(google));
+            verifyNoInteractions(appleTokenRevoker);
         }
 
         @Test
@@ -294,26 +299,102 @@ class UserServiceTest {
             assertNotDeleted();
         }
 
+        private static final String APPLE_CLIENT_ID = "com.lazybuff.fuel";
+
+        private DeleteAccountRequest withApple(String identityToken) {
+            return DeleteAccountRequest.builder()
+                    .appleIdentityToken(identityToken)
+                    .appleAuthorizationCode("apple-code")
+                    .build();
+        }
+
+        private void stubAppleToken(String identityToken, String subject) {
+            when(appleIdTokenVerifier.verifyWithClientId(identityToken))
+                    .thenReturn(
+                            new VerifiedAppleToken(
+                                    new OAuthIdentity(AuthProvider.APPLE, subject, null, null),
+                                    APPLE_CLIENT_ID));
+        }
+
         @Test
-        @DisplayName("deletes with a fresh Apple token for the linked Apple ID")
-        void shouldDeleteWithLinkedAppleToken() {
+        @DisplayName("deletes with a fresh Apple token and revokes the Apple tokens")
+        void shouldDeleteWithLinkedAppleTokenAndRevoke() {
             UserAuthProvider apple = oauthProvider(AuthProvider.APPLE, APPLE_SUB);
             stubActiveUserWith(apple);
-            when(appleIdTokenVerifier.verify("apple-token"))
-                    .thenReturn(new OAuthIdentity(AuthProvider.APPLE, APPLE_SUB, null, null));
+            stubAppleToken("apple-token", APPLE_SUB);
 
-            userService.deleteAccount(
-                    TestDataFactory.USER_ID,
-                    DeleteAccountRequest.builder().appleIdentityToken("apple-token").build());
+            userService.deleteAccount(TestDataFactory.USER_ID, withApple("apple-token"));
 
             assertDeleted(List.of(apple));
+            // Revoked with the client ID the identity token was issued to.
+            verify(appleTokenRevoker).revoke("apple-code", APPLE_CLIENT_ID);
+        }
+
+        @Test
+        @DisplayName(
+                "requires Apple confirmation for an account with Apple linked, even with a password")
+        void shouldRequireAppleWhenAppleLinked() {
+            stubActiveUserWith(
+                    TestDataFactory.emailAuthProvider(user),
+                    oauthProvider(AuthProvider.APPLE, APPLE_SUB));
+
+            assertThatThrownBy(
+                            () ->
+                                    userService.deleteAccount(
+                                            TestDataFactory.USER_ID,
+                                            withPassword(TestDataFactory.RAW_PASSWORD)))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage(
+                            "This account uses Sign in with Apple. Confirm with Apple to delete it.")
+                    .extracting(e -> ((FuelException) e).getHttpStatus())
+                    .isEqualTo(HttpStatus.BAD_REQUEST);
+            verifyNoInteractions(passwordEncoder, appleTokenRevoker);
+            assertNotDeleted();
+        }
+
+        @Test
+        @DisplayName("requires Apple confirmation even when Google is linked too")
+        void shouldRequireAppleOverGoogle() {
+            stubActiveUserWith(
+                    oauthProvider(AuthProvider.GOOGLE, GOOGLE_SUB),
+                    oauthProvider(AuthProvider.APPLE, APPLE_SUB));
+
+            assertThatThrownBy(
+                            () ->
+                                    userService.deleteAccount(
+                                            TestDataFactory.USER_ID,
+                                            DeleteAccountRequest.builder()
+                                                    .googleIdToken("google-token")
+                                                    .build()))
+                    .isInstanceOf(FuelException.class)
+                    .extracting(e -> ((FuelException) e).getHttpStatus())
+                    .isEqualTo(HttpStatus.BAD_REQUEST);
+            verifyNoInteractions(googleIdTokenVerifier, appleTokenRevoker);
+            assertNotDeleted();
+        }
+
+        @Test
+        @DisplayName("rejects an Apple token for a different Apple ID without revoking anything")
+        void shouldRejectAppleTokenForOtherAccount() {
+            stubActiveUserWith(oauthProvider(AuthProvider.APPLE, APPLE_SUB));
+            stubAppleToken("apple-token", "someone-else");
+
+            assertThatThrownBy(
+                            () ->
+                                    userService.deleteAccount(
+                                            TestDataFactory.USER_ID, withApple("apple-token")))
+                    .isInstanceOf(FuelException.class)
+                    .extracting(e -> ((FuelException) e).getHttpStatus())
+                    .isEqualTo(HttpStatus.UNAUTHORIZED);
+            verifyNoInteractions(appleTokenRevoker);
+            assertNotDeleted();
         }
 
         @Test
         @DisplayName("propagates an invalid provider token without deleting")
         void shouldPropagateInvalidToken() {
             stubActiveUserWith(oauthProvider(AuthProvider.APPLE, APPLE_SUB));
-            when(appleIdTokenVerifier.verify("bad-token"))
+            when(appleIdTokenVerifier.verifyWithClientId("bad-token"))
                     .thenThrow(
                             new FuelException(
                                     HttpStatus.UNAUTHORIZED, "Invalid Apple identity token"));
@@ -321,12 +402,10 @@ class UserServiceTest {
             assertThatThrownBy(
                             () ->
                                     userService.deleteAccount(
-                                            TestDataFactory.USER_ID,
-                                            DeleteAccountRequest.builder()
-                                                    .appleIdentityToken("bad-token")
-                                                    .build()))
+                                            TestDataFactory.USER_ID, withApple("bad-token")))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid Apple identity token");
+            verifyNoInteractions(appleTokenRevoker);
             assertNotDeleted();
         }
 

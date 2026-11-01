@@ -50,6 +50,15 @@ public class AppleIdTokenVerifier {
      *     if Apple's keys can't be fetched
      */
     public OAuthIdentity verify(String identityToken) {
+        return verifyWithClientId(identityToken).identity();
+    }
+
+    /**
+     * Like {@link #verify}, but also returns which of our client IDs the token was issued to.
+     * Apple's token endpoints must be called with that same client ID (e.g. to revoke the user's
+     * tokens).
+     */
+    public VerifiedAppleToken verifyWithClientId(String identityToken) {
 
         final Claims claims;
         try {
@@ -65,13 +74,16 @@ public class AppleIdTokenVerifier {
             throw invalidToken();
         }
 
-        validateClaims(claims);
+        String clientId = validateClaims(claims);
 
-        return new OAuthIdentity(
-                AuthProvider.APPLE, claims.getSubject(), verifiedEmail(claims), null);
+        return new VerifiedAppleToken(
+                new OAuthIdentity(
+                        AuthProvider.APPLE, claims.getSubject(), verifiedEmail(claims), null),
+                clientId);
     }
 
-    private void validateClaims(Claims claims) {
+    /** Validates the claims and returns the audience that matched one of our client IDs. */
+    private String validateClaims(Claims claims) {
 
         if (claims.getExpiration() == null) {
             throw rejected("missing exp");
@@ -82,14 +94,21 @@ public class AppleIdTokenVerifier {
         }
 
         Set<String> audience = claims.getAudience();
-        if (audience == null
-                || audience.stream().noneMatch(appleOAuthConfig.getClientIds()::contains)) {
+        String clientId =
+                audience == null
+                        ? null
+                        : audience.stream()
+                                .filter(appleOAuthConfig.getClientIds()::contains)
+                                .findFirst()
+                                .orElse(null);
+        if (clientId == null) {
             throw rejected("audience is not one of our client ids");
         }
 
         if (isBlank(claims.getSubject())) {
             throw rejected("missing sub");
         }
+        return clientId;
     }
 
     private static String verifiedEmail(Claims claims) {

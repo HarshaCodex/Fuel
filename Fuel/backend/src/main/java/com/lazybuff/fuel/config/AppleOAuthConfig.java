@@ -34,4 +34,34 @@ public class AppleOAuthConfig {
     private Duration keyRefreshMinInterval;
 
     private Duration clockSkew;
+
+    /*
+     * Credentials for calling Apple's REST API (token exchange and revocation, #81). Leave unset
+     * until the Apple Developer key exists; revocation is then skipped with a warning.
+     */
+
+    /** Apple Developer Team ID; the {@code iss} of the client secret. */
+    private String teamId;
+
+    /** ID of the Sign in with Apple key; the {@code kid} of the client secret. */
+    private String keyId;
+
+    /** Contents of the key's {@code .p8} file (PKCS#8 PEM). A secret: env var / secret manager. */
+    private String privateKey;
+
+    private String tokenUri;
+
+    private String revokeUri;
+
+    /** Lifetime of each generated client secret; it's only used for a couple of calls. */
+    private Duration clientSecretTtl;
+
+    /** Whether the API credentials are set, i.e. Apple's REST API can be called. */
+    public boolean hasApiCredentials() {
+        return isSet(teamId) && isSet(keyId) && isSet(privateKey);
+    }
+
+    private static boolean isSet(String value) {
+        return value != null && !value.isBlank();
+    }
 }

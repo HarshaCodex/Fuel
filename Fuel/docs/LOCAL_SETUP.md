@@ -45,6 +45,10 @@ JWT_SECRET=<base64-encoded-secret>
 GOOGLE_CLIENT_IDS=<ios-client-id>,<android-client-id>,<web-client-id>
 # Optional: only needed to test Sign in with Apple
 APPLE_CLIENT_IDS=<ios-bundle-id>,<services-id>
+# Optional: only needed to revoke Apple tokens on account deletion (see OAUTH_SETUP.md)
+APPLE_TEAM_ID=<team-id>
+APPLE_KEY_ID=<key-id>
+APPLE_PRIVATE_KEY=<contents of the .p8 file>
 ```
 
 Notes:

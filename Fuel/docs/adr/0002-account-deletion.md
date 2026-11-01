@@ -39,7 +39,11 @@ account would block the same person from signing up again.
 - `googleIdToken`, a fresh Google ID token whose `sub` matches the account's linked Google ID;
 - `appleIdentityToken`, likewise for Apple.
 
-A user with several sign-in methods may use any of them. Attempts are rate limited per user
+A user with several sign-in methods may use any of them, **except** that an account with Apple
+linked must confirm with Apple and include the authorization code (#81), because Apple requires
+its tokens to be revoked on deletion and only a fresh code makes that possible. Revocation is
+best-effort: if Apple fails or the credentials aren't configured, the account is still deleted
+and the failure is logged. Attempts are rate limited per user
 (5 per 15 minutes), because the endpoint checks the password and could otherwise be used to guess
 it with a stolen session.
 
@@ -64,5 +68,6 @@ it with a stolen session.
 - Access tokens already issued remain valid until they expire (at most 15 minutes), but return 404
   on every user lookup. Same residual window as logout and password reset (see ADR 0001).
 - Any new table holding user data must cascade from `users` or be cleaned up by the purge job.
-- Apple requires revoking the user's Apple tokens on deletion. That is #81, which needs an Apple
-  Developer key; it must land before App Store submission.
+- Apple tokens are revoked on deletion (#81) once `APPLE_TEAM_ID` / `APPLE_KEY_ID` /
+  `APPLE_PRIVATE_KEY` are configured; until then revocation is skipped with a warning. The key
+  must be in place before App Store submission.
