@@ -22,6 +22,7 @@ import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.repository.VerificationCodeRepository;
 import com.lazybuff.fuel.security.ClientInfo;
 import com.lazybuff.fuel.util.AuthProvider;
+import com.lazybuff.fuel.util.EmailNormalizer;
 import com.lazybuff.fuel.util.TokenHasher;
 import com.lazybuff.fuel.util.VerifyType;
 import java.security.NoSuchAlgorithmException;
@@ -72,7 +73,7 @@ public class AuthService {
 
         try {
 
-            if (isUserExists(userRegisterRequest.getEmail())) {
+            if (isUserExists(EmailNormalizer.normalize(userRegisterRequest.getEmail()))) {
                 throw new FuelException(HttpStatus.CONFLICT, "Email already exists");
             }
 
@@ -122,7 +123,9 @@ public class AuthService {
 
         try {
 
-            User user = userRepository.findByEmailAndDeletedAtIsNull(loginReqeust.getEmail());
+            User user =
+                    userRepository.findByEmailAndDeletedAtIsNull(
+                            EmailNormalizer.normalize(loginReqeust.getEmail()));
 
             if (user == null) {
                 throw new FuelException(HttpStatus.UNAUTHORIZED, "Invalid email or password!");
@@ -204,7 +207,8 @@ public class AuthService {
         try {
 
             User user =
-                    userRepository.findByEmailAndDeletedAtIsNull(resetPasswordRequest.getEmail());
+                    userRepository.findByEmailAndDeletedAtIsNull(
+                            EmailNormalizer.normalize(resetPasswordRequest.getEmail()));
 
             if (user == null) {
                 throw new FuelException(
@@ -312,7 +316,7 @@ public class AuthService {
 
         User user =
                 User.builder()
-                        .email(userRegisterRequest.getEmail())
+                        .email(EmailNormalizer.normalize(userRegisterRequest.getEmail()))
                         .name(userRegisterRequest.getName())
                         .timezone(resolveTimeZone(userRegisterRequest.getTimezone()))
                         .build();

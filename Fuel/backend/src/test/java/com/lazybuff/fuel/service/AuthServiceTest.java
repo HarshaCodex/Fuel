@@ -766,4 +766,48 @@ class AuthServiceTest {
             verifyNoInteractions(userAuthProviderRepository, refreshTokenRepository);
         }
     }
+
+    @Nested
+    @DisplayName("email normalisation")
+    class EmailNormalisation {
+
+        private static final String MIXED_CASE_EMAIL = "  John.Doe@Example.COM ";
+
+        @Test
+        @DisplayName("register checks and stores the lower-cased email")
+        void shouldStoreLowercaseEmailOnRegister() throws Exception {
+            request.setEmail(MIXED_CASE_EMAIL);
+            stubSuccessfulRegistration();
+
+            authService.register(request);
+
+            verify(userRepository).existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
+            verify(userRepository).save(userCaptor.capture());
+            assertThat(userCaptor.getValue().getEmail()).isEqualTo(TestDataFactory.EMAIL);
+        }
+
+        @Test
+        @DisplayName("login looks the account up by the lower-cased email")
+        void shouldLookUpLowercaseEmailOnLogin() {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            loginRequest.setEmail(MIXED_CASE_EMAIL);
+
+            assertThatThrownBy(() -> authService.login(loginRequest))
+                    .isInstanceOf(FuelException.class);
+
+            verify(userRepository).findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
+        }
+
+        @Test
+        @DisplayName("resetPassword looks the account up by the lower-cased email")
+        void shouldLookUpLowercaseEmailOnResetPassword() {
+            ResetPasswordRequest resetRequest = TestDataFactory.resetPasswordRequest();
+            resetRequest.setEmail(MIXED_CASE_EMAIL);
+
+            assertThatThrownBy(() -> authService.resetPassword(resetRequest))
+                    .isInstanceOf(FuelException.class);
+
+            verify(userRepository).findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
+        }
+    }
 }
