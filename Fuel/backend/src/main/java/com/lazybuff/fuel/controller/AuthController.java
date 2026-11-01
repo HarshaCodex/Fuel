@@ -57,7 +57,10 @@ public class AuthController {
                 description = "Validation failed"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "409",
-                description = "Email already registered")
+                description = "Email already registered"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many requests from this IP; see Retry-After")
     })
     @PostMapping(
             path = "/register",
@@ -138,7 +141,10 @@ public class AuthController {
                 description = "Validation failed"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
-                description = "Invalid email or password")
+                description = "Invalid email or password"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many requests from this IP; see Retry-After")
     })
     @PostMapping(
             path = "/login",
@@ -285,7 +291,10 @@ public class AuthController {
                 description = "Account already linked to a different Google account"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "503",
-                description = "Google's signing keys could not be fetched")
+                description = "Google's signing keys could not be fetched"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many requests from this IP; see Retry-After")
     })
     @PostMapping(
             path = "/oauth/google",

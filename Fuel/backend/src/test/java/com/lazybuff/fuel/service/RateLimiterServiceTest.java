@@ -1,13 +1,17 @@
 package com.lazybuff.fuel.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.lazybuff.fuel.exception.RateLimitExceededException;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("RateLimiterService")
@@ -30,6 +35,7 @@ class RateLimiterServiceTest {
     private static final String KEY = "rate_limit:resend-verification:user@example.com";
     private static final int LIMIT = 3;
     private static final Duration WINDOW = Duration.ofHours(1);
+    private static final String MESSAGE = "Too many requests. Please try again later.";
 
     @BeforeEach
     void setUp() {
@@ -97,5 +103,57 @@ class RateLimiterServiceTest {
 
         // A cache outage must not lock users out of a legitimate action.
         assertThat(allowed).isTrue();
+    }
+
+    @Test
+    @DisplayName("enforce lets a hit within the limit through")
+    void enforceAllowsHitWithinLimit() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.increment(KEY)).thenReturn(1L);
+
+        assertThatCode(() -> rateLimiterService.enforce(KEY, LIMIT, WINDOW, MESSAGE))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("enforce rejects a hit over the limit with the time left in the window")
+    void enforceRejectsHitOverLimitWithRemainingTtl() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.increment(KEY)).thenReturn(LIMIT + 1L);
+        when(redisTemplate.getExpire(KEY, TimeUnit.SECONDS)).thenReturn(42L);
+
+        assertThatThrownBy(() -> rateLimiterService.enforce(KEY, LIMIT, WINDOW, MESSAGE))
+                .isInstanceOfSatisfying(
+                        RateLimitExceededException.class,
+                        ex -> {
+                            assertThat(ex.getHttpStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+                            assertThat(ex.getMessage()).isEqualTo(MESSAGE);
+                            assertThat(ex.getRetryAfter()).isEqualTo(Duration.ofSeconds(42));
+                        });
+    }
+
+    @Test
+    @DisplayName("enforce restores a missing TTL so the caller isn't locked out forever")
+    void enforceRestoresMissingTtl() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.increment(KEY)).thenReturn(LIMIT + 1L);
+        when(redisTemplate.getExpire(KEY, TimeUnit.SECONDS)).thenReturn(-1L);
+
+        assertThatThrownBy(() -> rateLimiterService.enforce(KEY, LIMIT, WINDOW, MESSAGE))
+                .isInstanceOfSatisfying(
+                        RateLimitExceededException.class,
+                        ex -> assertThat(ex.getRetryAfter()).isEqualTo(WINDOW));
+        verify(redisTemplate).expire(KEY, WINDOW);
+    }
+
+    @Test
+    @DisplayName("enforce fails open when Redis is unavailable")
+    void enforceFailsOpenWhenRedisUnavailable() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.increment(KEY))
+                .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        assertThatCode(() -> rateLimiterService.enforce(KEY, LIMIT, WINDOW, MESSAGE))
+                .doesNotThrowAnyException();
     }
 }

@@ -11,6 +11,7 @@ import com.lazybuff.fuel.controller.FoodItemController;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
 import com.lazybuff.fuel.service.FoodService;
 import com.lazybuff.fuel.service.JwtService;
+import com.lazybuff.fuel.service.RateLimiterService;
 import io.jsonwebtoken.JwtException;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(FoodItemController.class)
-@Import({SecurityConfig.class, RestAuthEntryPoint.class})
+@Import({SecurityConfig.class, RestAuthEntryPoint.class, IpRateLimitConfig.class})
 @DisplayName("SecurityConfig")
 class SecurityConfigTest {
 
@@ -35,6 +36,10 @@ class SecurityConfigTest {
     @MockitoBean private JwtService jwtService;
 
     @MockitoBean private FoodService foodService;
+
+    // WebConfig (a WebMvcConfigurer, so part of the slice) needs it to register rate-limit
+    // interceptors.
+    @MockitoBean private RateLimiterService rateLimiterService;
 
     @Test
     void shouldReturnStandardErrorBodyWhenAuthorizationHeaderMissing() throws Exception {
