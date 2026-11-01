@@ -779,7 +779,7 @@ class AuthServiceTest {
             request.setEmail(MIXED_CASE_EMAIL);
             stubSuccessfulRegistration();
 
-            authService.register(request);
+            authService.register(request, TestDataFactory.CLIENT_INFO);
 
             verify(userRepository).existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
             verify(userRepository).save(userCaptor.capture());
@@ -792,7 +792,7 @@ class AuthServiceTest {
             LoginReqeust loginRequest = TestDataFactory.loginRequest();
             loginRequest.setEmail(MIXED_CASE_EMAIL);
 
-            assertThatThrownBy(() -> authService.login(loginRequest))
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(FuelException.class);
 
             verify(userRepository).findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
