@@ -59,7 +59,7 @@ signs the user in, so don't paste it into an online decoder:
 
 ```bash
 # Prints the token's claims (aud, iss, sub, email, exp)
-echo '<token>' | cut -d. -f2 | tr '_-' '/+' | base64 -d 2>/dev/null; echo
+python3 -c 'import sys,base64,json; p=sys.argv[1].split(".")[1]; print(json.dumps(json.loads(base64.urlsafe_b64decode(p+"="*(-len(p)%4))),indent=2))' '<token>'
 ```
 
 Other reasons in the log: `unexpected issuer` (token from the wrong provider or a test token),
