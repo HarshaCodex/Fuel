@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.lazybuff.fuel.config.GoogleOAuthConfig;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.util.AuthProvider;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Jwks;
@@ -39,11 +40,12 @@ class GoogleIdTokenVerifierTest {
     private static final String SUBJECT = "109876543210";
     private static final String EMAIL = "jane@gmail.com";
     private static final String NAME = "Jane Doe";
+    private static final String JWKS_URI = "https://www.googleapis.com/oauth2/v3/certs";
 
     private static final KeyPair KEY_PAIR = Jwts.SIG.RS256.keyPair().build();
     private static final KeyPair ROTATED_KEY_PAIR = Jwts.SIG.RS256.keyPair().build();
 
-    @Mock private GoogleJwksClient googleJwksClient;
+    @Mock private JwksClient jwksClient;
 
     private GoogleOAuthConfig config;
 
@@ -57,7 +59,8 @@ class GoogleIdTokenVerifierTest {
         config.setKeyCacheTtl(Duration.ofHours(6));
         config.setKeyRefreshMinInterval(Duration.ofMinutes(1));
         config.setClockSkew(Duration.ofSeconds(60));
-        verifier = new GoogleIdTokenVerifier(config, googleJwksClient);
+        config.setJwksUri(JWKS_URI);
+        verifier = new GoogleIdTokenVerifier(config, jwksClient);
     }
 
     private static String jwks(Map<String, PublicKey> keysById) {
@@ -86,7 +89,8 @@ class GoogleIdTokenVerifierTest {
     }
 
     private void stubKeys() {
-        when(googleJwksClient.fetchJwks()).thenReturn(jwks(Map.of(KID, KEY_PAIR.getPublic())));
+        when(jwksClient.fetchJwks(JWKS_URI, "Google"))
+                .thenReturn(jwks(Map.of(KID, KEY_PAIR.getPublic())));
     }
 
     private void assertRejected(String token) {
@@ -101,9 +105,10 @@ class GoogleIdTokenVerifierTest {
     void shouldReturnIdentityForValidToken() {
         stubKeys();
 
-        GoogleIdentity identity = verifier.verify(validToken().compact());
+        OAuthIdentity identity = verifier.verify(validToken().compact());
 
-        assertThat(identity).isEqualTo(new GoogleIdentity(SUBJECT, EMAIL, NAME));
+        assertThat(identity)
+                .isEqualTo(new OAuthIdentity(AuthProvider.GOOGLE, SUBJECT, EMAIL, NAME));
     }
 
     @Test
@@ -111,7 +116,7 @@ class GoogleIdTokenVerifierTest {
     void shouldAcceptStringEmailVerified() {
         stubKeys();
 
-        GoogleIdentity identity =
+        OAuthIdentity identity =
                 verifier.verify(validToken().claim("email_verified", "true").compact());
 
         assertThat(identity.email()).isEqualTo(EMAIL);
@@ -122,7 +127,7 @@ class GoogleIdTokenVerifierTest {
     void shouldLowercaseEmail() {
         stubKeys();
 
-        GoogleIdentity identity =
+        OAuthIdentity identity =
                 verifier.verify(validToken().claim("email", "Jane@Gmail.COM").compact());
 
         assertThat(identity.email()).isEqualTo(EMAIL);
@@ -209,14 +214,15 @@ class GoogleIdTokenVerifierTest {
         verifier.verify(validToken().compact());
         verifier.verify(validToken().compact());
 
-        verify(googleJwksClient, times(1)).fetchJwks();
+        verify(jwksClient, times(1)).fetchJwks(JWKS_URI, "Google");
     }
 
     @Test
     @DisplayName("re-fetches keys when Google rotates to an unknown key id")
     void shouldRefetchKeysOnUnknownKeyId() {
         config.setKeyRefreshMinInterval(Duration.ZERO);
-        when(googleJwksClient.fetchJwks())
+        verifier = new GoogleIdTokenVerifier(config, jwksClient);
+        when(jwksClient.fetchJwks(JWKS_URI, "Google"))
                 .thenReturn(jwks(Map.of(KID, KEY_PAIR.getPublic())))
                 .thenReturn(
                         jwks(
@@ -227,7 +233,7 @@ class GoogleIdTokenVerifierTest {
                                         ROTATED_KEY_PAIR.getPublic())));
         verifier.verify(validToken().compact());
 
-        GoogleIdentity identity =
+        OAuthIdentity identity =
                 verifier.verify(
                         validToken()
                                 .header()
@@ -237,7 +243,7 @@ class GoogleIdTokenVerifierTest {
                                 .compact());
 
         assertThat(identity.subject()).isEqualTo(SUBJECT);
-        verify(googleJwksClient, times(2)).fetchJwks();
+        verify(jwksClient, times(2)).fetchJwks(JWKS_URI, "Google");
     }
 
     @Test
@@ -248,13 +254,13 @@ class GoogleIdTokenVerifierTest {
 
         assertRejected(validToken().header().keyId("forged-kid").and().compact());
 
-        verify(googleJwksClient, times(1)).fetchJwks();
+        verify(jwksClient, times(1)).fetchJwks(JWKS_URI, "Google");
     }
 
     @Test
     @DisplayName("surfaces 503 when Google's keys cannot be fetched")
     void shouldPropagateUnavailableWhenKeysCannotBeFetched() {
-        when(googleJwksClient.fetchJwks())
+        when(jwksClient.fetchJwks(JWKS_URI, "Google"))
                 .thenThrow(new FuelException(HttpStatus.SERVICE_UNAVAILABLE, "Google unavailable"));
 
         assertThatThrownBy(() -> verifier.verify(validToken().compact()))
