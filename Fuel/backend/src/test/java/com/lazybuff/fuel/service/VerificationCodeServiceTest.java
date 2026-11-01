@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.lazybuff.fuel.config.RateLimitConfig;
+import com.lazybuff.fuel.config.VerificationCodeConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
@@ -71,7 +73,8 @@ class VerificationCodeServiceTest {
                         userRepository,
                         emailService,
                         rateLimiterService,
-                        rateLimitConfig);
+                        rateLimitConfig,
+                        new VerificationCodeConfig());
         user = TestDataFactory.persistedUser();
     }
 
@@ -130,6 +133,15 @@ class VerificationCodeServiceTest {
             InOrder inOrder = inOrder(verificationCodeRepository, emailService);
             inOrder.verify(verificationCodeRepository).save(any(VerificationCode.class));
             inOrder.verify(emailService).sendEmail(anyString(), anyString());
+        }
+
+        @Test
+        @DisplayName("gives a new code a fresh guess budget")
+        void resetsGuessCountForNewCode() throws Exception {
+            verificationCodeService.generateVerificationCode(user, VerifyType.PASSWORD_RESET);
+
+            verify(rateLimiterService)
+                    .reset("verification_attempts:PASSWORD_RESET:" + TestDataFactory.USER_ID);
         }
 
         @Test
@@ -202,6 +214,142 @@ class VerificationCodeServiceTest {
             verificationCodeService.generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
 
             verify(emailService, never()).sendResetPasswordEmail(anyString(), anyString());
+        }
+    }
+
+    @Nested
+    @DisplayName("findValidCode")
+    class FindValidCode {
+
+        private final String attemptsKey =
+                "verification_attempts:PASSWORD_RESET:" + TestDataFactory.USER_ID;
+
+        private void stubResetCodeLookup(Optional<VerificationCode> result) {
+            when(verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
+                            TestDataFactory.USER_ID,
+                            VerifyType.PASSWORD_RESET,
+                            TestDataFactory.sha256(TestDataFactory.VALID_CODE)))
+                    .thenReturn(result);
+        }
+
+        @Test
+        @DisplayName("counts the guess per user with the default limit and the code's lifetime")
+        void countsGuessAgainstCodeLifetime() throws Exception {
+            stubResetCodeLookup(Optional.of(TestDataFactory.validPasswordResetCode(user)));
+
+            verificationCodeService.findValidCode(
+                    user, VerifyType.PASSWORD_RESET, TestDataFactory.VALID_CODE);
+
+            verify(rateLimiterService)
+                    .enforce(
+                            eq(attemptsKey),
+                            eq(5),
+                            eq(Duration.ofMinutes(15)),
+                            eq("Too many incorrect codes. Please request a new code."));
+        }
+
+        @Test
+        @DisplayName("keys the count by user id so no email is stored in Redis")
+        void keysCountByUserId() throws Exception {
+            stubResetCodeLookup(Optional.of(TestDataFactory.validPasswordResetCode(user)));
+
+            verificationCodeService.findValidCode(
+                    user, VerifyType.PASSWORD_RESET, TestDataFactory.VALID_CODE);
+
+            ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+            verify(rateLimiterService).enforce(keyCaptor.capture(), anyInt(), any(), anyString());
+            assertThat(keyCaptor.getValue()).doesNotContain(TestDataFactory.EMAIL);
+        }
+
+        @Test
+        @DisplayName("returns the code and clears the count after a correct guess")
+        void clearsCountOnCorrectGuess() throws Exception {
+            VerificationCode code = TestDataFactory.validPasswordResetCode(user);
+            stubResetCodeLookup(Optional.of(code));
+
+            VerificationCode found =
+                    verificationCodeService.findValidCode(
+                            user, VerifyType.PASSWORD_RESET, TestDataFactory.VALID_CODE);
+
+            assertThat(found).isSameAs(code);
+            verify(rateLimiterService).reset(attemptsKey);
+        }
+
+        @Test
+        @DisplayName("throws 401 and keeps the count after a wrong guess")
+        void keepsCountOnWrongGuess() {
+            stubResetCodeLookup(Optional.empty());
+
+            assertThatThrownBy(
+                            () ->
+                                    verificationCodeService.findValidCode(
+                                            user,
+                                            VerifyType.PASSWORD_RESET,
+                                            TestDataFactory.VALID_CODE))
+                    .isInstanceOf(FuelException.class)
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(HttpStatus.UNAUTHORIZED);
+
+            verify(rateLimiterService, never()).reset(anyString());
+        }
+
+        @Test
+        @DisplayName("throws 401 for an expired code even when it matches")
+        void rejectsExpiredCode() {
+            stubResetCodeLookup(
+                    Optional.of(
+                            TestDataFactory.verificationCode(
+                                    user,
+                                    TestDataFactory.VALID_CODE,
+                                    Instant.now().minusSeconds(1),
+                                    VerifyType.PASSWORD_RESET)));
+
+            assertThatThrownBy(
+                            () ->
+                                    verificationCodeService.findValidCode(
+                                            user,
+                                            VerifyType.PASSWORD_RESET,
+                                            TestDataFactory.VALID_CODE))
+                    .isInstanceOf(FuelException.class)
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(HttpStatus.UNAUTHORIZED);
+
+            verify(rateLimiterService, never()).reset(anyString());
+        }
+
+        @Test
+        @DisplayName("rejects with 429 once guesses are used up, without checking the code")
+        void rejectsWhenGuessesExhausted() {
+            doThrow(new RateLimitExceededException("Too many", Duration.ofMinutes(10)))
+                    .when(rateLimiterService)
+                    .enforce(eq(attemptsKey), anyInt(), any(), anyString());
+
+            // Even the correct code is refused, otherwise the limit would only slow guessing down.
+            assertThatThrownBy(
+                            () ->
+                                    verificationCodeService.findValidCode(
+                                            user,
+                                            VerifyType.PASSWORD_RESET,
+                                            TestDataFactory.VALID_CODE))
+                    .isInstanceOf(RateLimitExceededException.class);
+
+            verifyNoInteractions(verificationCodeRepository);
+        }
+
+        @Test
+        @DisplayName("gives email-verification codes their 24h lifetime as the count window")
+        void usesEmailVerifyLifetime() throws Exception {
+            stubCodeLookup(Optional.of(TestDataFactory.validVerificationCode(user)));
+
+            verificationCodeService.findValidCode(
+                    user, VerifyType.EMAIL_VERIFY, TestDataFactory.VALID_CODE);
+
+            verify(rateLimiterService)
+                    .enforce(
+                            eq("verification_attempts:EMAIL_VERIFY:" + TestDataFactory.USER_ID),
+                            eq(5),
+                            eq(Duration.ofHours(24)),
+                            anyString());
         }
     }
 
@@ -291,6 +439,24 @@ class VerificationCodeServiceTest {
 
             assertThat(user.isEmailVerified()).isFalse();
             assertThat(expired.getUsedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("throws 429 and does NOT verify the user once guesses are used up")
+        void rejectsWhenGuessesExhausted() {
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(user);
+            doThrow(new RateLimitExceededException("Too many", Duration.ofHours(1)))
+                    .when(rateLimiterService)
+                    .enforce(anyString(), anyInt(), any(), anyString());
+
+            assertThatThrownBy(
+                            () ->
+                                    verificationCodeService.verifyEmail(
+                                            verifyRequest(TestDataFactory.VALID_CODE)))
+                    .isInstanceOf(RateLimitExceededException.class);
+
+            assertThat(user.isEmailVerified()).isFalse();
         }
 
         @Test

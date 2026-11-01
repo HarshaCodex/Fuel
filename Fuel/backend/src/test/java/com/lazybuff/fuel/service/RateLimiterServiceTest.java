@@ -156,4 +156,21 @@ class RateLimiterServiceTest {
         assertThatCode(() -> rateLimiterService.enforce(KEY, LIMIT, WINDOW, MESSAGE))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    @DisplayName("reset deletes the counter")
+    void resetDeletesCounter() {
+        rateLimiterService.reset(KEY);
+
+        verify(redisTemplate).delete(KEY);
+    }
+
+    @Test
+    @DisplayName("reset does not throw when Redis is unavailable")
+    void resetToleratesRedisFailure() {
+        when(redisTemplate.delete(KEY))
+                .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        assertThatCode(() -> rateLimiterService.reset(KEY)).doesNotThrowAnyException();
+    }
 }

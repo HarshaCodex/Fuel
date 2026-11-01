@@ -51,6 +51,16 @@ public class RateLimiterService {
         }
     }
 
+    /** Clears the count for {@code key}, starting a fresh window on the next hit. */
+    @NoLogging
+    public void reset(String key) {
+        try {
+            redisTemplate.delete(key);
+        } catch (Exception exception) {
+            log.error("Exception occurred while resetting the rate limit: ", exception);
+        }
+    }
+
     private Duration retryAfter(String key, Duration window) {
         try {
             Long ttlSeconds = redisTemplate.getExpire(key, TimeUnit.SECONDS);

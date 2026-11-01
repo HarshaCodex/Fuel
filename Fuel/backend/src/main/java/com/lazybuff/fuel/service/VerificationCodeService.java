@@ -2,6 +2,7 @@ package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.annotation.NoLogging;
 import com.lazybuff.fuel.config.RateLimitConfig;
+import com.lazybuff.fuel.config.VerificationCodeConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
@@ -41,6 +42,13 @@ public class VerificationCodeService {
 
     private final RateLimitConfig rateLimitConfig;
 
+    private final VerificationCodeConfig verificationCodeConfig;
+
+    private static final String INVALID_CODE_MESSAGE = "Invalid or expired verification code";
+
+    private static final String TOO_MANY_ATTEMPTS_MESSAGE =
+            "Too many incorrect codes. Please request a new code.";
+
     @NoLogging
     public String generateVerificationCode(User user, VerifyType verifyType)
             throws NoSuchAlgorithmException {
@@ -52,21 +60,18 @@ public class VerificationCodeService {
             code.append(secureRandom.nextInt(10));
         }
 
-        Duration expiry =
-                verifyType.equals(VerifyType.PASSWORD_RESET)
-                        ? Duration.ofMinutes(15)
-                        : Duration.ofHours(24);
-
         VerificationCode verificationCode =
                 VerificationCode.builder()
                         .user(user)
                         .codeHash(TokenHasher.sha256Hex(code.toString()))
                         .type(verifyType)
-                        .expires_at(Instant.now().plus(expiry))
+                        .expires_at(Instant.now().plus(codeExpiry(verifyType)))
                         .usedAt(null)
                         .build();
 
         verificationCodeRepository.save(verificationCode);
+        // A new code gets a fresh guess budget; callers invalidate the previous codes first.
+        rateLimiterService.reset(attemptsKey(user, verifyType));
 
         if (verifyType.equals(VerifyType.PASSWORD_RESET)) {
             emailService.sendResetPasswordEmail(user.getEmail(), code.toString());
@@ -77,6 +82,54 @@ public class VerificationCodeService {
         return code.toString();
     }
 
+    /**
+     * Returns the user's unused, unexpired code of {@code verifyType} matching {@code rawCode}.
+     *
+     * <p>Every guess counts against the code, so it stops working after {@code
+     * app.verification-code.max-attempts} tries until a new one is requested; a correct guess
+     * clears the count. The caller marks the returned code as used.
+     *
+     * @throws FuelException 401 when the code is wrong, used or expired
+     * @throws com.lazybuff.fuel.exception.RateLimitExceededException when guesses are exhausted
+     */
+    @NoLogging
+    public VerificationCode findValidCode(User user, VerifyType verifyType, String rawCode)
+            throws NoSuchAlgorithmException {
+
+        String attemptsKey = attemptsKey(user, verifyType);
+
+        // Counted before the lookup so a correct guess beyond the limit is rejected too.
+        rateLimiterService.enforce(
+                attemptsKey,
+                verificationCodeConfig.getMaxAttempts(),
+                codeExpiry(verifyType),
+                TOO_MANY_ATTEMPTS_MESSAGE);
+
+        VerificationCode code =
+                verificationCodeRepository
+                        .findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
+                                user.getId(), verifyType, TokenHasher.sha256Hex(rawCode))
+                        .filter(c -> c.getExpires_at().isAfter(Instant.now()))
+                        .orElseThrow(
+                                () ->
+                                        new FuelException(
+                                                HttpStatus.UNAUTHORIZED, INVALID_CODE_MESSAGE));
+
+        rateLimiterService.reset(attemptsKey);
+        return code;
+    }
+
+    private static Duration codeExpiry(VerifyType verifyType) {
+        return verifyType.equals(VerifyType.PASSWORD_RESET)
+                ? Duration.ofMinutes(15)
+                : Duration.ofHours(24);
+    }
+
+    // Keyed by user id, not email, so no personal data ends up in Redis.
+    private static String attemptsKey(User user, VerifyType verifyType) {
+        return "verification_attempts:" + verifyType + ":" + user.getId();
+    }
+
     @Transactional
     @NoLogging
     public ApiResponse<VerifyEmailResponse> verifyEmail(VerifyEmailRequest verifyEmailRequest)
@@ -84,15 +137,12 @@ public class VerificationCodeService {
 
         try {
 
-            String codeHash = TokenHasher.sha256Hex(verifyEmailRequest.getVerificationCode());
-
             User user =
                     userRepository.findByEmailAndDeletedAtIsNull(
                             EmailNormalizer.normalize(verifyEmailRequest.getEmail()));
 
             if (user == null) {
-                throw new FuelException(
-                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
+                throw new FuelException(HttpStatus.UNAUTHORIZED, INVALID_CODE_MESSAGE);
             }
 
             if (user.isEmailVerified()) {
@@ -100,19 +150,10 @@ public class VerificationCodeService {
             }
 
             VerificationCode code =
-                    verificationCodeRepository
-                            .findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
-                                    user.getId(), VerifyType.EMAIL_VERIFY, codeHash)
-                            .orElseThrow(
-                                    () ->
-                                            new FuelException(
-                                                    HttpStatus.UNAUTHORIZED,
-                                                    "Invalid or expired verification code"));
-
-            if (!code.getExpires_at().isAfter(Instant.now())) {
-                throw new FuelException(
-                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
-            }
+                    findValidCode(
+                            user,
+                            VerifyType.EMAIL_VERIFY,
+                            verifyEmailRequest.getVerificationCode());
 
             code.setUsedAt(Instant.now());
             user.setEmailVerified(true);
