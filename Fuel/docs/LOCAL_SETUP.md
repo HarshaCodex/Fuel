@@ -64,6 +64,8 @@ Notes:
 - `APPLE_CLIENT_IDS` lists the audiences `POST /api/auth/oauth/apple` accepts: the iOS app's bundle
   ID (native sign-in) and the Services ID (Android/web sign-in), both from Apple Developer →
   Certificates, Identifiers & Profiles. If it is unset, every Apple sign-in returns 401.
+  See [OAUTH_SETUP.md](OAUTH_SETUP.md) for which value each platform needs (including Expo Go) and
+  how to debug a 401.
 
 ---
 
