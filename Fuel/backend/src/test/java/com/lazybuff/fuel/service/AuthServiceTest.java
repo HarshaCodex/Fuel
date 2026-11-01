@@ -679,11 +679,9 @@ class AuthServiceTest {
 
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(persistedUser);
-            when(verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
-                            TestDataFactory.USER_ID,
-                            VerifyType.PASSWORD_RESET,
-                            TestDataFactory.sha256(TestDataFactory.VALID_CODE)))
-                    .thenReturn(Optional.of(code));
+            when(verificationCodeService.findValidCode(
+                            persistedUser, VerifyType.PASSWORD_RESET, TestDataFactory.VALID_CODE))
+                    .thenReturn(code);
             when(userAuthProviderRepository.findByUser_IdAndProvider(
                             TestDataFactory.USER_ID, AuthProvider.EMAIL))
                     .thenReturn(null);
