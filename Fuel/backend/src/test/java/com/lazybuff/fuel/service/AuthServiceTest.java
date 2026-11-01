@@ -675,6 +675,41 @@ class AuthServiceTest {
             assertThat(authProvider.getPasswordHash()).isEqualTo("hashed-new-password");
             assertThat(code.getUsedAt()).isNotNull();
             verify(refreshTokenRepository).deleteByUser_Id(TestDataFactory.USER_ID);
+            verify(userAuthProviderRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("adds an email/password login for a Google-only account instead of failing")
+        void addsPasswordLoginForGoogleOnlyAccount() throws Exception {
+            persistedUser.setEmailVerified(true);
+            VerificationCode code = TestDataFactory.validPasswordResetCode(persistedUser);
+            ResetPasswordRequest request = TestDataFactory.resetPasswordRequest();
+
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
+                            TestDataFactory.USER_ID,
+                            VerifyType.PASSWORD_RESET,
+                            TestDataFactory.sha256(TestDataFactory.VALID_CODE)))
+                    .thenReturn(Optional.of(code));
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(null);
+            when(passwordEncoder.encode(TestDataFactory.NEW_PASSWORD))
+                    .thenReturn("hashed-new-password");
+
+            ApiResponse<Void> response = authService.resetPassword(request);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(userAuthProviderRepository).save(authProviderCaptor.capture());
+            UserAuthProvider added = authProviderCaptor.getValue();
+            assertThat(added.getUser()).isSameAs(persistedUser);
+            assertThat(added.getProvider()).isEqualTo(AuthProvider.EMAIL);
+            assertThat(added.getPasswordHash()).isEqualTo("hashed-new-password");
+            // The Google link is left alone; only the email provider is added.
+            verify(userAuthProviderRepository, never()).delete(any());
+            assertThat(code.getUsedAt()).isNotNull();
+            verify(refreshTokenRepository).deleteByUser_Id(TestDataFactory.USER_ID);
         }
     }
 
