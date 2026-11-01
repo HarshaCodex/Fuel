@@ -141,12 +141,11 @@ public class VerificationCodeService {
                 "rate_limit:resend-verification:"
                         + EmailNormalizer.normalize(resendVerificationRequest.getEmail());
 
-        if (!rateLimiterService.isAllowed(
-                key, rateLimitConfig.getMaxRequests(), rateLimitConfig.getWindow())) {
-            throw new FuelException(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    "Too many verification requests. Please try again later!");
-        }
+        rateLimiterService.enforce(
+                key,
+                rateLimitConfig.getMaxRequests(),
+                rateLimitConfig.getWindow(),
+                "Too many verification requests. Please try again later!");
 
         try {
 
@@ -179,12 +178,11 @@ public class VerificationCodeService {
                 "rate_limit:forgot-password:"
                         + EmailNormalizer.normalize(forgotPasswordRequest.getEmail());
 
-        if (!rateLimiterService.isAllowed(
-                key, rateLimitConfig.getMaxRequests(), rateLimitConfig.getWindow())) {
-            throw new FuelException(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    "Too many forgot password requests. Please try again later!");
-        }
+        rateLimiterService.enforce(
+                key,
+                rateLimitConfig.getMaxRequests(),
+                rateLimitConfig.getWindow(),
+                "Too many forgot password requests. Please try again later!");
 
         try {
 

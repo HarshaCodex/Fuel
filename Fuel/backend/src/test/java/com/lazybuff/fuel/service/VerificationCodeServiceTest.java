@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -21,6 +22,7 @@ import com.lazybuff.fuel.dto.VerifyEmailResponse;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.VerificationCode;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.exception.RateLimitExceededException;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.repository.VerificationCodeRepository;
 import com.lazybuff.fuel.util.VerifyType;
@@ -340,15 +342,9 @@ class VerificationCodeServiceTest {
             return ResendVerificationRequest.builder().email(TestDataFactory.EMAIL).build();
         }
 
-        /** The rate limiter permits the call; the vast majority of resends are within budget. */
-        private void stubWithinRateLimit() {
-            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(true);
-        }
-
         @Test
         @DisplayName("invalidates existing codes then issues and emails a fresh one")
         void invalidatesThenReissues() {
-            stubWithinRateLimit();
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(user);
 
@@ -369,7 +365,6 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("still returns the generic 200 message for an unregistered email")
         void hidesUnregisteredEmail() {
-            stubWithinRateLimit();
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(null);
 
@@ -386,10 +381,16 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("throws 429 and does no work once the hourly limit is exceeded")
         void throttlesWhenRateLimited() {
-            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(false);
+            doAnswer(
+                            invocation -> {
+                                throw new RateLimitExceededException(
+                                        invocation.getArgument(3), Duration.ofMinutes(30));
+                            })
+                    .when(rateLimiterService)
+                    .enforce(anyString(), anyInt(), any(), anyString());
 
             assertThatThrownBy(() -> verificationCodeService.resendVerification(resendRequest()))
-                    .isInstanceOf(FuelException.class)
+                    .isInstanceOf(RateLimitExceededException.class)
                     .hasMessage("Too many verification requests. Please try again later!")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
                     .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
@@ -403,7 +404,6 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("checks the limiter with a lower-cased key and the configured limit/window")
         void usesNormalisedKeyAndConfiguredLimits() {
-            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(true);
             when(rateLimitConfig.getMaxRequests()).thenReturn(3);
             when(rateLimitConfig.getWindow()).thenReturn(Duration.ofHours(1));
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
@@ -416,10 +416,11 @@ class VerificationCodeServiceTest {
                             .build());
 
             verify(rateLimiterService)
-                    .isAllowed(
+                    .enforce(
                             eq("rate_limit:resend-verification:" + TestDataFactory.EMAIL),
                             eq(3),
-                            eq(Duration.ofHours(1)));
+                            eq(Duration.ofHours(1)),
+                            eq("Too many verification requests. Please try again later!"));
         }
     }
 
@@ -434,16 +435,10 @@ class VerificationCodeServiceTest {
             return ForgotPasswordRequest.builder().email(TestDataFactory.EMAIL).build();
         }
 
-        /** The rate limiter permits the call; the vast majority of requests are within budget. */
-        private void stubWithinRateLimit() {
-            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(true);
-        }
-
         @Test
         @DisplayName(
                 "invalidates existing PASSWORD_RESET codes then issues and emails a reset link")
         void invalidatesThenReissuesResetLink() {
-            stubWithinRateLimit();
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(user);
 
@@ -467,7 +462,6 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("still returns the generic 200 message for an unregistered email")
         void hidesUnregisteredEmail() {
-            stubWithinRateLimit();
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(null);
 
@@ -484,11 +478,17 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("throws 429 and does no work once the hourly limit is exceeded")
         void throttlesWhenRateLimited() {
-            when(rateLimiterService.isAllowed(anyString(), anyInt(), any())).thenReturn(false);
+            doAnswer(
+                            invocation -> {
+                                throw new RateLimitExceededException(
+                                        invocation.getArgument(3), Duration.ofMinutes(30));
+                            })
+                    .when(rateLimiterService)
+                    .enforce(anyString(), anyInt(), any(), anyString());
 
             assertThatThrownBy(
                             () -> verificationCodeService.forgotPassword(forgotPasswordRequest()))
-                    .isInstanceOf(FuelException.class)
+                    .isInstanceOf(RateLimitExceededException.class)
                     .hasMessage("Too many forgot password requests. Please try again later!")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
                     .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
@@ -500,7 +500,6 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("checks the limiter with a lower-cased key and the configured limit/window")
         void usesNormalisedKeyAndConfiguredLimits() {
-            stubWithinRateLimit();
             when(rateLimitConfig.getMaxRequests()).thenReturn(3);
             when(rateLimitConfig.getWindow()).thenReturn(Duration.ofHours(1));
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
@@ -513,10 +512,11 @@ class VerificationCodeServiceTest {
                             .build());
 
             verify(rateLimiterService)
-                    .isAllowed(
+                    .enforce(
                             eq("rate_limit:forgot-password:" + TestDataFactory.EMAIL),
                             eq(3),
-                            eq(Duration.ofHours(1)));
+                            eq(Duration.ofHours(1)),
+                            eq("Too many forgot password requests. Please try again later!"));
             // ...and the account lookup uses the same normalised address.
             verify(userRepository).findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
         }
@@ -524,7 +524,6 @@ class VerificationCodeServiceTest {
         @Test
         @DisplayName("swallows an internal failure and still returns the generic message")
         void swallowsInternalFailure() {
-            stubWithinRateLimit();
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(user);
             when(verificationCodeRepository.save(any(VerificationCode.class)))

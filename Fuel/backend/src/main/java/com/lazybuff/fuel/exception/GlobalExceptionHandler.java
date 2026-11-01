@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -95,6 +96,21 @@ public class GlobalExceptionHandler {
                         .build();
 
         return ResponseEntity.status(errorResponse.getStatus()).body(errorResponse);
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimitExceeded(RateLimitExceededException ex) {
+        long retryAfterSeconds = ex.getRetryAfter().toSeconds();
+        ErrorResponse errorResponse =
+                ErrorResponse.builder()
+                        .status(HttpStatus.TOO_MANY_REQUESTS.value())
+                        .message(ex.getMessage())
+                        .retryAfter(retryAfterSeconds)
+                        .timestamp(LocalDateTime.now())
+                        .build();
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfterSeconds))
+                .body(errorResponse);
     }
 
     @ExceptionHandler(FuelException.class)
