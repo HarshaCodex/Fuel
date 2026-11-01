@@ -12,6 +12,7 @@ import com.lazybuff.fuel.entity.RefreshToken;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.UserAuthProvider;
 import com.lazybuff.fuel.entity.VerificationCode;
+import com.lazybuff.fuel.security.ClientInfo;
 import com.lazybuff.fuel.util.AuthProvider;
 import com.lazybuff.fuel.util.FoodSource;
 import com.lazybuff.fuel.util.ServingUnit;
@@ -51,6 +52,7 @@ final class TestDataFactory {
     static final String HASHED_PASSWORD = "$2a$10$hashedpasswordvalueforunittesting123456789";
     static final String DEVICE_INFO = "iPhone 15 / iOS 18";
     static final String IP_ADDRESS = "203.0.113.42";
+    static final ClientInfo CLIENT_INFO = new ClientInfo(DEVICE_INFO, IP_ADDRESS);
     static final String TIMEZONE = "Asia/Kolkata";
 
     static final String VALID_CODE = "12345";

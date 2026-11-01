@@ -12,6 +12,7 @@ import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
+import com.lazybuff.fuel.security.ClientInfo;
 import com.lazybuff.fuel.security.GoogleIdTokenVerifier;
 import com.lazybuff.fuel.security.GoogleIdentity;
 import com.lazybuff.fuel.util.AuthProvider;
@@ -49,8 +50,8 @@ public class GoogleOAuthService {
      */
     @Transactional
     @NoLogging
-    public ApiResponse<UserData> authenticate(OAuthGoogleRequest oAuthGoogleRequest)
-            throws Exception {
+    public ApiResponse<UserData> authenticate(
+            OAuthGoogleRequest oAuthGoogleRequest, ClientInfo clientInfo) throws Exception {
 
         GoogleIdentity identity = googleIdTokenVerifier.verify(oAuthGoogleRequest.getIdToken());
 
@@ -62,19 +63,19 @@ public class GoogleOAuthService {
                         .orElse(null);
 
         if (linkedUser != null) {
-            return buildResponse(linkedUser, false);
+            return buildResponse(linkedUser, false, clientInfo);
         }
 
         User existingUser = userRepository.findByEmailAndDeletedAtIsNull(identity.email());
 
         if (existingUser != null) {
             linkGoogleAccount(existingUser, identity);
-            return buildResponse(existingUser, false);
+            return buildResponse(existingUser, false, clientInfo);
         }
 
         User newUser = createUser(identity);
         log.info("Created user {} via Google sign-in", newUser.getId());
-        return buildResponse(newUser, true);
+        return buildResponse(newUser, true, clientInfo);
     }
 
     private void linkGoogleAccount(User user, GoogleIdentity identity) {
@@ -138,7 +139,8 @@ public class GoogleOAuthService {
         return name.length() > MAX_NAME_LENGTH ? name.substring(0, MAX_NAME_LENGTH) : name;
     }
 
-    private ApiResponse<UserData> buildResponse(User user, boolean isNewUser) throws Exception {
+    private ApiResponse<UserData> buildResponse(User user, boolean isNewUser, ClientInfo clientInfo)
+            throws Exception {
 
         UserData userData =
                 UserData.builder()
@@ -149,7 +151,9 @@ public class GoogleOAuthService {
                         .isNewUser(isNewUser)
                         .accessToken(
                                 jwtService.generateToken(user.getId().toString(), user.getEmail()))
-                        .refreshToken(refreshTokenService.issueRefreshToken(user, null, null))
+                        .refreshToken(
+                                refreshTokenService.issueRefreshToken(
+                                        user, clientInfo.deviceInfo(), clientInfo.ipAddress()))
                         .accessTokenExpiresIn(jwtConfig.getAccessTokenExpirySeconds())
                         .refreshTokenExpiresIn(jwtConfig.getRefreshTokenExpirySeconds())
                         .build();

@@ -3,6 +3,7 @@ package com.lazybuff.fuel.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -86,7 +87,10 @@ class GoogleOAuthServiceTest {
     private void stubTokens() throws Exception {
         when(jwtService.generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                 .thenReturn(ACCESS_TOKEN);
-        when(refreshTokenService.issueRefreshToken(any(User.class), any(), any()))
+        when(refreshTokenService.issueRefreshToken(
+                        any(User.class),
+                        eq(TestDataFactory.DEVICE_INFO),
+                        eq(TestDataFactory.IP_ADDRESS)))
                 .thenReturn(REFRESH_TOKEN);
     }
 
@@ -108,7 +112,8 @@ class GoogleOAuthServiceTest {
                 .thenReturn(Optional.of(googleProvider(persistedUser)));
         stubTokens();
 
-        ApiResponse<UserData> response = googleOAuthService.authenticate(request);
+        ApiResponse<UserData> response =
+                googleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO);
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
         assertThat(response.getData().getUserId()).isEqualTo(TestDataFactory.USER_ID.toString());
@@ -128,7 +133,8 @@ class GoogleOAuthServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(persistedUser);
         stubTokens();
 
-        ApiResponse<UserData> response = googleOAuthService.authenticate(request);
+        ApiResponse<UserData> response =
+                googleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO);
 
         verify(userRepository).save(userCaptor.capture());
         assertThat(userCaptor.getValue().getEmail()).isEqualTo(TestDataFactory.EMAIL);
@@ -151,7 +157,7 @@ class GoogleOAuthServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(persistedUser);
         stubTokens();
 
-        googleOAuthService.authenticate(request);
+        googleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO);
 
         verify(userRepository).save(userCaptor.capture());
         assertThat(userCaptor.getValue().getName()).isEqualTo("john.doe");
@@ -170,7 +176,8 @@ class GoogleOAuthServiceTest {
                 .thenReturn(null);
         stubTokens();
 
-        ApiResponse<UserData> response = googleOAuthService.authenticate(request);
+        ApiResponse<UserData> response =
+                googleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO);
 
         verify(userAuthProviderRepository).save(authProviderCaptor.capture());
         assertThat(authProviderCaptor.getValue().getUser()).isSameAs(persistedUser);
@@ -196,7 +203,8 @@ class GoogleOAuthServiceTest {
                 .thenReturn(emailProvider);
         stubTokens();
 
-        ApiResponse<UserData> response = googleOAuthService.authenticate(request);
+        ApiResponse<UserData> response =
+                googleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO);
 
         verify(userAuthProviderRepository).delete(emailProvider);
         verify(refreshTokenService).revokeAll(TestDataFactory.USER_ID);
@@ -216,7 +224,8 @@ class GoogleOAuthServiceTest {
                         TestDataFactory.USER_ID, AuthProvider.GOOGLE))
                 .thenReturn(googleProvider(persistedUser));
 
-        assertThatThrownBy(() -> googleOAuthService.authenticate(request))
+        assertThatThrownBy(
+                        () -> googleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO))
                 .isInstanceOf(FuelException.class)
                 .extracting(e -> ((FuelException) e).getHttpStatus())
                 .isEqualTo(HttpStatus.CONFLICT);
@@ -229,7 +238,8 @@ class GoogleOAuthServiceTest {
         when(googleIdTokenVerifier.verify(ID_TOKEN))
                 .thenThrow(new FuelException(HttpStatus.UNAUTHORIZED, "Invalid Google ID token"));
 
-        assertThatThrownBy(() -> googleOAuthService.authenticate(request))
+        assertThatThrownBy(
+                        () -> googleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO))
                 .isInstanceOf(FuelException.class)
                 .extracting(e -> ((FuelException) e).getHttpStatus())
                 .isEqualTo(HttpStatus.UNAUTHORIZED);

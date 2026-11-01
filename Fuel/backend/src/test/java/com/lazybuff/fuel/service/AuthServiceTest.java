@@ -106,7 +106,8 @@ class AuthServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(persistedUser);
         when(jwtService.generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                 .thenReturn(ACCESS_TOKEN);
-        when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+        when(refreshTokenService.issueRefreshToken(
+                        persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
                 .thenReturn(REFRESH_TOKEN);
     }
 
@@ -119,7 +120,8 @@ class AuthServiceTest {
         void returnsCreatedResponse() throws Exception {
             stubSuccessfulRegistration();
 
-            ApiResponse<UserData> response = authService.register(request);
+            ApiResponse<UserData> response =
+                    authService.register(request, TestDataFactory.CLIENT_INFO);
 
             assertThat(response.getStatus()).isEqualTo(201);
             assertThat(response.getMessage())
@@ -144,7 +146,7 @@ class AuthServiceTest {
         void persistsUserFromRequest() throws Exception {
             stubSuccessfulRegistration();
 
-            authService.register(request);
+            authService.register(request, TestDataFactory.CLIENT_INFO);
 
             verify(userRepository).save(userCaptor.capture());
             User saved = userCaptor.getValue();
@@ -159,7 +161,7 @@ class AuthServiceTest {
             stubSuccessfulRegistration();
             request.setTimezone(null);
 
-            authService.register(request);
+            authService.register(request, TestDataFactory.CLIENT_INFO);
 
             verify(userRepository).save(userCaptor.capture());
             assertThat(userCaptor.getValue().getTimezone()).isEqualTo("UTC");
@@ -170,7 +172,7 @@ class AuthServiceTest {
         void persistsAuthProviderWithHashedPassword() throws Exception {
             stubSuccessfulRegistration();
 
-            authService.register(request);
+            authService.register(request, TestDataFactory.CLIENT_INFO);
 
             verify(userAuthProviderRepository).save(authProviderCaptor.capture());
             UserAuthProvider savedProvider = authProviderCaptor.getValue();
@@ -187,7 +189,7 @@ class AuthServiceTest {
         void persistsUserGoals() throws Exception {
             stubSuccessfulRegistration();
 
-            authService.register(request);
+            authService.register(request, TestDataFactory.CLIENT_INFO);
 
             verify(userGoalsRepository).save(userGoalsCaptor.capture());
             assertThat(userGoalsCaptor.getValue().getUser()).isSameAs(persistedUser);
@@ -198,9 +200,11 @@ class AuthServiceTest {
         void issuesRefreshTokenWithoutMetadata() throws Exception {
             stubSuccessfulRegistration();
 
-            authService.register(request);
+            authService.register(request, TestDataFactory.CLIENT_INFO);
 
-            verify(refreshTokenService).issueRefreshToken(persistedUser, null, null);
+            verify(refreshTokenService)
+                    .issueRefreshToken(
+                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS);
             verify(jwtService)
                     .generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL);
         }
@@ -216,7 +220,7 @@ class AuthServiceTest {
             when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(true);
 
-            assertThatThrownBy(() -> authService.register(request))
+            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Email already exists")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
@@ -243,7 +247,7 @@ class AuthServiceTest {
                             TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                     .thenThrow(new RuntimeException("signing key unavailable"));
 
-            assertThatThrownBy(() -> authService.register(request))
+            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("signing key unavailable");
 
@@ -266,10 +270,11 @@ class AuthServiceTest {
             when(jwtService.generateToken(
                             TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                     .thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+            when(refreshTokenService.issueRefreshToken(
+                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
                     .thenThrow(new RuntimeException("refresh store unavailable"));
 
-            assertThatThrownBy(() -> authService.register(request))
+            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("refresh store unavailable");
 
@@ -285,7 +290,7 @@ class AuthServiceTest {
                     .thenReturn(false);
             request.setTimezone("Not/AZone");
 
-            assertThatThrownBy(() -> authService.register(request))
+            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid timezone: Not/AZone")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
@@ -303,7 +308,7 @@ class AuthServiceTest {
             when(userRepository.save(any(User.class)))
                     .thenThrow(new RuntimeException("unique constraint violation"));
 
-            assertThatThrownBy(() -> authService.register(request))
+            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("unique constraint violation");
 
@@ -334,10 +339,12 @@ class AuthServiceTest {
             when(jwtService.generateToken(
                             TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                     .thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+            when(refreshTokenService.issueRefreshToken(
+                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
                     .thenReturn(REFRESH_TOKEN);
 
-            ApiResponse<UserData> response = authService.login(loginRequest);
+            ApiResponse<UserData> response =
+                    authService.login(loginRequest, TestDataFactory.CLIENT_INFO);
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getMessage()).isEqualTo("Login successful.");
@@ -367,7 +374,7 @@ class AuthServiceTest {
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(null);
 
-            assertThatThrownBy(() -> authService.login(loginRequest))
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid email or password!")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
@@ -389,7 +396,7 @@ class AuthServiceTest {
                             TestDataFactory.USER_ID, AuthProvider.EMAIL))
                     .thenReturn(null);
 
-            assertThatThrownBy(() -> authService.login(loginRequest))
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid email or password!")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
@@ -413,7 +420,7 @@ class AuthServiceTest {
                             TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> authService.login(loginRequest))
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid email or password!")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
@@ -440,7 +447,7 @@ class AuthServiceTest {
                             TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                     .thenThrow(new RuntimeException("signing key unavailable"));
 
-            assertThatThrownBy(() -> authService.login(loginRequest))
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("signing key unavailable");
 
@@ -464,10 +471,11 @@ class AuthServiceTest {
             when(jwtService.generateToken(
                             TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                     .thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+            when(refreshTokenService.issueRefreshToken(
+                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
                     .thenThrow(new RuntimeException("refresh store unavailable"));
 
-            assertThatThrownBy(() -> authService.login(loginRequest))
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("refresh store unavailable");
         }
@@ -555,11 +563,12 @@ class AuthServiceTest {
             when(jwtService.generateToken(
                             TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                     .thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+            when(refreshTokenService.issueRefreshToken(
+                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
                     .thenReturn(REFRESH_TOKEN);
 
             ApiResponse<com.lazybuff.fuel.dto.RefreshTokenResponse> response =
-                    authService.refreshToken(request);
+                    authService.refreshToken(request, TestDataFactory.CLIENT_INFO);
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getMessage()).isEqualTo("Token refreshed");
@@ -578,10 +587,11 @@ class AuthServiceTest {
             when(jwtService.generateToken(
                             TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                     .thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+            when(refreshTokenService.issueRefreshToken(
+                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
                     .thenReturn(REFRESH_TOKEN);
 
-            authService.refreshToken(request);
+            authService.refreshToken(request, TestDataFactory.CLIENT_INFO);
 
             verify(refreshTokenService).rotate(RAW_REFRESH_TOKEN, null);
         }
@@ -599,10 +609,11 @@ class AuthServiceTest {
             when(jwtService.generateToken(
                             TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                     .thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.issueRefreshToken(persistedUser, null, null))
+            when(refreshTokenService.issueRefreshToken(
+                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
                     .thenReturn(REFRESH_TOKEN);
 
-            authService.refreshToken(request);
+            authService.refreshToken(request, TestDataFactory.CLIENT_INFO);
 
             verify(refreshTokenService).rotate(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID);
         }
@@ -620,7 +631,7 @@ class AuthServiceTest {
                                     org.springframework.http.HttpStatus.UNAUTHORIZED,
                                     "Refresh token invalid, expired or revoked"));
 
-            assertThatThrownBy(() -> authService.refreshToken(request))
+            assertThatThrownBy(() -> authService.refreshToken(request, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Refresh token invalid, expired or revoked");
 

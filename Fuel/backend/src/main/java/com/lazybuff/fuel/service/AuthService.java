@@ -20,6 +20,7 @@ import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.repository.VerificationCodeRepository;
+import com.lazybuff.fuel.security.ClientInfo;
 import com.lazybuff.fuel.util.AuthProvider;
 import com.lazybuff.fuel.util.TokenHasher;
 import com.lazybuff.fuel.util.VerifyType;
@@ -66,8 +67,8 @@ public class AuthService {
 
     @Transactional
     @NoLogging
-    public ApiResponse<UserData> register(UserRegisterRequest userRegisterRequest)
-            throws Exception {
+    public ApiResponse<UserData> register(
+            UserRegisterRequest userRegisterRequest, ClientInfo clientInfo) throws Exception {
 
         try {
 
@@ -92,7 +93,9 @@ public class AuthService {
                             .accessToken(
                                     jwtService.generateToken(
                                             user.getId().toString(), user.getEmail()))
-                            .refreshToken(refreshTokenService.issueRefreshToken(user, null, null))
+                            .refreshToken(
+                                    refreshTokenService.issueRefreshToken(
+                                            user, clientInfo.deviceInfo(), clientInfo.ipAddress()))
                             .accessTokenExpiresIn(jwtConfig.getAccessTokenExpirySeconds())
                             .refreshTokenExpiresIn(jwtConfig.getRefreshTokenExpirySeconds())
                             .build();
@@ -114,7 +117,8 @@ public class AuthService {
     }
 
     @NoLogging
-    public ApiResponse<UserData> login(LoginReqeust loginReqeust) throws Exception {
+    public ApiResponse<UserData> login(LoginReqeust loginReqeust, ClientInfo clientInfo)
+            throws Exception {
 
         try {
 
@@ -146,7 +150,9 @@ public class AuthService {
                             .accessToken(
                                     jwtService.generateToken(
                                             user.getId().toString(), user.getEmail()))
-                            .refreshToken(refreshTokenService.issueRefreshToken(user, null, null))
+                            .refreshToken(
+                                    refreshTokenService.issueRefreshToken(
+                                            user, clientInfo.deviceInfo(), clientInfo.ipAddress()))
                             .accessTokenExpiresIn(jwtConfig.getAccessTokenExpirySeconds())
                             .refreshTokenExpiresIn(jwtConfig.getRefreshTokenExpirySeconds())
                             .build();
@@ -251,8 +257,8 @@ public class AuthService {
 
     @Transactional
     @NoLogging
-    public ApiResponse<RefreshTokenResponse> refreshToken(RefreshTokenRequest refreshTokenRequest)
-            throws Exception {
+    public ApiResponse<RefreshTokenResponse> refreshToken(
+            RefreshTokenRequest refreshTokenRequest, ClientInfo clientInfo) throws Exception {
 
         try {
 
@@ -266,7 +272,9 @@ public class AuthService {
                             .accessToken(
                                     jwtService.generateToken(
                                             user.getId().toString(), user.getEmail()))
-                            .refreshToken(refreshTokenService.issueRefreshToken(user, null, null))
+                            .refreshToken(
+                                    refreshTokenService.issueRefreshToken(
+                                            user, clientInfo.deviceInfo(), clientInfo.ipAddress()))
                             .accessTokenExpiresIn(jwtConfig.getAccessTokenExpirySeconds())
                             .refreshTokenExpiresIn(jwtConfig.getRefreshTokenExpirySeconds())
                             .build();
