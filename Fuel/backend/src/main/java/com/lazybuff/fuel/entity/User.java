@@ -38,7 +38,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    /**
+     * Unique among active accounts only (uq_users_email_active), so it can be reused after
+     * deletion.
+     */
+    @Column(nullable = false)
     private String email;
 
     @Column(nullable = false, length = 100)

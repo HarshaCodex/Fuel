@@ -2,6 +2,7 @@ package com.lazybuff.fuel.repository;
 
 import com.lazybuff.fuel.entity.UserAuthProvider;
 import com.lazybuff.fuel.util.AuthProvider;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,6 @@ public interface UserAuthProviderRepository extends JpaRepository<UserAuthProvid
             AuthProvider provider, String providerId);
 
     Optional<UserAuthProvider> findFirstByUser_IdOrderByCreatedAtAsc(UUID userId);
+
+    List<UserAuthProvider> findByUser_Id(UUID userId);
 }
