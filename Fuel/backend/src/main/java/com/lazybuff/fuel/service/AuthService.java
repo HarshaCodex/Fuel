@@ -221,11 +221,25 @@ public class AuthService {
                     verificationCodeService.findValidCode(
                             user, VerifyType.PASSWORD_RESET, resetPasswordRequest.getResetCode());
 
+            String passwordHash = hashedPassword(resetPasswordRequest.getNewPassword());
+
             UserAuthProvider userAuthProvider =
                     userAuthProviderRepository.findByUser_IdAndProvider(
                             user.getId(), AuthProvider.EMAIL);
 
-            userAuthProvider.setPasswordHash(hashedPassword(resetPasswordRequest.getNewPassword()));
+            if (userAuthProvider == null) {
+                // Google-only account: the emailed code proves inbox ownership, so add a password
+                // login next to Google (ADR 0001).
+                userAuthProviderRepository.save(
+                        UserAuthProvider.builder()
+                                .user(user)
+                                .provider(AuthProvider.EMAIL)
+                                .passwordHash(passwordHash)
+                                .build());
+                log.info("Added email/password login to user {} via password reset", user.getId());
+            } else {
+                userAuthProvider.setPasswordHash(passwordHash);
+            }
 
             code.setUsedAt(Instant.now());
 
