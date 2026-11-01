@@ -16,6 +16,10 @@ import com.lazybuff.fuel.dto.VerifyEmailResponse;
 import com.lazybuff.fuel.service.AuthService;
 import com.lazybuff.fuel.service.GoogleOAuthService;
 import com.lazybuff.fuel.service.VerificationCodeService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.security.NoSuchAlgorithmException;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Auth", description = "Registration, login, sessions and password recovery")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -38,6 +43,22 @@ public class AuthController {
 
     private final GoogleOAuthService googleOAuthService;
 
+    @Operation(
+            summary = "Register with email and password",
+            description =
+                    "Creates the account, emails a verification code and signs the user in. The account works before verification; emailVerified is false until /verify-email succeeds.")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "201",
+                description = "Registered and signed in"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Email already registered")
+    })
     @PostMapping(
             path = "/register",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -49,6 +70,22 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "Verify email with the emailed code")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Email verified"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Code invalid or expired"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Email already verified")
+    })
     @PostMapping(
             path = "/verify-email",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -62,6 +99,21 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @Operation(
+            summary = "Resend the email verification code",
+            description = "Rate limited per email address.")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Code sent if the account exists and is unverified"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many requests for this email")
+    })
     @PostMapping(
             path = "/resend-verification",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -75,6 +127,19 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @Operation(summary = "Log in with email and password")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Signed in; returns access and refresh tokens"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Invalid email or password")
+    })
     @PostMapping(
             path = "/login",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -87,6 +152,21 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @Operation(
+            summary = "Log out the current session",
+            description =
+                    "Revokes the given refresh token. Requires the access token of the same user.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Logged out"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token")
+    })
     @PostMapping(
             path = "/logout",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -99,6 +179,22 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @Operation(
+            summary = "Request a password reset code",
+            description =
+                    "Always responds 200 so callers cannot probe which emails are registered. Rate limited per email address.")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Reset code sent if the account exists"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many requests for this email")
+    })
     @PostMapping(
             path = "/forgot-password",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -111,6 +207,21 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @Operation(
+            summary = "Reset password with the emailed code",
+            description = "Revokes all existing sessions on success.")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Password reset"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed or email not verified"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Code invalid or expired")
+    })
     @PostMapping(
             path = "/reset-password",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -123,6 +234,22 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @Operation(
+            summary = "Exchange a refresh token for new tokens",
+            description =
+                    "Rotates the refresh token: the old one stops working. Reusing a rotated token revokes all of the user's sessions (replay detection).")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "New access and refresh tokens"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Refresh token invalid, expired or revoked")
+    })
     @PostMapping(
             path = "/refresh",
             consumes = MediaType.APPLICATION_JSON_VALUE,

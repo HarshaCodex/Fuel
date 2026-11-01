@@ -13,6 +13,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -101,6 +102,18 @@ public class GlobalExceptionHandler {
                         .timestamp(LocalDateTime.now())
                         .build();
         return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
+    }
+
+    /** Unknown routes; without this the catch-all below turns them into 500s. */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException ex) {
+        ErrorResponse errorResponse =
+                ErrorResponse.builder()
+                        .status(HttpStatus.NOT_FOUND.value())
+                        .message("Resource not found")
+                        .timestamp(LocalDateTime.now())
+                        .build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
 
     @ExceptionHandler(Exception.class)
