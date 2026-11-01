@@ -31,6 +31,4 @@ public class GoogleOAuthConfig {
     private Duration keyRefreshMinInterval;
 
     private Duration clockSkew;
-
-    private Duration httpTimeout;
 }

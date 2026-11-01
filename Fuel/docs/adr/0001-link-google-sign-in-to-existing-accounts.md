@@ -35,8 +35,9 @@ When Google sign-in matches an existing account by email:
   - then link Google.
 - **Account already has a different Google account linked:** reject with `409 Conflict`.
 
-Implemented in `GoogleOAuthService.linkGoogleAccount`, covered by
-`GoogleOAuthServiceTest.shouldDropUnverifiedPasswordWhenLinking` and
+These rules apply to **every OAuth provider** (Google, and Apple via #45): "Google" above means
+whichever provider verified the email. Implemented once in `OAuthAccountService.linkProvider`
+(#78), covered by `OAuthAccountServiceTest.shouldDropUnverifiedPasswordWhenLinking` and
 `shouldLinkToVerifiedEmailAccount`.
 
 ### Alternatives considered
