@@ -1,5 +1,6 @@
 package com.lazybuff.fuel.config;
 
+import com.lazybuff.fuel.security.RestAccessDeniedHandler;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +21,7 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final RestAuthEntryPoint restAuthEntryPoint;
+    private final RestAccessDeniedHandler restAccessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -45,7 +47,10 @@ public class SecurityConfig {
                                         .authenticated()
                                         .anyRequest()
                                         .authenticated())
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(restAuthEntryPoint))
+                .exceptionHandling(
+                        ex ->
+                                ex.authenticationEntryPoint(restAuthEntryPoint)
+                                        .accessDeniedHandler(restAccessDeniedHandler))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
