@@ -63,7 +63,7 @@ python3 -c 'import sys,base64,json; p=sys.argv[1].split(".")[1]; print(json.dump
 ```
 
 Other reasons in the log: `unexpected issuer` (token from the wrong provider or a test token),
-expired token (the app sent a stale token; Apple's live about 10 minutes), or `Unknown key id`
+expired token (the app sent a stale one; get a fresh token on each sign-in), or `Unknown key id`
 (a forged or test token; real ones always match the provider's published keys).
 
 ## Not needed yet: Apple client secret
