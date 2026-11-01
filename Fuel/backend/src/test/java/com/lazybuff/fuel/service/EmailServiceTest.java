@@ -15,11 +15,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.util.ReflectionTestUtils;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 @DisplayName("EmailService")
 class EmailServiceTest {
 
@@ -68,12 +70,15 @@ class EmailServiceTest {
 
         @Test
         @DisplayName("swallows a mail-sending failure instead of propagating it")
-        void swallowsSendFailure() {
+        void swallowsSendFailure(CapturedOutput output) {
             doThrow(new RuntimeException("smtp down"))
                     .when(javaMailSender)
                     .send(any(SimpleMailMessage.class));
 
             assertThatCode(() -> emailService.sendEmail(TO, CODE)).doesNotThrowAnyException();
+            // Regression (#84): the failure log must not expose the address or the code.
+            assertThat(output).contains("Failed to send verification email");
+            assertThat(output).doesNotContain(TO).doesNotContain(CODE);
         }
     }
 
@@ -101,13 +106,15 @@ class EmailServiceTest {
 
         @Test
         @DisplayName("swallows a mail-sending failure instead of propagating it")
-        void swallowsSendFailure() {
+        void swallowsSendFailure(CapturedOutput output) {
             doThrow(new RuntimeException("smtp down"))
                     .when(javaMailSender)
                     .send(any(SimpleMailMessage.class));
 
             assertThatCode(() -> emailService.sendResetPasswordEmail(TO, CODE))
                     .doesNotThrowAnyException();
+            assertThat(output).contains("Failed to send password reset email");
+            assertThat(output).doesNotContain(TO).doesNotContain(CODE);
         }
     }
 }
