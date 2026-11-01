@@ -11,8 +11,10 @@ import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.security.AppleIdTokenVerifier;
+import com.lazybuff.fuel.security.AppleTokenRevoker;
 import com.lazybuff.fuel.security.GoogleIdTokenVerifier;
 import com.lazybuff.fuel.security.OAuthIdentity;
+import com.lazybuff.fuel.security.VerifiedAppleToken;
 import com.lazybuff.fuel.util.AuthProvider;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -47,6 +49,8 @@ public class UserService {
     private final AppleIdTokenVerifier appleIdTokenVerifier;
 
     private final AccountDeletionConfig accountDeletionConfig;
+
+    private final AppleTokenRevoker appleTokenRevoker;
 
     /**
      * @throws FuelException 404 if the user no longer exists (e.g. deleted while the access token
@@ -111,7 +115,7 @@ public class UserService {
 
         List<UserAuthProvider> providers = userAuthProviderRepository.findByUser_Id(userId);
 
-        confirmOwnership(request, providers);
+        Optional<VerifiedAppleToken> appleToken = confirmOwnership(request, providers);
 
         userAuthProviderRepository.deleteAll(providers);
         refreshTokenService.revokeAll(userId);
@@ -120,6 +124,12 @@ public class UserService {
 
         log.info("User {} deleted their account", userId);
 
+        // Best-effort and never throws, so a failure at Apple can't block the deletion.
+        appleToken.ifPresent(
+                token ->
+                        appleTokenRevoker.revoke(
+                                request.getAppleAuthorizationCode(), token.clientId()));
+
         return ApiResponse.<Void>builder()
                 .status(HttpStatus.OK.value())
                 .message("Account deleted successfully")
@@ -127,7 +137,24 @@ public class UserService {
                 .build();
     }
 
-    private void confirmOwnership(DeleteAccountRequest request, List<UserAuthProvider> providers) {
+    /**
+     * Checks the request proves ownership of the account.
+     *
+     * @return the verified Apple token when the user confirmed with Apple, so its tokens can be
+     *     revoked
+     */
+    private Optional<VerifiedAppleToken> confirmOwnership(
+            DeleteAccountRequest request, List<UserAuthProvider> providers) {
+
+        boolean confirmedWithApple = isPresent(request.getAppleIdentityToken());
+
+        // Apple requires revoking its tokens on deletion, which needs a fresh Apple authorization
+        // code, so any account with Apple linked has to confirm through Apple.
+        if (findProvider(providers, AuthProvider.APPLE).isPresent() && !confirmedWithApple) {
+            throw new FuelException(
+                    HttpStatus.BAD_REQUEST,
+                    "This account uses Sign in with Apple. Confirm with Apple to delete it.");
+        }
 
         if (isPresent(request.getPassword())) {
             UserAuthProvider emailProvider =
@@ -141,13 +168,17 @@ public class UserService {
             if (!passwordEncoder.matches(request.getPassword(), emailProvider.getPasswordHash())) {
                 throw new FuelException(HttpStatus.UNAUTHORIZED, "Password is incorrect");
             }
-            return;
+            return Optional.empty();
         }
 
+        VerifiedAppleToken appleToken =
+                confirmedWithApple
+                        ? appleIdTokenVerifier.verifyWithClientId(request.getAppleIdentityToken())
+                        : null;
         OAuthIdentity identity =
-                isPresent(request.getGoogleIdToken())
-                        ? googleIdTokenVerifier.verify(request.getGoogleIdToken())
-                        : appleIdTokenVerifier.verify(request.getAppleIdentityToken());
+                appleToken != null
+                        ? appleToken.identity()
+                        : googleIdTokenVerifier.verify(request.getGoogleIdToken());
 
         boolean linked =
                 findProvider(providers, identity.provider())
@@ -161,6 +192,7 @@ public class UserService {
                             + (identity.provider() == AuthProvider.GOOGLE ? "Google" : "Apple")
                             + " account isn't linked to this account.");
         }
+        return Optional.ofNullable(appleToken);
     }
 
     private User findActiveUser(UUID userId) {

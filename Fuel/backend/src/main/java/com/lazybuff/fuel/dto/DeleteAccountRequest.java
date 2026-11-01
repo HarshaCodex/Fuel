@@ -21,10 +21,13 @@ import lombok.ToString;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@ToString(exclude = {"password", "googleIdToken", "appleIdentityToken"})
+@ToString(exclude = {"password", "googleIdToken", "appleIdentityToken", "appleAuthorizationCode"})
 @EqualsAndHashCode
 @Builder
-@Schema(description = "Send exactly one of password, googleIdToken or appleIdentityToken.")
+@Schema(
+        description =
+                "Send exactly one of password, googleIdToken or appleIdentityToken (with"
+                        + " appleAuthorizationCode). Accounts with Apple linked must use Apple.")
 public class DeleteAccountRequest {
 
     @Schema(description = "The account's password (email/password accounts).")
@@ -39,12 +42,29 @@ public class DeleteAccountRequest {
     @Size(max = 4096, message = "Identity token is too long.")
     private String appleIdentityToken;
 
+    @Schema(
+            description =
+                    "The authorization code from the same Apple sign-in as appleIdentityToken."
+                            + " Required with it: it's used to revoke the user's Apple tokens.")
+    @Size(max = 1024, message = "Authorization code is too long.")
+    private String appleAuthorizationCode;
+
     @JsonIgnore
     @AssertTrue(message = "Provide exactly one of password, googleIdToken or appleIdentityToken.")
     public boolean isExactlyOneConfirmation() {
         return Stream.of(password, googleIdToken, appleIdentityToken)
-                        .filter(value -> value != null && !value.isBlank())
+                        .filter(DeleteAccountRequest::isPresent)
                         .count()
                 == 1;
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "appleAuthorizationCode must be sent together with appleIdentityToken.")
+    public boolean isAppleCodeWithAppleToken() {
+        return isPresent(appleIdentityToken) == isPresent(appleAuthorizationCode);
+    }
+
+    private static boolean isPresent(String value) {
+        return value != null && !value.isBlank();
     }
 }

@@ -161,6 +161,19 @@ class AppleIdTokenVerifierTest {
     }
 
     @Test
+    @DisplayName("reports which of our client IDs the token was issued to")
+    void shouldReturnMatchedClientId() {
+        stubKeys();
+
+        VerifiedAppleToken token =
+                verifier.verifyWithClientId(
+                        validToken().audience().single("com.lazybuff.fuel.web").compact());
+
+        assertThat(token.clientId()).isEqualTo("com.lazybuff.fuel.web");
+        assertThat(token.identity().subject()).isEqualTo(SUBJECT);
+    }
+
+    @Test
     @DisplayName("rejects a token issued for another app")
     void shouldRejectWrongAudience() {
         stubKeys();

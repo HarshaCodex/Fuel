@@ -148,4 +148,16 @@ class UserControllerTest {
 
         verifyNoInteractions(userService);
     }
+
+    @Test
+    @DisplayName("returns 400 when an Apple identity token comes without its authorization code")
+    void shouldRequireAppleAuthorizationCode() throws Exception {
+        mockMvc.perform(
+                        delete(DELETE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"appleIdentityToken\":\"t\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(userService);
+    }
 }

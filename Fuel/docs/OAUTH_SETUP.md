@@ -66,10 +66,34 @@ Other reasons in the log: `unexpected issuer` (token from the wrong provider or 
 expired token (the app sent a stale one; get a fresh token on each sign-in), or `Unknown key id`
 (a forged or test token; real ones always match the provider's published keys).
 
-## Not needed yet: Apple client secret
+## Apple REST API key (`APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`)
 
-Account deletion (#64) should also revoke the user's Apple tokens, which Apple requires for apps
-offering Sign in with Apple. That call needs a client secret, signed with a **private key** created
-under Apple Developer → Keys (with Sign in with Apple enabled), plus the **Key ID** and **Team ID**.
-The `.p8` private key is a real secret: store it in the secret manager, never in the repo. It will
-be documented here when #81 adds it.
+Apple requires apps that offer Sign in with Apple to **revoke the user's Apple tokens when they
+delete their account**. `DELETE /api/user/account` does this (#81): the app re-runs Sign in with
+Apple and sends the identity token plus its authorization code; the backend exchanges the code at
+Apple's `/auth/token` and revokes the result at `/auth/revoke`. Both calls are authenticated with a
+client secret, a short-lived ES256 JWT the backend signs with an Apple Developer key.
+
+```dotenv
+APPLE_TEAM_ID=<10-character Team ID>
+APPLE_KEY_ID=<10-character Key ID>
+APPLE_PRIVATE_KEY=<contents of AuthKey_XXXXXXXXXX.p8>
+```
+
+1. Apple Developer → Certificates, Identifiers & Profiles → **Keys** → create a key with
+   **Sign in with Apple** enabled and configure it for the app's primary App ID.
+2. Note the **Key ID**, and download the `.p8` file. Apple lets you download it **only once**.
+3. The **Team ID** is shown under Membership details (top right of the developer portal).
+4. Store the `.p8` contents as `APPLE_PRIVATE_KEY` in the secret manager. It is a real secret:
+   never commit it, and never paste it into chat or tickets. Newlines may be real or written as
+   `\n` (handy for single-line env vars).
+
+Behaviour:
+
+- **Not set** (local dev, or before the key exists): deletion still works; the app logs
+  `Apple API credentials not configured; Apple tokens won't be revoked` at startup and skips
+  revocation.
+- **Set but malformed** `APPLE_PRIVATE_KEY`: the app **fails to start**, so a broken key can't go
+  unnoticed in production.
+- **Apple call fails** (Apple down, expired code): the account is still deleted and the failure is
+  logged as `Failed to revoke Apple tokens: ...`. Codes, tokens and the key are never logged.

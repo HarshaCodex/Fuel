@@ -60,8 +60,10 @@ public class UserController {
             summary = "Delete the signed-in user's account",
             description =
                     "Send exactly one confirmation: the password, or a fresh googleIdToken /"
-                            + " appleIdentityToken from re-running that sign-in (for accounts"
-                            + " without a password). Sign-in methods and all sessions are removed"
+                            + " appleIdentityToken from re-running that sign-in. Accounts with"
+                            + " Apple linked must confirm with Apple and include"
+                            + " appleAuthorizationCode, which is used to revoke the user's Apple"
+                            + " tokens. Sign-in methods and all sessions are removed"
                             + " immediately and the email can be used to sign up again; the data"
                             + " is permanently erased after a 30-day grace period. Discard the"
                             + " stored tokens on success.")
@@ -72,8 +74,9 @@ public class UserController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "400",
                 description =
-                        "Not exactly one confirmation, or a password sent for an account without"
-                                + " one"),
+                        "Not exactly one confirmation, a password sent for an account without"
+                                + " one, or a non-Apple confirmation for an account with Apple"
+                                + " linked"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
                 description =
