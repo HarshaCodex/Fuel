@@ -13,6 +13,7 @@ import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
 import com.lazybuff.fuel.dto.VerifyEmailResponse;
+import com.lazybuff.fuel.security.ClientInfo;
 import com.lazybuff.fuel.service.AuthService;
 import com.lazybuff.fuel.service.GoogleOAuthService;
 import com.lazybuff.fuel.service.VerificationCodeService;
@@ -20,6 +21,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.security.NoSuchAlgorithmException;
 import lombok.RequiredArgsConstructor;
@@ -67,9 +69,11 @@ public class AuthController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<UserData>> register(
-            @Valid @RequestBody UserRegisterRequest userRegisterRequest) throws Exception {
+            @Valid @RequestBody UserRegisterRequest userRegisterRequest, HttpServletRequest request)
+            throws Exception {
 
-        ApiResponse<UserData> response = authService.register(userRegisterRequest);
+        ApiResponse<UserData> response =
+                authService.register(userRegisterRequest, ClientInfo.from(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -151,9 +155,10 @@ public class AuthController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<UserData>> login(
-            @RequestBody @Valid LoginReqeust loginReqeust) throws Exception {
+            @RequestBody @Valid LoginReqeust loginReqeust, HttpServletRequest request)
+            throws Exception {
 
-        ApiResponse<UserData> response = authService.login(loginReqeust);
+        ApiResponse<UserData> response = authService.login(loginReqeust, ClientInfo.from(request));
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
@@ -261,9 +266,11 @@ public class AuthController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<RefreshTokenResponse>> refreshToken(
-            @RequestBody @Valid RefreshTokenRequest refreshTokenRequest) throws Exception {
+            @RequestBody @Valid RefreshTokenRequest refreshTokenRequest, HttpServletRequest request)
+            throws Exception {
 
-        ApiResponse<RefreshTokenResponse> response = authService.refreshToken(refreshTokenRequest);
+        ApiResponse<RefreshTokenResponse> response =
+                authService.refreshToken(refreshTokenRequest, ClientInfo.from(request));
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
@@ -301,9 +308,11 @@ public class AuthController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<UserData>> oauthGoogle(
-            @Valid @RequestBody OAuthGoogleRequest oAuthGoogleRequest) throws Exception {
+            @Valid @RequestBody OAuthGoogleRequest oAuthGoogleRequest, HttpServletRequest request)
+            throws Exception {
 
-        ApiResponse<UserData> response = googleOAuthService.authenticate(oAuthGoogleRequest);
+        ApiResponse<UserData> response =
+                googleOAuthService.authenticate(oAuthGoogleRequest, ClientInfo.from(request));
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

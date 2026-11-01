@@ -20,6 +20,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /** Shared with {@code RestAccessDeniedHandler} so every 403 reads the same. */
+    public static final String FORBIDDEN_MESSAGE =
+            "You do not have permission to access this resource.";
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(
             MethodArgumentNotValidException ex) {
@@ -87,7 +91,7 @@ public class GlobalExceptionHandler {
         ErrorResponse errorResponse =
                 ErrorResponse.builder()
                         .status(HttpStatus.FORBIDDEN.value())
-                        .message("You do not have permission to access this resource.")
+                        .message(FORBIDDEN_MESSAGE)
                         .timestamp(LocalDateTime.now())
                         .build();
 
