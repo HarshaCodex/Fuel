@@ -41,6 +41,8 @@ DATABASE_URL=jdbc:postgresql://localhost:5432/fuel
 DATABASE_USERNAME=fuel_user
 DATABASE_PASSWORD=fuel_pass
 JWT_SECRET=<base64-encoded-secret>
+# Optional: only needed to test Google Sign-In
+GOOGLE_CLIENT_IDS=<ios-client-id>,<android-client-id>,<web-client-id>
 ```
 
 Notes:
@@ -54,6 +56,9 @@ Notes:
   ```bash
   openssl rand -base64 64 | tr -d '\n'
   ```
+- `GOOGLE_CLIENT_IDS` is a comma-separated list of the Google OAuth client IDs (from Google Cloud
+  Console → APIs & Services → Credentials) for each app that signs users in. `POST /api/auth/oauth/google`
+  only accepts ID tokens whose audience is in this list; if it is unset, every Google sign-in returns 401.
 
 ---
 

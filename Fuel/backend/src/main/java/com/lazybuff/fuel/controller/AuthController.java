@@ -4,6 +4,7 @@ import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.LogoutRequest;
+import com.lazybuff.fuel.dto.OAuthGoogleRequest;
 import com.lazybuff.fuel.dto.RefreshTokenRequest;
 import com.lazybuff.fuel.dto.RefreshTokenResponse;
 import com.lazybuff.fuel.dto.ResendVerificationRequest;
@@ -13,6 +14,7 @@ import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
 import com.lazybuff.fuel.dto.VerifyEmailResponse;
 import com.lazybuff.fuel.service.AuthService;
+import com.lazybuff.fuel.service.GoogleOAuthService;
 import com.lazybuff.fuel.service.VerificationCodeService;
 import jakarta.validation.Valid;
 import java.security.NoSuchAlgorithmException;
@@ -33,6 +35,8 @@ public class AuthController {
     private final AuthService authService;
 
     private final VerificationCodeService verificationCodeService;
+
+    private final GoogleOAuthService googleOAuthService;
 
     @PostMapping(
             path = "/register",
@@ -127,6 +131,18 @@ public class AuthController {
             @RequestBody @Valid RefreshTokenRequest refreshTokenRequest) throws Exception {
 
         ApiResponse<RefreshTokenResponse> response = authService.refreshToken(refreshTokenRequest);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PostMapping(
+            path = "/oauth/google",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<UserData>> oauthGoogle(
+            @Valid @RequestBody OAuthGoogleRequest oAuthGoogleRequest) throws Exception {
+
+        ApiResponse<UserData> response = googleOAuthService.authenticate(oAuthGoogleRequest);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
