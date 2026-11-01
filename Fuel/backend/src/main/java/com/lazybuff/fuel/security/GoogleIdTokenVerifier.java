@@ -2,6 +2,7 @@ package com.lazybuff.fuel.security;
 
 import com.lazybuff.fuel.config.GoogleOAuthConfig;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.util.EmailNormalizer;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Header;
 import io.jsonwebtoken.JwtException;
@@ -74,7 +75,7 @@ public class GoogleIdTokenVerifier {
 
         return new GoogleIdentity(
                 claims.getSubject(),
-                claims.get("email", String.class),
+                EmailNormalizer.normalize(claims.get("email", String.class)),
                 claims.get("name", String.class));
     }
 

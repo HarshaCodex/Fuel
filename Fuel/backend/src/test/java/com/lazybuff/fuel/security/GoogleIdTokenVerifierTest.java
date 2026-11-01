@@ -118,6 +118,17 @@ class GoogleIdTokenVerifierTest {
     }
 
     @Test
+    @DisplayName("lower-cases the email so it matches accounts registered in any case")
+    void shouldLowercaseEmail() {
+        stubKeys();
+
+        GoogleIdentity identity =
+                verifier.verify(validToken().claim("email", "Jane@Gmail.COM").compact());
+
+        assertThat(identity.email()).isEqualTo(EMAIL);
+    }
+
+    @Test
     @DisplayName("rejects a token issued for another app's client id")
     void shouldRejectWrongAudience() {
         stubKeys();

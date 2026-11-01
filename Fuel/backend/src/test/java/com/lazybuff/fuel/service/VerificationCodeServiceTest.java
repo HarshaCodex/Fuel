@@ -226,6 +226,21 @@ class VerificationCodeServiceTest {
             assertThat(code.getUsedAt()).isNotNull();
             verifyNoInteractions(emailService);
         }
+
+        @Test
+        @DisplayName("finds the account when the email differs only by case")
+        void verifiesWhenEmailCaseDiffers() throws Exception {
+            VerificationCode code = TestDataFactory.validVerificationCode(user);
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(user);
+            stubCodeLookup(Optional.of(code));
+            VerifyEmailRequest request = verifyRequest(TestDataFactory.VALID_CODE);
+            request.setEmail(" " + TestDataFactory.EMAIL.toUpperCase() + " ");
+
+            verificationCodeService.verifyEmail(request);
+
+            assertThat(user.isEmailVerified()).isTrue();
+        }
     }
 
     @Nested
@@ -488,7 +503,7 @@ class VerificationCodeServiceTest {
             stubWithinRateLimit();
             when(rateLimitConfig.getMaxRequests()).thenReturn(3);
             when(rateLimitConfig.getWindow()).thenReturn(Duration.ofHours(1));
-            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL.toUpperCase()))
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(user);
 
             // Mixed-case email must resolve to the same (lower-cased) budget key.
@@ -502,6 +517,8 @@ class VerificationCodeServiceTest {
                             eq("rate_limit:forgot-password:" + TestDataFactory.EMAIL),
                             eq(3),
                             eq(Duration.ofHours(1)));
+            // ...and the account lookup uses the same normalised address.
+            verify(userRepository).findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
         }
 
         @Test
