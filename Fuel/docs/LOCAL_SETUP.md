@@ -195,6 +195,20 @@ Request field rules:
 
 ---
 
+## API Docs (Swagger UI)
+
+With the app running, open **http://localhost:8080/swagger-ui.html** to browse and call every endpoint.
+The raw OpenAPI spec is at http://localhost:8080/v3/api-docs (import it into Postman or Insomnia).
+
+To call protected endpoints:
+
+1. Run `POST /api/auth/register` or `POST /api/auth/login` and copy `data.accessToken` from the response.
+2. Click **Authorize**, paste the token (without the `Bearer ` prefix) and confirm.
+3. The token is kept across page reloads; access tokens expire after 15 minutes, so log in again
+   (or call `/api/auth/refresh`) when you start getting 401s.
+
+> Swagger UI and `/v3/api-docs` are disabled under the `prod` profile.
+
 ## Stopping Everything
 
 ```bash

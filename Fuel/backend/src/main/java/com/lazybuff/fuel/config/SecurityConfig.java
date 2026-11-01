@@ -36,7 +36,10 @@ public class SecurityConfig {
                                                 "/api/auth/forgot-password",
                                                 "/api/auth/reset-password",
                                                 "/api/auth/verify-email",
-                                                "/api/auth/resend-verification")
+                                                "/api/auth/resend-verification",
+                                                "/v3/api-docs/**",
+                                                "/swagger-ui/**",
+                                                "/swagger-ui.html")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/api/auth/logout")
                                         .authenticated()
