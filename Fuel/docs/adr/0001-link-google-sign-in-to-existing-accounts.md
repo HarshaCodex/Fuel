@@ -59,6 +59,8 @@ Implemented in `GoogleOAuthService.linkGoogleAccount`, covered by
   invalidate an access token the attacker already holds, so they keep access for at most 15
   minutes. The same is true for logout and password reset today. Closing it would require a
   per-user token version or a denylist checked on every request, and is out of scope here.
-- Email matching is currently case-sensitive (registration stores the email as typed), so a
-  differently-cased address creates a separate account instead of linking. To be addressed in a
-  separate issue that normalizes emails everywhere.
+- ~~Email matching is case-sensitive.~~ Resolved in #66: emails are lower-cased everywhere, so a
+  differently-cased address links to the same account.
+- **Reverse direction (#76):** a Google-only account can add a password through forgot-password.
+  The emailed reset code proves inbox ownership just as Google does, so `reset-password` creates
+  the `EMAIL` provider if it's missing and leaves the Google link untouched. Both methods then work.
