@@ -41,7 +41,7 @@ public class EmailService {
 
             javaMailSender.send(message);
         } catch (Exception e) {
-            log.error("Failed to send email to {}, ex", to, e);
+            log.error("Failed to send verification email, ex", e);
         }
     }
 
@@ -62,7 +62,7 @@ public class EmailService {
             javaMailSender.send(message);
 
         } catch (Exception e) {
-            log.error("Failed to send email to {}, ex", to, e);
+            log.error("Failed to send password reset email, ex", e);
         }
     }
 }

@@ -105,10 +105,7 @@ public class AuthService {
                     .build();
 
         } catch (Exception ex) {
-            log.error(
-                    "Exception while registering the user with email: {}, exception:",
-                    userRegisterRequest.getEmail(),
-                    ex);
+            log.error("Exception while registering a user, exception:", ex);
             throw ex;
         }
     }
@@ -164,10 +161,7 @@ public class AuthService {
                     .build();
 
         } catch (Exception exception) {
-            log.error(
-                    "Exception during login for user with email: {}, exception:",
-                    loginReqeust.getEmail(),
-                    exception);
+            log.error("Exception during login, exception:", exception);
             throw exception;
         }
     }

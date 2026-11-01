@@ -6,6 +6,13 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
 
+/**
+ * Logs entry, duration and failures of public service and scheduler methods.
+ *
+ * <p>Deliberately never logs arguments or return values: they include verification codes, refresh
+ * tokens and personal data (see #84), and an opt-out list can't keep up with new methods. Methods
+ * annotated {@code @NoLogging} are skipped entirely.
+ */
 @Slf4j
 @Aspect
 @Component
@@ -20,16 +27,15 @@ public class LoggingAspect {
         long start = System.currentTimeMillis();
 
         String methodName = joinPoint.getSignature().toShortString();
-        Object[] args = joinPoint.getArgs();
 
-        log.info("Starting method execution: {} | Request : {}", methodName, args);
+        log.info("Starting method execution: {}", methodName);
 
         try {
             Object result = joinPoint.proceed();
 
             long timeTaken = System.currentTimeMillis() - start;
 
-            log.info("Completed method execution in {}ms: Response: {}", timeTaken, result);
+            log.info("Completed method execution in {}ms: {}", timeTaken, methodName);
 
             return result;
         } catch (Throwable ex) {

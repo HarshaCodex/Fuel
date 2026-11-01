@@ -166,9 +166,7 @@ public class VerificationCodeService {
                     .build();
 
         } catch (Exception e) {
-            log.error(
-                    "Exception while verifying email for user with email:{}",
-                    verifyEmailRequest.getEmail());
+            log.error("Exception while verifying an email: {}", e.getClass().getSimpleName());
             throw e;
         }
     }
