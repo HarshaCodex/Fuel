@@ -1,17 +1,21 @@
 package com.lazybuff.fuel.logging;
 
+import com.lazybuff.fuel.annotation.LogArguments;
+import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.stereotype.Component;
 
 /**
  * Logs entry, duration and failures of public service and scheduler methods.
  *
- * <p>Deliberately never logs arguments or return values: they include verification codes, refresh
- * tokens and personal data (see #84), and an opt-out list can't keep up with new methods. Methods
- * annotated {@code @NoLogging} are skipped entirely.
+ * <p>Arguments are only logged for classes annotated {@link LogArguments}; return values never are.
+ * Auth arguments and results include verification codes, refresh tokens and personal data (#84), so
+ * logging is opt-in and a new class is safe by default. Methods annotated {@code @NoLogging} are
+ * skipped entirely.
  */
 @Slf4j
 @Aspect
@@ -28,7 +32,14 @@ public class LoggingAspect {
 
         String methodName = joinPoint.getSignature().toShortString();
 
-        log.info("Starting method execution: {}", methodName);
+        if (logsArguments(joinPoint)) {
+            log.info(
+                    "Starting method execution: {} | Request: {}",
+                    methodName,
+                    Arrays.toString(joinPoint.getArgs()));
+        } else {
+            log.info("Starting method execution: {}", methodName);
+        }
 
         try {
             Object result = joinPoint.proceed();
@@ -45,5 +56,10 @@ public class LoggingAspect {
 
             throw ex;
         }
+    }
+
+    private static boolean logsArguments(ProceedingJoinPoint joinPoint) {
+        return AnnotatedElementUtils.hasAnnotation(
+                joinPoint.getSignature().getDeclaringType(), LogArguments.class);
     }
 }

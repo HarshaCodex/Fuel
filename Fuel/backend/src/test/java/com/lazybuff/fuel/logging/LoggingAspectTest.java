@@ -2,9 +2,12 @@ package com.lazybuff.fuel.logging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
+import com.lazybuff.fuel.annotation.LogArguments;
+import java.util.UUID;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.Signature;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +38,14 @@ class LoggingAspectTest {
         when(signature.toShortString()).thenReturn("EmailService.sendEmail(..)");
         // Lenient: the aspect must not read them at all, but if it did they'd be these secrets.
         lenient().when(joinPoint.getArgs()).thenReturn(new Object[] {EMAIL, CODE});
+        lenient().doReturn(NotOptedIn.class).when(signature).getDeclaringType();
     }
+
+    /** Stands in for a service without {@link LogArguments}, e.g. an auth service. */
+    private static final class NotOptedIn {}
+
+    @LogArguments
+    private static final class OptedIn {}
 
     @Test
     @DisplayName("logs the method and duration but never its arguments or return value")
@@ -50,6 +60,20 @@ class LoggingAspectTest {
                 .contains("Completed method execution in");
         // Regression (#84): arguments and results carried codes, tokens and emails.
         assertThat(output).doesNotContain(EMAIL).doesNotContain(CODE).doesNotContain(REFRESH_TOKEN);
+    }
+
+    @Test
+    @DisplayName("logs the arguments of a class annotated @LogArguments, but not the result")
+    void shouldLogArgumentsWhenOptedIn(CapturedOutput output) throws Throwable {
+        UUID foodId = UUID.randomUUID();
+        doReturn(OptedIn.class).when(signature).getDeclaringType();
+        when(joinPoint.getArgs()).thenReturn(new Object[] {foodId});
+        when(joinPoint.proceed()).thenReturn("food-detail-response");
+
+        aspect.logPublicMethods(joinPoint);
+
+        assertThat(output).contains("| Request: [" + foodId + "]");
+        assertThat(output).doesNotContain("food-detail-response");
     }
 
     @Test

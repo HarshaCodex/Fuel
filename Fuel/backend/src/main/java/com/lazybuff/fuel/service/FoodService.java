@@ -1,5 +1,6 @@
 package com.lazybuff.fuel.service;
 
+import com.lazybuff.fuel.annotation.LogArguments;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.FoodItemDetail;
 import com.lazybuff.fuel.entity.FoodItem;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@LogArguments
 public class FoodService {
 
     private final FoodItemRepository foodItemRepository;
