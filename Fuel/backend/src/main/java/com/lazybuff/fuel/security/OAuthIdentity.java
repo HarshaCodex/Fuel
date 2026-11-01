@@ -7,7 +7,8 @@ import com.lazybuff.fuel.util.AuthProvider;
  *
  * @param provider the provider that verified the user
  * @param subject the provider's stable account id ({@code sub}); never changes, unlike email
- * @param email lower-cased email address the provider has verified
+ * @param email lower-cased email address the provider has verified, or {@code null} if it shared
+ *     none (Apple can omit it)
  * @param name display name, may be {@code null}
  */
 public record OAuthIdentity(AuthProvider provider, String subject, String email, String name) {}

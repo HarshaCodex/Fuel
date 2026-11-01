@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.lazybuff.fuel.dto.ApiResponse;
@@ -249,5 +250,37 @@ class OAuthAccountServiceTest {
         assertThat(authProviderCaptor.getValue().getProvider()).isEqualTo(AuthProvider.APPLE);
         assertThat(authProviderCaptor.getValue().getProviderId()).isEqualTo("apple-sub");
         assertThat(response.getMessage()).isEqualTo("Apple authentication successful");
+    }
+
+    @Test
+    @DisplayName("still signs in a linked user when the provider shares no email")
+    void shouldSignInLinkedUserWithoutEmail() throws Exception {
+        identity = new OAuthIdentity(AuthProvider.APPLE, "apple-sub", null, null);
+        when(userAuthProviderRepository.findByProviderAndProviderIdAndUser_DeletedAtIsNull(
+                        AuthProvider.APPLE, "apple-sub"))
+                .thenReturn(Optional.of(googleProvider(persistedUser)));
+        stubTokens();
+
+        ApiResponse<UserData> response =
+                oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO);
+
+        assertThat(response.getData().getUserId()).isEqualTo(TestDataFactory.USER_ID.toString());
+        verify(userRepository, never()).findByEmailAndDeletedAtIsNull(any());
+    }
+
+    @Test
+    @DisplayName("refuses with 400 to link or create an account without a verified email")
+    void shouldRejectUnlinkedIdentityWithoutEmail() {
+        identity = new OAuthIdentity(AuthProvider.APPLE, "apple-sub", null, null);
+        when(userAuthProviderRepository.findByProviderAndProviderIdAndUser_DeletedAtIsNull(
+                        AuthProvider.APPLE, "apple-sub"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO))
+                .isInstanceOf(FuelException.class)
+                .extracting(e -> ((FuelException) e).getHttpStatus())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(userRepository, refreshTokenService);
+        verify(userAuthProviderRepository, never()).save(any());
     }
 }
