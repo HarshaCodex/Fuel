@@ -1,10 +1,13 @@
 package com.lazybuff.fuel.entity;
 
+import com.lazybuff.fuel.util.EmailNormalizer;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -61,4 +64,11 @@ public class User {
 
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
+
+    /** Last line of defence for chk_users_email_lowercase; services already normalise. */
+    @PrePersist
+    @PreUpdate
+    void normalizeEmail() {
+        email = EmailNormalizer.normalize(email);
+    }
 }

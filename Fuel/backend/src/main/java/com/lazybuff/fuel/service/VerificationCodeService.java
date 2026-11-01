@@ -12,6 +12,7 @@ import com.lazybuff.fuel.entity.VerificationCode;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.repository.VerificationCodeRepository;
+import com.lazybuff.fuel.util.EmailNormalizer;
 import com.lazybuff.fuel.util.TokenHasher;
 import com.lazybuff.fuel.util.VerifyType;
 import java.security.NoSuchAlgorithmException;
@@ -85,7 +86,9 @@ public class VerificationCodeService {
 
             String codeHash = TokenHasher.sha256Hex(verifyEmailRequest.getVerificationCode());
 
-            User user = userRepository.findByEmailAndDeletedAtIsNull(verifyEmailRequest.getEmail());
+            User user =
+                    userRepository.findByEmailAndDeletedAtIsNull(
+                            EmailNormalizer.normalize(verifyEmailRequest.getEmail()));
 
             if (user == null) {
                 throw new FuelException(
@@ -136,7 +139,7 @@ public class VerificationCodeService {
 
         String key =
                 "rate_limit:resend-verification:"
-                        + resendVerificationRequest.getEmail().toLowerCase();
+                        + EmailNormalizer.normalize(resendVerificationRequest.getEmail());
 
         if (!rateLimiterService.isAllowed(
                 key, rateLimitConfig.getMaxRequests(), rateLimitConfig.getWindow())) {
@@ -149,7 +152,7 @@ public class VerificationCodeService {
 
             User user =
                     userRepository.findByEmailAndDeletedAtIsNull(
-                            resendVerificationRequest.getEmail());
+                            EmailNormalizer.normalize(resendVerificationRequest.getEmail()));
 
             verificationCodeRepository.invalidateAllVerificationCodes(
                     user, VerifyType.EMAIL_VERIFY);
@@ -172,7 +175,9 @@ public class VerificationCodeService {
     @NoLogging
     public ApiResponse<Void> forgotPassword(ForgotPasswordRequest forgotPasswordRequest) {
 
-        String key = "rate_limit:forgot-password:" + forgotPasswordRequest.getEmail().toLowerCase();
+        String key =
+                "rate_limit:forgot-password:"
+                        + EmailNormalizer.normalize(forgotPasswordRequest.getEmail());
 
         if (!rateLimiterService.isAllowed(
                 key, rateLimitConfig.getMaxRequests(), rateLimitConfig.getWindow())) {
@@ -184,7 +189,8 @@ public class VerificationCodeService {
         try {
 
             User user =
-                    userRepository.findByEmailAndDeletedAtIsNull(forgotPasswordRequest.getEmail());
+                    userRepository.findByEmailAndDeletedAtIsNull(
+                            EmailNormalizer.normalize(forgotPasswordRequest.getEmail()));
 
             if (user == null) {
                 return ApiResponse.<Void>builder()
