@@ -19,11 +19,9 @@ import com.lazybuff.fuel.repository.RefreshTokenRepository;
 import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
-import com.lazybuff.fuel.repository.VerificationCodeRepository;
 import com.lazybuff.fuel.security.ClientInfo;
 import com.lazybuff.fuel.util.AuthProvider;
 import com.lazybuff.fuel.util.EmailNormalizer;
-import com.lazybuff.fuel.util.TokenHasher;
 import com.lazybuff.fuel.util.VerifyType;
 import java.security.NoSuchAlgorithmException;
 import java.time.DateTimeException;
@@ -63,8 +61,6 @@ public class AuthService {
     private final JwtConfig jwtConfig;
 
     private final VerificationCodeService verificationCodeService;
-
-    private final VerificationCodeRepository verificationCodeRepository;
 
     @Transactional
     @NoLogging
@@ -221,22 +217,9 @@ public class AuthService {
                         "Please verify your email before resetting your password");
             }
 
-            String codeHash = TokenHasher.sha256Hex(resetPasswordRequest.getResetCode());
-
             VerificationCode code =
-                    verificationCodeRepository
-                            .findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
-                                    user.getId(), VerifyType.PASSWORD_RESET, codeHash)
-                            .orElseThrow(
-                                    () ->
-                                            new FuelException(
-                                                    HttpStatus.UNAUTHORIZED,
-                                                    "Invalid or expired verification code"));
-
-            if (!code.getExpires_at().isAfter(Instant.now())) {
-                throw new FuelException(
-                        HttpStatus.UNAUTHORIZED, "Invalid or expired verification code");
-            }
+                    verificationCodeService.findValidCode(
+                            user, VerifyType.PASSWORD_RESET, resetPasswordRequest.getResetCode());
 
             UserAuthProvider userAuthProvider =
                     userAuthProviderRepository.findByUser_IdAndProvider(

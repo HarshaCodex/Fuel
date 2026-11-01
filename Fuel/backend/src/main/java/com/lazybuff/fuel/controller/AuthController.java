@@ -77,7 +77,10 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @Operation(summary = "Verify email with the emailed code")
+    @Operation(
+            summary = "Verify email with the emailed code",
+            description =
+                    "A code stops working after too many guesses; request a new one to continue.")
     @SecurityRequirements
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -91,7 +94,10 @@ public class AuthController {
                 description = "Code invalid or expired"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "409",
-                description = "Email already verified")
+                description = "Email already verified"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many incorrect codes; request a new one")
     })
     @PostMapping(
             path = "/verify-email",
@@ -220,7 +226,9 @@ public class AuthController {
 
     @Operation(
             summary = "Reset password with the emailed code",
-            description = "Revokes all existing sessions on success.")
+            description =
+                    "Revokes all existing sessions on success. A code stops working after too"
+                            + " many guesses; request a new one to continue.")
     @SecurityRequirements
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -231,7 +239,10 @@ public class AuthController {
                 description = "Validation failed or email not verified"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
-                description = "Code invalid or expired")
+                description = "Code invalid or expired"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many incorrect codes; request a new one")
     })
     @PostMapping(
             path = "/reset-password",

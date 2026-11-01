@@ -25,12 +25,8 @@ import com.lazybuff.fuel.repository.RefreshTokenRepository;
 import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
-import com.lazybuff.fuel.repository.VerificationCodeRepository;
 import com.lazybuff.fuel.util.AuthProvider;
 import com.lazybuff.fuel.util.VerifyType;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +53,6 @@ class AuthServiceTest {
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private JwtService jwtService;
     @Mock private VerificationCodeService verificationCodeService;
-    @Mock private VerificationCodeRepository verificationCodeRepository;
 
     // Real config holder so the expiry values flow through to the response untouched.
     private final JwtConfig jwtConfig = TestDataFactory.jwtConfig();
@@ -86,8 +81,7 @@ class AuthServiceTest {
                         refreshTokenService,
                         jwtService,
                         jwtConfig,
-                        verificationCodeService,
-                        verificationCodeRepository);
+                        verificationCodeService);
         request = TestDataFactory.registerRequest();
         persistedUser = TestDataFactory.persistedUser();
     }
@@ -655,11 +649,9 @@ class AuthServiceTest {
 
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(persistedUser);
-            when(verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
-                            TestDataFactory.USER_ID,
-                            VerifyType.PASSWORD_RESET,
-                            TestDataFactory.sha256(TestDataFactory.VALID_CODE)))
-                    .thenReturn(Optional.of(code));
+            when(verificationCodeService.findValidCode(
+                            persistedUser, VerifyType.PASSWORD_RESET, TestDataFactory.VALID_CODE))
+                    .thenReturn(code);
             when(userAuthProviderRepository.findByUser_IdAndProvider(
                             TestDataFactory.USER_ID, AuthProvider.EMAIL))
                     .thenReturn(authProvider);
@@ -695,7 +687,7 @@ class AuthServiceTest {
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
                     .isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
 
-            verifyNoInteractions(verificationCodeRepository, userAuthProviderRepository);
+            verifyNoInteractions(verificationCodeService, userAuthProviderRepository);
         }
 
         @Test
@@ -712,56 +704,26 @@ class AuthServiceTest {
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
                     .isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
 
-            verifyNoInteractions(verificationCodeRepository, userAuthProviderRepository);
+            verifyNoInteractions(verificationCodeService, userAuthProviderRepository);
         }
 
         @Test
-        @DisplayName("throws 401 UNAUTHORIZED when no matching unused reset code exists")
-        void throwsUnauthorizedWhenCodeNotFound() {
+        @DisplayName("propagates a rejected code without changing the password or sessions")
+        void propagatesRejectedCode() throws Exception {
             persistedUser.setEmailVerified(true);
             ResetPasswordRequest request = TestDataFactory.resetPasswordRequest();
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(persistedUser);
-            when(verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
-                            TestDataFactory.USER_ID,
-                            VerifyType.PASSWORD_RESET,
-                            TestDataFactory.sha256(TestDataFactory.VALID_CODE)))
-                    .thenReturn(Optional.empty());
+            when(verificationCodeService.findValidCode(
+                            persistedUser, VerifyType.PASSWORD_RESET, TestDataFactory.VALID_CODE))
+                    .thenThrow(
+                            new FuelException(
+                                    org.springframework.http.HttpStatus.UNAUTHORIZED,
+                                    "Invalid or expired verification code"));
 
             assertThatThrownBy(() -> authService.resetPassword(request))
                     .isInstanceOf(FuelException.class)
-                    .hasMessage("Invalid or expired verification code")
-                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
-                    .isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
-
-            verifyNoInteractions(userAuthProviderRepository, refreshTokenRepository);
-        }
-
-        @Test
-        @DisplayName("throws 401 UNAUTHORIZED when the matching reset code has expired")
-        void throwsUnauthorizedWhenCodeExpired() {
-            persistedUser.setEmailVerified(true);
-            ResetPasswordRequest request = TestDataFactory.resetPasswordRequest();
-            VerificationCode expiredCode =
-                    TestDataFactory.verificationCode(
-                            persistedUser,
-                            TestDataFactory.VALID_CODE,
-                            Instant.now().minus(Duration.ofMinutes(1)),
-                            VerifyType.PASSWORD_RESET);
-
-            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
-                    .thenReturn(persistedUser);
-            when(verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
-                            TestDataFactory.USER_ID,
-                            VerifyType.PASSWORD_RESET,
-                            TestDataFactory.sha256(TestDataFactory.VALID_CODE)))
-                    .thenReturn(Optional.of(expiredCode));
-
-            assertThatThrownBy(() -> authService.resetPassword(request))
-                    .isInstanceOf(FuelException.class)
-                    .hasMessage("Invalid or expired verification code")
-                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
-                    .isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
+                    .hasMessage("Invalid or expired verification code");
 
             verifyNoInteractions(userAuthProviderRepository, refreshTokenRepository);
         }
