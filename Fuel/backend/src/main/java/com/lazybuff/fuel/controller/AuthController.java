@@ -262,6 +262,31 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @Operation(
+            summary = "Sign in or sign up with Google",
+            description =
+                    "Send the ID token from Google Sign-In on the device. Logs in the linked user, links"
+                            + " Google to an existing account with the same email, or creates a new"
+                            + " account (isNewUser: true). Linking to an unverified account removes its"
+                            + " password and sessions; see ADR 0001.")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Signed in; returns access and refresh tokens"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Validation failed"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "ID token invalid, expired, or issued for another app"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Account already linked to a different Google account"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "503",
+                description = "Google's signing keys could not be fetched")
+    })
     @PostMapping(
             path = "/oauth/google",
             consumes = MediaType.APPLICATION_JSON_VALUE,
