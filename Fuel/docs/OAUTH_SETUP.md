@@ -68,8 +68,8 @@ expired token (the app sent a stale one; get a fresh token on each sign-in), or 
 
 ## Not needed yet: Apple client secret
 
-Account deletion (#64) will have to revoke the user's Apple tokens, which Apple requires for apps
+Account deletion (#64) should also revoke the user's Apple tokens, which Apple requires for apps
 offering Sign in with Apple. That call needs a client secret, signed with a **private key** created
 under Apple Developer → Keys (with Sign in with Apple enabled), plus the **Key ID** and **Team ID**.
 The `.p8` private key is a real secret: store it in the secret manager, never in the repo. It will
-be documented here when #64 adds it.
+be documented here when #81 adds it.

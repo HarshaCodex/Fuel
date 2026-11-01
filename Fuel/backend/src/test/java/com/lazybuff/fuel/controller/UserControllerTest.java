@@ -1,11 +1,16 @@
 package com.lazybuff.fuel.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.DeleteAccountRequest;
 import com.lazybuff.fuel.dto.UserProfile;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
@@ -24,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
@@ -100,5 +106,46 @@ class UserControllerTest {
         mockMvc.perform(get("/api/user/profile"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("User not found"));
+    }
+
+    private static final String DELETE_URL = "/api/user/account";
+
+    @Test
+    @DisplayName("deletes the authenticated user's account")
+    void shouldDeleteAccount() throws Exception {
+        when(userService.deleteAccount(eq(USER_ID), any(DeleteAccountRequest.class)))
+                .thenReturn(
+                        ApiResponse.<Void>builder()
+                                .status(HttpStatus.OK.value())
+                                .message("Account deleted successfully")
+                                .build());
+
+        mockMvc.perform(
+                        delete(DELETE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"password\":\"Password1!\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Account deleted successfully"));
+    }
+
+    @Test
+    @DisplayName("returns 400 without calling the service when no confirmation is sent")
+    void shouldRejectMissingConfirmation() throws Exception {
+        mockMvc.perform(delete(DELETE_URL).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    @DisplayName("returns 400 when more than one confirmation is sent")
+    void shouldRejectTwoConfirmations() throws Exception {
+        mockMvc.perform(
+                        delete(DELETE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"password\":\"Password1!\",\"googleIdToken\":\"t\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(userService);
     }
 }
