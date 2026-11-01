@@ -4,6 +4,7 @@ import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.ForgotPasswordRequest;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.LogoutRequest;
+import com.lazybuff.fuel.dto.OAuthAppleRequest;
 import com.lazybuff.fuel.dto.OAuthGoogleRequest;
 import com.lazybuff.fuel.dto.RefreshTokenRequest;
 import com.lazybuff.fuel.dto.RefreshTokenResponse;
@@ -14,6 +15,7 @@ import com.lazybuff.fuel.dto.UserRegisterRequest;
 import com.lazybuff.fuel.dto.VerifyEmailRequest;
 import com.lazybuff.fuel.dto.VerifyEmailResponse;
 import com.lazybuff.fuel.security.ClientInfo;
+import com.lazybuff.fuel.service.AppleOAuthService;
 import com.lazybuff.fuel.service.AuthService;
 import com.lazybuff.fuel.service.GoogleOAuthService;
 import com.lazybuff.fuel.service.VerificationCodeService;
@@ -44,6 +46,8 @@ public class AuthController {
     private final VerificationCodeService verificationCodeService;
 
     private final GoogleOAuthService googleOAuthService;
+
+    private final AppleOAuthService appleOAuthService;
 
     @Operation(
             summary = "Register with email and password",
@@ -324,6 +328,52 @@ public class AuthController {
 
         ApiResponse<UserData> response =
                 googleOAuthService.authenticate(oAuthGoogleRequest, ClientInfo.from(request));
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @Operation(
+            summary = "Sign in or register with Apple",
+            description =
+                    "Verifies the Apple identity token. Signs in the account already linked to the"
+                            + " Apple ID, otherwise links Apple to an existing account with the same"
+                            + " email, or creates a new account (isNewUser: true). Linking to an"
+                            + " unverified account removes its password and sessions; see ADR 0001."
+                            + " Apple only gives the app the user's name on the first sign-in, so"
+                            + " send fullName whenever it's available.")
+    @SecurityRequirements
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Signed in; returns access and refresh tokens"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description =
+                        "Validation failed, or Apple shared no email for an account not yet"
+                                + " linked"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Identity token invalid, expired, or issued for another app"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Account already linked to a different Apple account"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many requests from this IP; see Retry-After"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "503",
+                description = "Apple's signing keys could not be fetched")
+    })
+    @PostMapping(
+            path = "/oauth/apple",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<UserData>> oauthApple(
+            @Valid @RequestBody OAuthAppleRequest oAuthAppleRequest, HttpServletRequest request)
+            throws Exception {
+
+        ApiResponse<UserData> response =
+                appleOAuthService.authenticate(oAuthAppleRequest, ClientInfo.from(request));
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

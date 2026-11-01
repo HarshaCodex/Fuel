@@ -48,8 +48,8 @@ public class OAuthAccountService {
     /**
      * Logs in the user linked to the provider account, linking or creating one by email if needed.
      *
-     * @throws FuelException 409 if the email's account is linked to a different account of the same
-     *     provider
+     * @throws FuelException 400 if the user isn't linked yet and the identity has no email, 409 if
+     *     the email's account is linked to a different account of the same provider
      */
     @Transactional
     @NoLogging
@@ -65,6 +65,16 @@ public class OAuthAccountService {
 
         if (linkedUser != null) {
             return buildResponse(linkedUser, false, identity.provider(), clientInfo);
+        }
+
+        if (identity.email() == null) {
+            // Without a provider-verified email there's nothing to safely link to or create from.
+            // Apple can omit it; an already-linked user is still found by subject above.
+            throw new FuelException(
+                    HttpStatus.BAD_REQUEST,
+                    displayName(identity.provider())
+                            + " did not share a verified email address, so no account can be"
+                            + " created. Allow email sharing and try again.");
         }
 
         User existingUser = userRepository.findByEmailAndDeletedAtIsNull(identity.email());

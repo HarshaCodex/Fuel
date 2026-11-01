@@ -43,6 +43,8 @@ DATABASE_PASSWORD=fuel_pass
 JWT_SECRET=<base64-encoded-secret>
 # Optional: only needed to test Google Sign-In
 GOOGLE_CLIENT_IDS=<ios-client-id>,<android-client-id>,<web-client-id>
+# Optional: only needed to test Sign in with Apple
+APPLE_CLIENT_IDS=<ios-bundle-id>,<services-id>
 ```
 
 Notes:
@@ -59,6 +61,9 @@ Notes:
 - `GOOGLE_CLIENT_IDS` is a comma-separated list of the Google OAuth client IDs (from Google Cloud
   Console → APIs & Services → Credentials) for each app that signs users in. `POST /api/auth/oauth/google`
   only accepts ID tokens whose audience is in this list; if it is unset, every Google sign-in returns 401.
+- `APPLE_CLIENT_IDS` lists the audiences `POST /api/auth/oauth/apple` accepts: the iOS app's bundle
+  ID (native sign-in) and the Services ID (Android/web sign-in), both from Apple Developer →
+  Certificates, Identifiers & Profiles. If it is unset, every Apple sign-in returns 401.
 
 ---
 
