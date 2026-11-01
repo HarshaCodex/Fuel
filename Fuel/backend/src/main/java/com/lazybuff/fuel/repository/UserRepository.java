@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.repository;
 
 import com.lazybuff.fuel.entity.User;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -11,4 +12,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByEmailAndDeletedAtIsNull(String email);
 
     User findByEmailAndDeletedAtIsNull(String email);
+
+    Optional<User> findByIdAndDeletedAtIsNull(UUID id);
 }
