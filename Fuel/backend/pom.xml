@@ -28,11 +28,24 @@
 	</scm>
 	<properties>
 		<java.version>25</java.version>
+		<sentry.version>8.61.0</sentry.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<!-- Error tracking (#100); inactive unless SENTRY_DSN is set -->
+		<dependency>
+			<groupId>io.sentry</groupId>
+			<artifactId>sentry-spring-boot-4-starter</artifactId>
+			<version>${sentry.version}</version>
+		</dependency>
+		<!-- Reports ERROR log events (e.g. from GlobalExceptionHandler's catch-all) to Sentry -->
+		<dependency>
+			<groupId>io.sentry</groupId>
+			<artifactId>sentry-logback</artifactId>
+			<version>${sentry.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
