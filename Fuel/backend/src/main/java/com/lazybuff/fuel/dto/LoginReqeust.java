@@ -28,6 +28,7 @@ public class LoginReqeust {
     private String email;
 
     // No complexity rules here: they may change, and existing passwords must keep working (#88).
+    @ToString.Exclude
     @NotBlank(message = "Password field cannot be blank.")
     @Size(max = 128, message = "Password must be at most 128 characters.")
     private String password;

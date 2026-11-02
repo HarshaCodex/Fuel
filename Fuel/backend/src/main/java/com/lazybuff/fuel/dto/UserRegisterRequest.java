@@ -28,7 +28,7 @@ public class UserRegisterRequest {
     @Size(min = 1, max = 255, message = "Email must be less than 255 characters.")
     private String email;
 
-    @NewPassword private String password;
+    @ToString.Exclude @NewPassword private String password;
 
     @NotBlank(message = "Name cannot be blank")
     @Size(min = 1, max = 100, message = "Name must be between 1 and 100 characters.")

@@ -26,6 +26,7 @@ public class VerifyEmailRequest {
             message = "Please provide a well-formated email address.")
     private String email;
 
+    @ToString.Exclude
     @NotBlank(message = "Verification code field cannot be blank.")
     @Size(max = 10, message = "Verification code must be at most 10 characters.")
     private String verificationCode;

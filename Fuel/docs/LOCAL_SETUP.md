@@ -104,6 +104,10 @@ starting the app.
 | `fuel-redis` | `6379` | Redis 7 cache |
 | `fuel-mailpit` | `1025` (SMTP) / `8025` (UI) | Local mail catcher (emails never leave your machine; see [EMAIL_SETUP.md](EMAIL_SETUP.md) for real delivery) |
 
+Postgres, Redis and Mailpit listen on `127.0.0.1` only. They use dev credentials (or none), and
+Mailpit shows every verification and reset code, so they aren't reachable from your network. The
+app's `8080` stays on all interfaces so a phone on the same Wi-Fi can reach it.
+
 The app image is a multi-stage build (see `Dockerfile`): it compiles with the Temurin 25 JDK
 and runs on the Temurin 25 JRE as an unprivileged user.
 

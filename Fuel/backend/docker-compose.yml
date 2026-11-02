@@ -28,8 +28,9 @@ services:
       POSTGRES_DB: fuel
       POSTGRES_USER: fuel_user
       POSTGRES_PASSWORD: fuel_pass
+    # 127.0.0.1 only: the dev password is public, so don't expose it to the local network (#91).
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -42,8 +43,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: fuel-redis
+    # No password locally, so reachable from this machine only (#91).
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -55,9 +57,10 @@ services:
   mailpit:
     image: axllent/mailpit
     container_name: fuel-mailpit
+    # The inbox UI shows every verification and reset code, so this machine only (#91).
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1

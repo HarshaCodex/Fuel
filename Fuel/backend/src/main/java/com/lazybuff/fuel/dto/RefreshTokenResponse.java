@@ -17,8 +17,8 @@ import lombok.ToString;
 @Builder
 public class RefreshTokenResponse {
 
-    private String accessToken;
-    private String refreshToken;
+    @ToString.Exclude private String accessToken;
+    @ToString.Exclude private String refreshToken;
     private long accessTokenExpiresIn;
     private long refreshTokenExpiresIn;
 }
