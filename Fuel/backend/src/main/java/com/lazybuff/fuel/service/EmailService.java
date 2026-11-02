@@ -27,6 +27,9 @@ public class EmailService {
     @Value("${app.mail.forgot-password-subject}")
     private String forgotPasswordEmailSubject;
 
+    @Value("${app.mail.account-exists-subject}")
+    private String accountExistsEmailSubject;
+
     @Async("emailTaskExecutor")
     public void sendEmail(String to, String verificationCode) {
 
@@ -63,6 +66,32 @@ public class EmailService {
 
         } catch (Exception e) {
             log.error("Failed to send password reset email, ex", e);
+        }
+    }
+
+    /** Sent when someone tries to register with an email that already has an account (#86). */
+    @Async("emailTaskExecutor")
+    public void sendAccountExistsEmail(String to) {
+
+        try {
+
+            SimpleMailMessage message = new SimpleMailMessage();
+
+            message.setFrom(fromEmailAddress);
+            message.setTo(to);
+            message.setSubject(accountExistsEmailSubject);
+            message.setText(
+                    "Someone tried to create a Fuel account with this email address, but you"
+                            + " already have one.\n\n"
+                            + "If this was you, log in instead. If you've forgotten your password,"
+                            + " use \"Forgot password\" in the app to reset it.\n\n"
+                            + "If it wasn't you, you can ignore this email; your account hasn't"
+                            + " changed.");
+
+            javaMailSender.send(message);
+
+        } catch (Exception e) {
+            log.error("Failed to send account-exists email: {}", e.getClass().getSimpleName());
         }
     }
 }

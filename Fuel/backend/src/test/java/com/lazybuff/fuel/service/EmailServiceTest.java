@@ -28,6 +28,7 @@ class EmailServiceTest {
     private static final String FROM = "noreply@fuel.local";
     private static final String VERIFICATION_SUBJECT = "Verify your email address";
     private static final String FORGOT_PASSWORD_SUBJECT = "Forgot Your Password?";
+    private static final String ACCOUNT_EXISTS_SUBJECT = "You already have a Fuel account";
     private static final String RESET_PASSWORD_BASE_URL =
             "https://app.example.com/reset-password?token=";
     private static final String TO = "john.doe@example.com";
@@ -48,6 +49,8 @@ class EmailServiceTest {
         ReflectionTestUtils.setField(
                 emailService, "forgotPasswordEmailSubject", FORGOT_PASSWORD_SUBJECT);
         ReflectionTestUtils.setField(emailService, "resetPasswordLink", RESET_PASSWORD_BASE_URL);
+        ReflectionTestUtils.setField(
+                emailService, "accountExistsEmailSubject", ACCOUNT_EXISTS_SUBJECT);
     }
 
     @Nested
@@ -115,6 +118,37 @@ class EmailServiceTest {
                     .doesNotThrowAnyException();
             assertThat(output).contains("Failed to send password reset email");
             assertThat(output).doesNotContain(TO).doesNotContain(CODE);
+        }
+    }
+
+    @Nested
+    @DisplayName("sendAccountExistsEmail")
+    class SendAccountExistsEmail {
+
+        @Test
+        @DisplayName("tells the owner to log in or reset their password")
+        void sendsAccountExistsEmail() {
+            emailService.sendAccountExistsEmail(TO);
+
+            verify(javaMailSender).send(messageCaptor.capture());
+            SimpleMailMessage sent = messageCaptor.getValue();
+
+            assertThat(sent.getFrom()).isEqualTo(FROM);
+            assertThat(sent.getTo()).containsExactly(TO);
+            assertThat(sent.getSubject()).isEqualTo(ACCOUNT_EXISTS_SUBJECT);
+            assertThat(sent.getText()).contains("already have one").contains("Forgot password");
+        }
+
+        @Test
+        @DisplayName("swallows a mail-sending failure without logging the address")
+        void swallowsSendFailure(CapturedOutput output) {
+            doThrow(new RuntimeException("smtp down for " + TO))
+                    .when(javaMailSender)
+                    .send(any(SimpleMailMessage.class));
+
+            assertThatCode(() -> emailService.sendAccountExistsEmail(TO))
+                    .doesNotThrowAnyException();
+            assertThat(output).contains("Failed to send account-exists email").doesNotContain(TO);
         }
     }
 }

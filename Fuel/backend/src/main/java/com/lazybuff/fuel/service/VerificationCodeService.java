@@ -130,9 +130,18 @@ public class VerificationCodeService {
         return "verification_attempts:" + verifyType + ":" + user.getId();
     }
 
+    /**
+     * Marks the user's email verified if the code is valid, and returns the user.
+     *
+     * <p>An unknown email, an already-verified account and a wrong code all get the same 401, so
+     * the endpoint can't be used to find out which emails have accounts (#86).
+     *
+     * @throws FuelException 401 when the code can't be used for this email
+     * @throws com.lazybuff.fuel.exception.RateLimitExceededException when guesses are exhausted
+     */
     @Transactional
     @NoLogging
-    public ApiResponse<VerifyEmailResponse> verifyEmail(VerifyEmailRequest verifyEmailRequest)
+    public User confirmEmail(VerifyEmailRequest verifyEmailRequest)
             throws NoSuchAlgorithmException {
 
         try {
@@ -141,12 +150,8 @@ public class VerificationCodeService {
                     userRepository.findByEmailAndDeletedAtIsNull(
                             EmailNormalizer.normalize(verifyEmailRequest.getEmail()));
 
-            if (user == null) {
+            if (user == null || user.isEmailVerified()) {
                 throw new FuelException(HttpStatus.UNAUTHORIZED, INVALID_CODE_MESSAGE);
-            }
-
-            if (user.isEmailVerified()) {
-                throw new FuelException(HttpStatus.CONFLICT, "Email already verified");
             }
 
             VerificationCode code =
@@ -157,13 +162,7 @@ public class VerificationCodeService {
 
             code.setUsedAt(Instant.now());
             user.setEmailVerified(true);
-
-            return ApiResponse.<VerifyEmailResponse>builder()
-                    .status(HttpStatus.OK.value())
-                    .message("Email verified successfully")
-                    .data(VerifyEmailResponse.builder().emailVerified(true).build())
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            return user;
 
         } catch (Exception e) {
             log.error("Exception while verifying an email: {}", e.getClass().getSimpleName());
