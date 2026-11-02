@@ -17,4 +17,9 @@ public class VerificationCodeConfig {
      * are only 5 digits, so without a cap they can be brute-forced within their lifetime.
      */
     private int maxAttempts = 5;
+
+    /**
+     * Base64 key (at least 32 bytes) for hashing stored codes; see {@code VerificationCodeHasher}.
+     */
+    private String secret;
 }
