@@ -1,8 +1,8 @@
 package com.lazybuff.fuel.dto;
 
+import com.lazybuff.fuel.validation.NewPassword;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,13 +28,7 @@ public class UserRegisterRequest {
     @Size(min = 1, max = 255, message = "Email must be less than 255 characters.")
     private String email;
 
-    @NotBlank(message = "Password field cannot be blank.")
-    @Size(min = 8, max = 20, message = "Password must be between 8 and 20 characters.")
-    @Pattern(
-            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$",
-            message =
-                    "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character")
-    private String password;
+    @NewPassword private String password;
 
     @NotBlank(message = "Name cannot be blank")
     @Size(min = 1, max = 100, message = "Name must be between 1 and 100 characters.")

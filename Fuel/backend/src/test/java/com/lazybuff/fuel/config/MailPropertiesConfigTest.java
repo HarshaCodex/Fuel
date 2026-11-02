@@ -38,7 +38,6 @@ class MailPropertiesConfigTest {
         vars.put("MAIL_USERNAME", "smtp-user");
         vars.put("MAIL_PASSWORD", "smtp-secret");
         vars.put("MAIL_FROM", "no-reply@fuel.app");
-        vars.put("FRONTEND_URL", "https://fuel.app");
         return vars;
     }
 
@@ -100,8 +99,6 @@ class MailPropertiesConfigTest {
             assertThat(env.getProperty("spring.mail.password")).isEqualTo("smtp-secret");
             assertThat(env.getProperty("app.mail.from-email-address"))
                     .isEqualTo("no-reply@fuel.app");
-            assertThat(env.getProperty("app.frontend.reset-password.url"))
-                    .isEqualTo("https://fuel.app/reset-password?token=");
         }
 
         @Test
@@ -166,18 +163,6 @@ class MailPropertiesConfigTest {
             assertThatThrownBy(() -> env.getProperty("app.mail.from-email-address"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("MAIL_FROM");
-        }
-
-        @Test
-        @DisplayName("fails instead of linking to the example domain when FRONTEND_URL is missing")
-        void shouldFailWhenFrontendUrlMissing() throws IOException {
-            final Map<String, Object> vars = prodEnvVars();
-            vars.remove("FRONTEND_URL");
-            final StandardEnvironment env = environment(vars, true);
-
-            assertThatThrownBy(() -> env.getProperty("app.frontend.reset-password.url"))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("FRONTEND_URL");
         }
     }
 }

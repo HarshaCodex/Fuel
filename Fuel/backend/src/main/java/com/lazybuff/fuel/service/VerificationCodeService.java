@@ -232,7 +232,7 @@ public class VerificationCodeService {
                 return ApiResponse.<Void>builder()
                         .status(HttpStatus.OK.value())
                         .message(
-                                "If an account with this email exists, a reset link has been sent.")
+                                "If an account with this email exists, a reset code has been sent.")
                         .build();
             }
 
@@ -247,7 +247,7 @@ public class VerificationCodeService {
 
         return ApiResponse.<Void>builder()
                 .status(HttpStatus.OK.value())
-                .message("If an account with this email exists, a reset link has been sent.")
+                .message("If an account with this email exists, a reset code has been sent.")
                 .build();
     }
 }

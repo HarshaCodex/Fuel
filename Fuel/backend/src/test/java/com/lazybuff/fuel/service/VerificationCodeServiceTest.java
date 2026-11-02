@@ -592,7 +592,7 @@ class VerificationCodeServiceTest {
     class ForgotPassword {
 
         private static final String FORGOT_PASSWORD_MESSAGE =
-                "If an account with this email exists, a reset link has been sent.";
+                "If an account with this email exists, a reset code has been sent.";
 
         private ForgotPasswordRequest forgotPasswordRequest() {
             return ForgotPasswordRequest.builder().email(TestDataFactory.EMAIL).build();
@@ -600,7 +600,7 @@ class VerificationCodeServiceTest {
 
         @Test
         @DisplayName(
-                "invalidates existing PASSWORD_RESET codes then issues and emails a reset link")
+                "invalidates existing PASSWORD_RESET codes then issues and emails a reset code")
         void invalidatesThenReissuesResetLink() {
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(user);
