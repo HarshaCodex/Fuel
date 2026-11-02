@@ -215,4 +215,14 @@ class AppleTokenRevokerTest {
                 .hasMessageNotContaining("not-a-key")
                 .hasNoCause();
     }
+
+    @Test
+    @DisplayName("never prints Apple's tokens in the token response's toString()")
+    void shouldHideTokensInToString() {
+        String printed =
+                new AppleTokenRevoker.AppleTokenResponse("access-secret", "refresh-secret")
+                        .toString();
+
+        assertThat(printed).doesNotContain("access-secret").doesNotContain("refresh-secret");
+    }
 }
