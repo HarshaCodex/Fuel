@@ -13,6 +13,7 @@ import com.lazybuff.fuel.entity.VerificationCode;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.repository.VerificationCodeRepository;
+import com.lazybuff.fuel.security.VerificationCodeHasher;
 import com.lazybuff.fuel.util.EmailNormalizer;
 import com.lazybuff.fuel.util.TokenHasher;
 import com.lazybuff.fuel.util.VerifyType;
@@ -44,6 +45,8 @@ public class VerificationCodeService {
 
     private final VerificationCodeConfig verificationCodeConfig;
 
+    private final VerificationCodeHasher verificationCodeHasher;
+
     private static final String INVALID_CODE_MESSAGE = "Invalid or expired verification code";
 
     private static final String TOO_MANY_ATTEMPTS_MESSAGE =
@@ -63,7 +66,7 @@ public class VerificationCodeService {
         VerificationCode verificationCode =
                 VerificationCode.builder()
                         .user(user)
-                        .codeHash(TokenHasher.sha256Hex(code.toString()))
+                        .codeHash(verificationCodeHasher.hash(code.toString()))
                         .type(verifyType)
                         .expires_at(Instant.now().plus(codeExpiry(verifyType)))
                         .usedAt(null)
@@ -108,7 +111,7 @@ public class VerificationCodeService {
         VerificationCode code =
                 verificationCodeRepository
                         .findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
-                                user.getId(), verifyType, TokenHasher.sha256Hex(rawCode))
+                                user.getId(), verifyType, verificationCodeHasher.hash(rawCode))
                         .filter(c -> c.getExpires_at().isAfter(Instant.now()))
                         .orElseThrow(
                                 () ->
@@ -123,6 +126,16 @@ public class VerificationCodeService {
         return verifyType.equals(VerifyType.PASSWORD_RESET)
                 ? Duration.ofMinutes(15)
                 : Duration.ofHours(24);
+    }
+
+    // Hashed so no email address is stored in Redis.
+    private static String emailKey(String normalizedEmail) {
+        try {
+            return TokenHasher.sha256Hex(normalizedEmail);
+        } catch (NoSuchAlgorithmException exception) {
+            // SHA-256 is required on every JVM, so this means a broken runtime.
+            throw new IllegalStateException("SHA-256 unavailable", exception);
+        }
     }
 
     // Keyed by user id, not email, so no personal data ends up in Redis.
@@ -177,7 +190,7 @@ public class VerificationCodeService {
 
         String key =
                 "rate_limit:resend-verification:"
-                        + EmailNormalizer.normalize(resendVerificationRequest.getEmail());
+                        + emailKey(EmailNormalizer.normalize(resendVerificationRequest.getEmail()));
 
         rateLimiterService.enforce(
                 key,
@@ -191,13 +204,17 @@ public class VerificationCodeService {
                     userRepository.findByEmailAndDeletedAtIsNull(
                             EmailNormalizer.normalize(resendVerificationRequest.getEmail()));
 
-            verificationCodeRepository.invalidateAllVerificationCodes(
-                    user, VerifyType.EMAIL_VERIFY);
+            // Only unverified accounts get a code; otherwise this could send unwanted mail to
+            // anyone with an account (#90). The response is the same either way.
+            if (user != null && !user.isEmailVerified()) {
+                verificationCodeRepository.invalidateAllVerificationCodes(
+                        user, VerifyType.EMAIL_VERIFY);
 
-            generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
+                generateVerificationCode(user, VerifyType.EMAIL_VERIFY);
+            }
 
         } catch (Exception e) {
-            log.error("Error while resending verification: ", e);
+            log.error("Error while resending verification: {}", e.getClass().getSimpleName());
         }
 
         return ApiResponse.<VerifyEmailResponse>builder()
@@ -214,7 +231,7 @@ public class VerificationCodeService {
 
         String key =
                 "rate_limit:forgot-password:"
-                        + EmailNormalizer.normalize(forgotPasswordRequest.getEmail());
+                        + emailKey(EmailNormalizer.normalize(forgotPasswordRequest.getEmail()));
 
         rateLimiterService.enforce(
                 key,

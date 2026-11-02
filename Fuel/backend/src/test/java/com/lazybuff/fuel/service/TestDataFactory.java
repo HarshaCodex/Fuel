@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.config.JwtConfig;
+import com.lazybuff.fuel.config.VerificationCodeConfig;
 import com.lazybuff.fuel.dto.FoodItemDetail;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.ResetPasswordRequest;
@@ -13,6 +14,7 @@ import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.UserAuthProvider;
 import com.lazybuff.fuel.entity.VerificationCode;
 import com.lazybuff.fuel.security.ClientInfo;
+import com.lazybuff.fuel.security.VerificationCodeHasher;
 import com.lazybuff.fuel.util.AuthProvider;
 import com.lazybuff.fuel.util.FoodSource;
 import com.lazybuff.fuel.util.ServingUnit;
@@ -56,6 +58,23 @@ final class TestDataFactory {
     static final String TIMEZONE = "Asia/Kolkata";
 
     static final String VALID_CODE = "12345";
+
+    static final String CODE_SECRET =
+            Base64.getEncoder()
+                    .encodeToString(
+                            "test-only-key-for-hashing-verification-codes"
+                                    .getBytes(StandardCharsets.UTF_8));
+
+    static VerificationCodeHasher codeHasher() {
+        VerificationCodeConfig config = new VerificationCodeConfig();
+        config.setSecret(CODE_SECRET);
+        return new VerificationCodeHasher(config);
+    }
+
+    /** How a raw code is stored, matching {@link #codeHasher()}. */
+    static String codeHash(String rawCode) {
+        return codeHasher().hash(rawCode);
+    }
 
     static JwtConfig jwtConfig() {
         return jwtConfig(JWT_SECRET, ACCESS_TOKEN_EXPIRY_SECONDS, REFRESH_TOKEN_EXPIRY_SECONDS);
@@ -127,7 +146,7 @@ final class TestDataFactory {
         return VerificationCode.builder()
                 .id(UUID.randomUUID())
                 .user(user)
-                .codeHash(sha256(rawCode))
+                .codeHash(codeHash(rawCode))
                 .type(type)
                 .expires_at(expiresAt)
                 .usedAt(null)
