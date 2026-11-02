@@ -74,7 +74,8 @@ class VerificationCodeServiceTest {
                         emailService,
                         rateLimiterService,
                         rateLimitConfig,
-                        new VerificationCodeConfig());
+                        new VerificationCodeConfig(),
+                        TestDataFactory.codeHasher());
         user = TestDataFactory.persistedUser();
     }
 
@@ -90,7 +91,7 @@ class VerificationCodeServiceTest {
         when(verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
                         TestDataFactory.USER_ID,
                         VerifyType.EMAIL_VERIFY,
-                        TestDataFactory.sha256(TestDataFactory.VALID_CODE)))
+                        TestDataFactory.codeHash(TestDataFactory.VALID_CODE)))
                 .thenReturn(result);
     }
 
@@ -111,7 +112,7 @@ class VerificationCodeServiceTest {
             assertThat(saved.getType()).isEqualTo(VerifyType.EMAIL_VERIFY);
             assertThat(saved.getUsedAt()).isNull();
             // Only the hash is stored, never the raw code.
-            assertThat(saved.getCodeHash()).isEqualTo(TestDataFactory.sha256(returned));
+            assertThat(saved.getCodeHash()).isEqualTo(TestDataFactory.codeHash(returned));
             assertThat(saved.getCodeHash()).isNotEqualTo(returned);
             assertThat(saved.getExpires_at())
                     .isBetween(
@@ -187,7 +188,7 @@ class VerificationCodeServiceTest {
             assertThat(saved.getUser()).isSameAs(user);
             assertThat(saved.getType()).isEqualTo(VerifyType.PASSWORD_RESET);
             assertThat(saved.getUsedAt()).isNull();
-            assertThat(saved.getCodeHash()).isEqualTo(TestDataFactory.sha256(returned));
+            assertThat(saved.getCodeHash()).isEqualTo(TestDataFactory.codeHash(returned));
             assertThat(saved.getExpires_at())
                     .isBetween(
                             Instant.now().plusSeconds(14 * 60), Instant.now().plusSeconds(16 * 60));
@@ -228,7 +229,7 @@ class VerificationCodeServiceTest {
             when(verificationCodeRepository.findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(
                             TestDataFactory.USER_ID,
                             VerifyType.PASSWORD_RESET,
-                            TestDataFactory.sha256(TestDataFactory.VALID_CODE)))
+                            TestDataFactory.codeHash(TestDataFactory.VALID_CODE)))
                     .thenReturn(result);
         }
 
@@ -539,6 +540,23 @@ class VerificationCodeServiceTest {
             assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
             assertThat(response.getMessage()).isEqualTo(RESEND_MESSAGE);
             verify(emailService, never()).sendEmail(anyString(), anyString());
+            verify(verificationCodeRepository, never())
+                    .invalidateAllVerificationCodes(any(), any());
+        }
+
+        @Test
+        @DisplayName("sends nothing to an already-verified account, with the same response")
+        void skipsVerifiedAccount() {
+            user.setEmailVerified(true);
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(user);
+
+            ApiResponse<VerifyEmailResponse> response =
+                    verificationCodeService.resendVerification(resendRequest());
+
+            assertThat(response.getMessage()).isEqualTo(RESEND_MESSAGE);
+            verifyNoInteractions(emailService);
+            verify(verificationCodeRepository, never()).save(any());
         }
 
         @Test
@@ -580,7 +598,9 @@ class VerificationCodeServiceTest {
 
             verify(rateLimiterService)
                     .enforce(
-                            eq("rate_limit:resend-verification:" + TestDataFactory.EMAIL),
+                            eq(
+                                    "rate_limit:resend-verification:"
+                                            + TestDataFactory.sha256(TestDataFactory.EMAIL)),
                             eq(3),
                             eq(Duration.ofHours(1)),
                             eq("Too many verification requests. Please try again later!"));
@@ -676,7 +696,9 @@ class VerificationCodeServiceTest {
 
             verify(rateLimiterService)
                     .enforce(
-                            eq("rate_limit:forgot-password:" + TestDataFactory.EMAIL),
+                            eq(
+                                    "rate_limit:forgot-password:"
+                                            + TestDataFactory.sha256(TestDataFactory.EMAIL)),
                             eq(3),
                             eq(Duration.ofHours(1)),
                             eq("Too many forgot password requests. Please try again later!"));
