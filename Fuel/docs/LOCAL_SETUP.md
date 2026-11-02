@@ -205,6 +205,17 @@ The app starts on port `8080`.
 - Mailpit UI (inspect outgoing emails): `http://localhost:8025`. Locally, *all* email is caught
   here. To send to real inboxes, see [EMAIL_SETUP.md](EMAIL_SETUP.md).
 
+**Health checks** (public, used by the hosting platform):
+
+```bash
+curl http://localhost:8080/actuator/health/liveness   # the app is running
+curl http://localhost:8080/actuator/health/readiness  # it can serve requests (checks the database)
+```
+
+Both return `{"status":"UP"}` with `200`; readiness returns `503` / `DOWN` while Postgres is
+unreachable. Redis isn't part of the check, because the rate limiters keep working (fail open)
+without it. No other actuator endpoint is exposed.
+
 **Smoke-test the auth endpoint:**
 
 ```bash

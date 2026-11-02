@@ -43,6 +43,12 @@ public class SecurityConfig {
                                                 "/swagger-ui/**",
                                                 "/swagger-ui.html")
                                         .permitAll()
+                                        // Platform health checks (#98); exposes only UP/DOWN.
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/actuator/health",
+                                                "/actuator/health/**")
+                                        .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/api/auth/logout")
                                         .authenticated()
                                         .anyRequest()
