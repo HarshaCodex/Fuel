@@ -156,7 +156,9 @@ public class AuthController {
                 description = "Correct password, but the email isn't verified yet"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "429",
-                description = "Too many requests from this IP; see Retry-After")
+                description =
+                        "Too many requests from this IP, or too many failed logins for this"
+                                + " email (10 per 15 minutes); see Retry-After")
     })
     @PostMapping(
             path = "/login",

@@ -51,6 +51,26 @@ public class RateLimiterService {
         }
     }
 
+    /**
+     * Rejects once {@code key} already has {@code limit} hits in its current window, without
+     * counting this call. Used for limits on failures, which are counted with {@link #record} only
+     * when they happen. Fails open if Redis is unavailable.
+     *
+     * @throws RateLimitExceededException with the time left in the window
+     */
+    @NoLogging
+    public void enforceNotReached(String key, int limit, Duration window, String message) {
+        if (hits(key) >= limit) {
+            throw new RateLimitExceededException(message, retryAfter(key, window));
+        }
+    }
+
+    /** Counts a hit against {@code key}, starting a {@code window} on the first one. */
+    @NoLogging
+    public void record(String key, Duration window) {
+        isAllowed(key, Integer.MAX_VALUE, window);
+    }
+
     /** Clears the count for {@code key}, starting a fresh window on the next hit. */
     @NoLogging
     public void reset(String key) {
@@ -58,6 +78,16 @@ public class RateLimiterService {
             redisTemplate.delete(key);
         } catch (Exception exception) {
             log.error("Exception occurred while resetting the rate limit: ", exception);
+        }
+    }
+
+    private long hits(String key) {
+        try {
+            String count = redisTemplate.opsForValue().get(key);
+            return count == null ? 0 : Long.parseLong(count);
+        } catch (Exception exception) {
+            log.error("Exception occurred while reading the rate limit: ", exception);
+            return 0;
         }
     }
 
