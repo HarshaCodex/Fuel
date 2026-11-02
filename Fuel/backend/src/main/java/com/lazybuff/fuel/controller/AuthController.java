@@ -25,7 +25,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.security.NoSuchAlgorithmException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -52,18 +51,18 @@ public class AuthController {
     @Operation(
             summary = "Register with email and password",
             description =
-                    "Creates the account, emails a verification code and signs the user in. The account works before verification; emailVerified is false until /verify-email succeeds.")
+                    "Always answers 202 \"check your email\", whether or not the email is taken, so"
+                            + " it can't reveal who has an account. A new email gets an account"
+                            + " and a verification code; a taken one gets a notice sent to its"
+                            + " owner. The user signs in by calling /verify-email with the code.")
     @SecurityRequirements
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                responseCode = "201",
-                description = "Registered and signed in"),
+                responseCode = "202",
+                description = "Check your email to continue"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "400",
                 description = "Validation failed"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                responseCode = "409",
-                description = "Email already registered"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "429",
                 description = "Too many requests from this IP; see Retry-After")
@@ -72,33 +71,29 @@ public class AuthController {
             path = "/register",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponse<UserData>> register(
-            @Valid @RequestBody UserRegisterRequest userRegisterRequest, HttpServletRequest request)
-            throws Exception {
+    public ResponseEntity<ApiResponse<Void>> register(
+            @Valid @RequestBody UserRegisterRequest userRegisterRequest) throws Exception {
 
-        ApiResponse<UserData> response =
-                authService.register(userRegisterRequest, ClientInfo.from(request));
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        ApiResponse<Void> response = authService.register(userRegisterRequest);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     @Operation(
-            summary = "Verify email with the emailed code",
+            summary = "Verify email with the emailed code and sign in",
             description =
-                    "A code stops working after too many guesses; request a new one to continue.")
+                    "Completes a sign-up: returns access and refresh tokens like /login. A code stops"
+                            + " working after too many guesses; request a new one to continue.")
     @SecurityRequirements
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "200",
-                description = "Email verified"),
+                description = "Email verified; returns access and refresh tokens"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "400",
                 description = "Validation failed"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
-                description = "Code invalid or expired"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                responseCode = "409",
-                description = "Email already verified"),
+                description = "Code invalid or expired (also for unknown or verified emails)"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "429",
                 description = "Too many incorrect codes; request a new one")
@@ -107,12 +102,12 @@ public class AuthController {
             path = "/verify-email",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponse<VerifyEmailResponse>> verifyEmail(
-            @Valid @RequestBody VerifyEmailRequest verifyEmailRequest)
-            throws NoSuchAlgorithmException {
+    public ResponseEntity<ApiResponse<UserData>> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest verifyEmailRequest, HttpServletRequest request)
+            throws Exception {
 
-        ApiResponse<VerifyEmailResponse> response =
-                verificationCodeService.verifyEmail(verifyEmailRequest);
+        ApiResponse<UserData> response =
+                authService.verifyEmail(verifyEmailRequest, ClientInfo.from(request));
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
@@ -156,6 +151,9 @@ public class AuthController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
                 description = "Invalid email or password"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "403",
+                description = "Correct password, but the email isn't verified yet"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "429",
                 description = "Too many requests from this IP; see Retry-After")
@@ -231,7 +229,8 @@ public class AuthController {
     @Operation(
             summary = "Reset password with the emailed code",
             description =
-                    "Revokes all existing sessions on success. A code stops working after too"
+                    "Revokes all existing sessions on success, and marks the email verified (the"
+                            + " code proves the user owns it). A code stops working after too"
                             + " many guesses; request a new one to continue.")
     @SecurityRequirements
     @ApiResponses({
@@ -240,7 +239,7 @@ public class AuthController {
                 description = "Password reset"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "400",
-                description = "Validation failed or email not verified"),
+                description = "Validation failed"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
                 description = "Code invalid or expired"),

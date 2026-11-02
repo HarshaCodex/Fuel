@@ -199,7 +199,18 @@ curl -i -X POST http://localhost:8080/api/auth/register \
   -d '{"name":"Test User","email":"test@example.com","password":"Password123!","timezone":"Asia/Kolkata"}'
 ```
 
-A `201 Created` response confirms the app, database, and JWT config are all wired up.
+A `202 Accepted` "check your email" response means the request went through. Register answers the
+same way for new and taken emails, so it doesn't tell you whether an account was created. To
+finish signing up, open Mailpit, copy the 5-digit code and verify it:
+
+```bash
+curl -i -X POST http://localhost:8080/api/auth/verify-email \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","verificationCode":"12345"}'
+```
+
+A `200 OK` with `data.accessToken` confirms the app, database, mail and JWT config are all wired
+up. Password login (`/api/auth/login`) returns `403` until the email is verified.
 
 Request field rules:
 
@@ -218,7 +229,8 @@ The raw OpenAPI spec is at http://localhost:8080/v3/api-docs (import it into Pos
 
 To call protected endpoints:
 
-1. Run `POST /api/auth/register` or `POST /api/auth/login` and copy `data.accessToken` from the response.
+1. Run `POST /api/auth/verify-email` (after registering) or `POST /api/auth/login` and copy
+   `data.accessToken` from the response.
 2. Click **Authorize**, paste the token (without the `Bearer ` prefix) and confirm.
 3. The token is kept across page reloads; access tokens expire after 15 minutes, so log in again
    (or call `/api/auth/refresh`) when you start getting 401s.

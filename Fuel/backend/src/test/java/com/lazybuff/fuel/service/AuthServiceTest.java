@@ -3,19 +3,22 @@ package com.lazybuff.fuel.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.lazybuff.fuel.config.JwtConfig;
+import com.lazybuff.fuel.config.RateLimitConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.LoginReqeust;
 import com.lazybuff.fuel.dto.LogoutRequest;
 import com.lazybuff.fuel.dto.ResetPasswordRequest;
 import com.lazybuff.fuel.dto.UserData;
 import com.lazybuff.fuel.dto.UserRegisterRequest;
+import com.lazybuff.fuel.dto.VerifyEmailRequest;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.UserAuthProvider;
 import com.lazybuff.fuel.entity.UserGoals;
@@ -53,6 +56,10 @@ class AuthServiceTest {
     @Mock private RefreshTokenService refreshTokenService;
     @Mock private JwtService jwtService;
     @Mock private VerificationCodeService verificationCodeService;
+    @Mock private EmailService emailService;
+    @Mock private RateLimiterService rateLimiterService;
+
+    private final RateLimitConfig rateLimitConfig = rateLimitConfig();
 
     // Real config holder so the expiry values flow through to the response untouched.
     private final JwtConfig jwtConfig = TestDataFactory.jwtConfig();
@@ -81,9 +88,19 @@ class AuthServiceTest {
                         refreshTokenService,
                         jwtService,
                         jwtConfig,
-                        verificationCodeService);
+                        verificationCodeService,
+                        emailService,
+                        rateLimiterService,
+                        rateLimitConfig);
         request = TestDataFactory.registerRequest();
         persistedUser = TestDataFactory.persistedUser();
+    }
+
+    private static RateLimitConfig rateLimitConfig() {
+        RateLimitConfig config = new RateLimitConfig();
+        config.setMaxRequests(3);
+        config.setWindow(java.time.Duration.ofHours(1));
+        return config;
     }
 
     @AfterEach
@@ -91,13 +108,14 @@ class AuthServiceTest {
         SecurityContextHolder.clearContext();
     }
 
-    /** Wires the happy-path collaborators; individual tests override as needed. */
-    private void stubSuccessfulRegistration() throws Exception {
-        when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
-                .thenReturn(false);
+    /** Wires the happy-path collaborators for a new email; individual tests override as needed. */
+    private void stubSuccessfulRegistration() {
         when(passwordEncoder.encode(TestDataFactory.RAW_PASSWORD))
                 .thenReturn(TestDataFactory.HASHED_PASSWORD);
         when(userRepository.save(any(User.class))).thenReturn(persistedUser);
+    }
+
+    private void stubSignIn() throws Exception {
         when(jwtService.generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
                 .thenReturn(ACCESS_TOKEN);
         when(refreshTokenService.issueRefreshToken(
@@ -105,34 +123,34 @@ class AuthServiceTest {
                 .thenReturn(REFRESH_TOKEN);
     }
 
+    private static void assertSignedIn(UserData data) {
+        assertThat(data).isNotNull();
+        assertThat(data.getUserId()).isEqualTo(TestDataFactory.USER_ID.toString());
+        assertThat(data.getEmail()).isEqualTo(TestDataFactory.EMAIL);
+        assertThat(data.getName()).isEqualTo(TestDataFactory.NAME);
+        assertThat(data.getAccessToken()).isEqualTo(ACCESS_TOKEN);
+        assertThat(data.getRefreshToken()).isEqualTo(REFRESH_TOKEN);
+        assertThat(data.getAccessTokenExpiresIn())
+                .isEqualTo(TestDataFactory.ACCESS_TOKEN_EXPIRY_SECONDS);
+        assertThat(data.getRefreshTokenExpiresIn())
+                .isEqualTo(TestDataFactory.REFRESH_TOKEN_EXPIRY_SECONDS);
+    }
+
     @Nested
-    @DisplayName("register - success")
-    class RegisterSuccess {
+    @DisplayName("register - new email")
+    class RegisterNewEmail {
 
         @Test
-        @DisplayName("returns a 201 response carrying tokens and user data")
-        void returnsCreatedResponse() throws Exception {
+        @DisplayName("returns 202 \"check your email\" with no tokens or user data")
+        void returnsAcceptedWithoutSigningIn() throws Exception {
             stubSuccessfulRegistration();
 
-            ApiResponse<UserData> response =
-                    authService.register(request, TestDataFactory.CLIENT_INFO);
+            ApiResponse<Void> response = authService.register(request);
 
-            assertThat(response.getStatus()).isEqualTo(201);
-            assertThat(response.getMessage())
-                    .isEqualTo("Registration successful. Verification email sent.");
-
-            UserData data = response.getData();
-            assertThat(data).isNotNull();
-            assertThat(data.getUserId()).isEqualTo(TestDataFactory.USER_ID.toString());
-            assertThat(data.getEmail()).isEqualTo(TestDataFactory.EMAIL);
-            assertThat(data.getName()).isEqualTo(TestDataFactory.NAME);
-            assertThat(data.isEmailVerified()).isFalse();
-            assertThat(data.getAccessToken()).isEqualTo(ACCESS_TOKEN);
-            assertThat(data.getRefreshToken()).isEqualTo(REFRESH_TOKEN);
-            assertThat(data.getAccessTokenExpiresIn())
-                    .isEqualTo(TestDataFactory.ACCESS_TOKEN_EXPIRY_SECONDS);
-            assertThat(data.getRefreshTokenExpiresIn())
-                    .isEqualTo(TestDataFactory.REFRESH_TOKEN_EXPIRY_SECONDS);
+            assertThat(response.getStatus()).isEqualTo(202);
+            assertThat(response.getMessage()).startsWith("Check your email");
+            assertThat(response.getData()).isNull();
+            verifyNoInteractions(jwtService, refreshTokenService);
         }
 
         @Test
@@ -140,7 +158,7 @@ class AuthServiceTest {
         void persistsUserFromRequest() throws Exception {
             stubSuccessfulRegistration();
 
-            authService.register(request, TestDataFactory.CLIENT_INFO);
+            authService.register(request);
 
             verify(userRepository).save(userCaptor.capture());
             User saved = userCaptor.getValue();
@@ -155,7 +173,7 @@ class AuthServiceTest {
             stubSuccessfulRegistration();
             request.setTimezone(null);
 
-            authService.register(request, TestDataFactory.CLIENT_INFO);
+            authService.register(request);
 
             verify(userRepository).save(userCaptor.capture());
             assertThat(userCaptor.getValue().getTimezone()).isEqualTo("UTC");
@@ -166,7 +184,7 @@ class AuthServiceTest {
         void persistsAuthProviderWithHashedPassword() throws Exception {
             stubSuccessfulRegistration();
 
-            authService.register(request, TestDataFactory.CLIENT_INFO);
+            authService.register(request);
 
             verify(userAuthProviderRepository).save(authProviderCaptor.capture());
             UserAuthProvider savedProvider = authProviderCaptor.getValue();
@@ -174,33 +192,90 @@ class AuthServiceTest {
             assertThat(savedProvider.getProvider()).isEqualTo(AuthProvider.EMAIL);
             // The raw password must never be stored; only the encoder output.
             assertThat(savedProvider.getPasswordHash()).isEqualTo(TestDataFactory.HASHED_PASSWORD);
-            assertThat(savedProvider.getPasswordHash()).isNotEqualTo(TestDataFactory.RAW_PASSWORD);
             verify(passwordEncoder).encode(TestDataFactory.RAW_PASSWORD);
         }
 
         @Test
-        @DisplayName("creates a default goals row linked to the new user")
-        void persistsUserGoals() throws Exception {
+        @DisplayName("creates a default goals row and emails a verification code")
+        void persistsGoalsAndSendsCode() throws Exception {
             stubSuccessfulRegistration();
 
-            authService.register(request, TestDataFactory.CLIENT_INFO);
+            authService.register(request);
 
             verify(userGoalsRepository).save(userGoalsCaptor.capture());
             assertThat(userGoalsCaptor.getValue().getUser()).isSameAs(persistedUser);
+            verify(verificationCodeService)
+                    .generateVerificationCode(persistedUser, VerifyType.EMAIL_VERIFY);
+            verifyNoInteractions(emailService);
+        }
+    }
+
+    @Nested
+    @DisplayName("register - taken email")
+    class RegisterTakenEmail {
+
+        @BeforeEach
+        void emailIsTaken() {
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
         }
 
         @Test
-        @DisplayName("issues the refresh token with null device and ip metadata")
-        void issuesRefreshTokenWithoutMetadata() throws Exception {
-            stubSuccessfulRegistration();
+        @DisplayName("returns the same 202 response as a new email")
+        void returnsSameResponseAsNewEmail() throws Exception {
+            ApiResponse<Void> response = authService.register(request);
 
-            authService.register(request, TestDataFactory.CLIENT_INFO);
+            assertThat(response.getStatus()).isEqualTo(202);
+            assertThat(response.getMessage()).startsWith("Check your email");
+            assertThat(response.getData()).isNull();
+        }
 
-            verify(refreshTokenService)
-                    .issueRefreshToken(
-                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS);
-            verify(jwtService)
-                    .generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL);
+        @Test
+        @DisplayName("hashes the password anyway, so it takes as long as a new sign-up")
+        void hashesPasswordForEqualTiming() throws Exception {
+            authService.register(request);
+
+            verify(passwordEncoder).encode(TestDataFactory.RAW_PASSWORD);
+        }
+
+        @Test
+        @DisplayName("emails the owner a notice and changes nothing")
+        void notifiesOwnerWithoutChanges() throws Exception {
+            when(rateLimiterService.isAllowed(any(), anyInt(), any())).thenReturn(true);
+
+            authService.register(request);
+
+            verify(emailService).sendAccountExistsEmail(TestDataFactory.EMAIL);
+            verify(userRepository, never()).save(any());
+            verifyNoInteractions(
+                    userAuthProviderRepository,
+                    userGoalsRepository,
+                    verificationCodeService,
+                    jwtService,
+                    refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("caps notices per account by user id, with the per-email limit")
+        void capsNoticesPerAccount() throws Exception {
+            authService.register(request);
+
+            verify(rateLimiterService)
+                    .isAllowed(
+                            "rate_limit:account-exists-notice:" + TestDataFactory.USER_ID,
+                            rateLimitConfig.getMaxRequests(),
+                            rateLimitConfig.getWindow());
+        }
+
+        @Test
+        @DisplayName("skips the notice over the cap instead of returning 429")
+        void skipsNoticeOverCap() throws Exception {
+            when(rateLimiterService.isAllowed(any(), anyInt(), any())).thenReturn(false);
+
+            ApiResponse<Void> response = authService.register(request);
+
+            assertThat(response.getStatus()).isEqualTo(202);
+            verifyNoInteractions(emailService);
         }
     }
 
@@ -209,106 +284,77 @@ class AuthServiceTest {
     class RegisterFailure {
 
         @Test
-        @DisplayName("throws 409 CONFLICT and persists nothing when the email already exists")
-        void throwsConflictWhenEmailExists() {
-            when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
-                    .thenReturn(true);
-
-            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
-                    .isInstanceOf(FuelException.class)
-                    .hasMessage("Email already exists")
-                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
-                    .isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
-
-            verify(userRepository, never()).save(any());
-            verifyNoInteractions(
-                    userAuthProviderRepository,
-                    userGoalsRepository,
-                    passwordEncoder,
-                    jwtService,
-                    refreshTokenService);
-        }
-
-        @Test
-        @DisplayName("propagates access-token generation failures after the user is persisted")
-        void propagatesTokenGenerationFailure() throws Exception {
-            when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
-                    .thenReturn(false);
-            when(passwordEncoder.encode(TestDataFactory.RAW_PASSWORD))
-                    .thenReturn(TestDataFactory.HASHED_PASSWORD);
-            when(userRepository.save(any(User.class))).thenReturn(persistedUser);
-            when(jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
-                    .thenThrow(new RuntimeException("signing key unavailable"));
-
-            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("signing key unavailable");
-
-            // Entities created before token generation should still have been saved.
-            verify(userRepository).save(any(User.class));
-            verify(userAuthProviderRepository).save(any(UserAuthProvider.class));
-            verify(userGoalsRepository).save(any(UserGoals.class));
-            // Refresh token is only issued after the access token, so it is never reached.
-            verify(refreshTokenService, never()).issueRefreshToken(any(), any(), any());
-        }
-
-        @Test
-        @DisplayName("propagates refresh-token issuance failures (e.g. downstream 500)")
-        void propagatesRefreshTokenFailure() throws Exception {
-            when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
-                    .thenReturn(false);
-            when(passwordEncoder.encode(TestDataFactory.RAW_PASSWORD))
-                    .thenReturn(TestDataFactory.HASHED_PASSWORD);
-            when(userRepository.save(any(User.class))).thenReturn(persistedUser);
-            when(jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
-                    .thenReturn(ACCESS_TOKEN);
-            when(refreshTokenService.issueRefreshToken(
-                            persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
-                    .thenThrow(new RuntimeException("refresh store unavailable"));
-
-            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessage("refresh store unavailable");
-
-            verify(userGoalsRepository).save(any(UserGoals.class));
-            verify(jwtService)
-                    .generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL);
-        }
-
-        @Test
-        @DisplayName("throws 400 BAD_REQUEST for an invalid timezone and persists nothing")
+        @DisplayName("throws 400 for an invalid timezone before checking whether the email exists")
         void throwsBadRequestForInvalidTimezone() {
-            when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
-                    .thenReturn(false);
             request.setTimezone("Not/AZone");
 
-            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
+            assertThatThrownBy(() -> authService.register(request))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid timezone: Not/AZone")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
                     .isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
 
-            verify(userRepository, never()).save(any());
-            verifyNoInteractions(userAuthProviderRepository, userGoalsRepository);
+            // Checked first, so a taken email can't answer differently from a new one.
+            verifyNoInteractions(userRepository, userAuthProviderRepository, userGoalsRepository);
         }
 
         @Test
         @DisplayName("propagates persistence failures while saving the user")
         void propagatesUserSaveFailure() {
-            when(userRepository.existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
-                    .thenReturn(false);
             when(userRepository.save(any(User.class)))
                     .thenThrow(new RuntimeException("unique constraint violation"));
 
-            assertThatThrownBy(() -> authService.register(request, TestDataFactory.CLIENT_INFO))
+            assertThatThrownBy(() -> authService.register(request))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("unique constraint violation");
 
             verify(userAuthProviderRepository, never()).save(any());
             verify(userGoalsRepository, never()).save(any());
-            verify(jwtService, never()).generateToken(any(), eq(TestDataFactory.EMAIL));
+        }
+    }
+
+    @Nested
+    @DisplayName("verifyEmail")
+    class VerifyEmail {
+
+        private final VerifyEmailRequest verifyRequest =
+                VerifyEmailRequest.builder()
+                        .email(TestDataFactory.EMAIL)
+                        .verificationCode(TestDataFactory.VALID_CODE)
+                        .build();
+
+        @Test
+        @DisplayName("signs the user in once the code is confirmed")
+        void signsInAfterConfirmation() throws Exception {
+            persistedUser.setEmailVerified(true);
+            when(verificationCodeService.confirmEmail(verifyRequest)).thenReturn(persistedUser);
+            stubSignIn();
+
+            ApiResponse<UserData> response =
+                    authService.verifyEmail(verifyRequest, TestDataFactory.CLIENT_INFO);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMessage()).isEqualTo("Email verified successfully");
+            assertSignedIn(response.getData());
+            assertThat(response.getData().isEmailVerified()).isTrue();
+        }
+
+        @Test
+        @DisplayName("issues no tokens when the code is rejected")
+        void issuesNoTokensWhenRejected() throws Exception {
+            when(verificationCodeService.confirmEmail(verifyRequest))
+                    .thenThrow(
+                            new FuelException(
+                                    org.springframework.http.HttpStatus.UNAUTHORIZED,
+                                    "Invalid or expired verification code"));
+
+            assertThatThrownBy(
+                            () ->
+                                    authService.verifyEmail(
+                                            verifyRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(FuelException.class);
+
+            verifyNoInteractions(jwtService, refreshTokenService);
         }
     }
 
@@ -319,6 +365,7 @@ class AuthServiceTest {
         @Test
         @DisplayName("returns a 200 response carrying tokens and user data for valid credentials")
         void returnsOkResponse() throws Exception {
+            persistedUser.setEmailVerified(true);
             LoginReqeust loginRequest = TestDataFactory.loginRequest();
             UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);
 
@@ -374,8 +421,35 @@ class AuthServiceTest {
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
                     .isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
 
-            verifyNoInteractions(
-                    userAuthProviderRepository, passwordEncoder, jwtService, refreshTokenService);
+            verifyNoInteractions(userAuthProviderRepository, jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("runs bcrypt against a dummy hash for an unknown email, so timing matches")
+        void checksDummyHashWhenUserNotFound() {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            when(passwordEncoder.encode(any())).thenReturn("dummy-hash");
+
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(FuelException.class);
+
+            verify(passwordEncoder).matches(TestDataFactory.RAW_PASSWORD, "dummy-hash");
+        }
+
+        @Test
+        @DisplayName("creates the dummy hash once and reuses it")
+        void reusesDummyHash() {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            when(passwordEncoder.encode(any())).thenReturn("dummy-hash");
+
+            for (int i = 0; i < 2; i++) {
+                assertThatThrownBy(
+                                () -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                        .isInstanceOf(FuelException.class);
+            }
+
+            verify(passwordEncoder, times(1)).encode(any());
+            verify(passwordEncoder, times(2)).matches(TestDataFactory.RAW_PASSWORD, "dummy-hash");
         }
 
         @Test
@@ -396,7 +470,9 @@ class AuthServiceTest {
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
                     .isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
 
-            verifyNoInteractions(passwordEncoder, jwtService, refreshTokenService);
+            // Still runs bcrypt (against the dummy hash) so this takes as long as a wrong password.
+            verify(passwordEncoder).matches(any(), any());
+            verifyNoInteractions(jwtService, refreshTokenService);
         }
 
         @Test
@@ -424,8 +500,47 @@ class AuthServiceTest {
         }
 
         @Test
+        @DisplayName("throws 403 for the right password on an unverified account")
+        void throwsForbiddenWhenEmailNotVerified() {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(TestDataFactory.emailAuthProvider(persistedUser));
+            when(passwordEncoder.matches(
+                            TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
+                    .thenReturn(true);
+
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Please verify your email before logging in.")
+                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
+                    .isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+
+            verifyNoInteractions(jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName(
+                "throws the generic 401, not 403, for a wrong password on an unverified account")
+        void throwsUnauthorizedForWrongPasswordWhenUnverified() {
+            LoginReqeust loginRequest = TestDataFactory.loginRequest();
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(TestDataFactory.emailAuthProvider(persistedUser));
+
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Invalid email or password!");
+        }
+
+        @Test
         @DisplayName("propagates access-token generation failures after credentials are verified")
         void propagatesTokenGenerationFailure() throws Exception {
+            persistedUser.setEmailVerified(true);
             LoginReqeust loginRequest = TestDataFactory.loginRequest();
             UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);
 
@@ -451,6 +566,7 @@ class AuthServiceTest {
         @Test
         @DisplayName("propagates refresh-token issuance failures (e.g. downstream 500)")
         void propagatesRefreshTokenFailure() throws Exception {
+            persistedUser.setEmailVerified(true);
             LoginReqeust loginRequest = TestDataFactory.loginRequest();
             UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);
 
@@ -671,6 +787,32 @@ class AuthServiceTest {
         }
 
         @Test
+        @DisplayName("works for an unverified account and marks the email verified")
+        void verifiesEmailOnReset() throws Exception {
+            persistedUser.setEmailVerified(false);
+            UserAuthProvider authProvider = TestDataFactory.emailAuthProvider(persistedUser);
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(verificationCodeService.findValidCode(
+                            persistedUser, VerifyType.PASSWORD_RESET, TestDataFactory.VALID_CODE))
+                    .thenReturn(TestDataFactory.validPasswordResetCode(persistedUser));
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(authProvider);
+            when(passwordEncoder.encode(TestDataFactory.NEW_PASSWORD))
+                    .thenReturn("hashed-new-password");
+
+            ApiResponse<Void> response =
+                    authService.resetPassword(TestDataFactory.resetPasswordRequest());
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(persistedUser.isEmailVerified()).isTrue();
+            // Replaces the password of whoever registered the email, and ends their sessions.
+            assertThat(authProvider.getPasswordHash()).isEqualTo("hashed-new-password");
+            verify(refreshTokenRepository).deleteByUser_Id(TestDataFactory.USER_ID);
+        }
+
+        @Test
         @DisplayName("adds an email/password login for a Google-only account instead of failing")
         void addsPasswordLoginForGoogleOnlyAccount() throws Exception {
             persistedUser.setEmailVerified(true);
@@ -724,23 +866,6 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("throws 400 BAD_REQUEST when the user has not verified their email")
-        void throwsBadRequestWhenEmailNotVerified() {
-            persistedUser.setEmailVerified(false);
-            ResetPasswordRequest request = TestDataFactory.resetPasswordRequest();
-            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
-                    .thenReturn(persistedUser);
-
-            assertThatThrownBy(() -> authService.resetPassword(request))
-                    .isInstanceOf(FuelException.class)
-                    .hasMessage("Please verify your email before resetting your password")
-                    .extracting(ex -> ((FuelException) ex).getHttpStatus())
-                    .isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
-
-            verifyNoInteractions(verificationCodeService, userAuthProviderRepository);
-        }
-
-        @Test
         @DisplayName("propagates a rejected code without changing the password or sessions")
         void propagatesRejectedCode() throws Exception {
             persistedUser.setEmailVerified(true);
@@ -774,9 +899,9 @@ class AuthServiceTest {
             request.setEmail(MIXED_CASE_EMAIL);
             stubSuccessfulRegistration();
 
-            authService.register(request, TestDataFactory.CLIENT_INFO);
+            authService.register(request);
 
-            verify(userRepository).existsByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
+            verify(userRepository).findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL);
             verify(userRepository).save(userCaptor.capture());
             assertThat(userCaptor.getValue().getEmail()).isEqualTo(TestDataFactory.EMAIL);
         }

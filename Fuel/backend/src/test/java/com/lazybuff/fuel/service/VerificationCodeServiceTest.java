@@ -354,24 +354,21 @@ class VerificationCodeServiceTest {
     }
 
     @Nested
-    @DisplayName("verifyEmail - success")
+    @DisplayName("confirmEmail - success")
     class VerifyEmailSuccess {
 
         @Test
-        @DisplayName("marks the code used, flips emailVerified, and returns a 200 response")
+        @DisplayName("marks the code used, flips emailVerified, and returns the user")
         void verifiesValidCode() throws Exception {
             VerificationCode code = TestDataFactory.validVerificationCode(user);
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
                     .thenReturn(user);
             stubCodeLookup(Optional.of(code));
 
-            ApiResponse<VerifyEmailResponse> response =
-                    verificationCodeService.verifyEmail(verifyRequest(TestDataFactory.VALID_CODE));
+            User verified =
+                    verificationCodeService.confirmEmail(verifyRequest(TestDataFactory.VALID_CODE));
 
-            assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
-            assertThat(response.getMessage()).isEqualTo("Email verified successfully");
-            assertThat(response.getData().isEmailVerified()).isTrue();
-
+            assertThat(verified).isSameAs(user);
             assertThat(user.isEmailVerified()).isTrue();
             assertThat(code.getUsedAt()).isNotNull();
             verifyNoInteractions(emailService);
@@ -387,14 +384,14 @@ class VerificationCodeServiceTest {
             VerifyEmailRequest request = verifyRequest(TestDataFactory.VALID_CODE);
             request.setEmail(" " + TestDataFactory.EMAIL.toUpperCase() + " ");
 
-            verificationCodeService.verifyEmail(request);
+            verificationCodeService.confirmEmail(request);
 
             assertThat(user.isEmailVerified()).isTrue();
         }
     }
 
     @Nested
-    @DisplayName("verifyEmail - failures")
+    @DisplayName("confirmEmail - failures")
     class VerifyEmailFailure {
 
         @Test
@@ -407,7 +404,7 @@ class VerificationCodeServiceTest {
 
             assertThatThrownBy(
                             () ->
-                                    verificationCodeService.verifyEmail(
+                                    verificationCodeService.confirmEmail(
                                             verifyRequest(TestDataFactory.VALID_CODE)))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid or expired verification code")
@@ -430,7 +427,7 @@ class VerificationCodeServiceTest {
 
             assertThatThrownBy(
                             () ->
-                                    verificationCodeService.verifyEmail(
+                                    verificationCodeService.confirmEmail(
                                             verifyRequest(TestDataFactory.VALID_CODE)))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid or expired verification code")
@@ -452,7 +449,7 @@ class VerificationCodeServiceTest {
 
             assertThatThrownBy(
                             () ->
-                                    verificationCodeService.verifyEmail(
+                                    verificationCodeService.confirmEmail(
                                             verifyRequest(TestDataFactory.VALID_CODE)))
                     .isInstanceOf(RateLimitExceededException.class);
 
@@ -467,7 +464,7 @@ class VerificationCodeServiceTest {
 
             assertThatThrownBy(
                             () ->
-                                    verificationCodeService.verifyEmail(
+                                    verificationCodeService.confirmEmail(
                                             verifyRequest(TestDataFactory.VALID_CODE)))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Invalid or expired verification code")
@@ -480,7 +477,7 @@ class VerificationCodeServiceTest {
         }
 
         @Test
-        @DisplayName("throws 409 CONFLICT when the email is already verified")
+        @DisplayName("throws the same 401 as a wrong code when the email is already verified")
         void rejectsAlreadyVerifiedEmail() {
             user.setEmailVerified(true);
             when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
@@ -488,12 +485,12 @@ class VerificationCodeServiceTest {
 
             assertThatThrownBy(
                             () ->
-                                    verificationCodeService.verifyEmail(
+                                    verificationCodeService.confirmEmail(
                                             verifyRequest(TestDataFactory.VALID_CODE)))
                     .isInstanceOf(FuelException.class)
-                    .hasMessage("Email already verified")
+                    .hasMessage("Invalid or expired verification code")
                     .extracting(ex -> ((FuelException) ex).getHttpStatus())
-                    .isEqualTo(HttpStatus.CONFLICT);
+                    .isEqualTo(HttpStatus.UNAUTHORIZED);
 
             verify(verificationCodeRepository, never())
                     .findByUser_IdAndTypeAndCodeHashAndUsedAtIsNull(any(), any(), anyString());
