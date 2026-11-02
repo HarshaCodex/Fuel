@@ -3,6 +3,10 @@ name: PR Checks
 on:
   pull_request:
     branches: [main, dev]
+  # Also on the merge commit itself: Render deploys dev (staging) and main (production) only
+  # after these checks pass on the pushed commit (autoDeployTrigger: checksPass, #102).
+  push:
+    branches: [main, dev]
 
 jobs:
 
