@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.annotation.NoLogging;
+import com.lazybuff.fuel.config.FailedLoginLimitConfig;
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.config.RateLimitConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
@@ -24,6 +25,7 @@ import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.security.ClientInfo;
 import com.lazybuff.fuel.util.AuthProvider;
 import com.lazybuff.fuel.util.EmailNormalizer;
+import com.lazybuff.fuel.util.TokenHasher;
 import com.lazybuff.fuel.util.VerifyType;
 import java.security.NoSuchAlgorithmException;
 import java.time.DateTimeException;
@@ -69,6 +71,12 @@ public class AuthService {
     private final RateLimiterService rateLimiterService;
 
     private final RateLimitConfig rateLimitConfig;
+
+    private final FailedLoginLimitConfig failedLoginLimitConfig;
+
+    private static final String TOO_MANY_FAILED_LOGINS_MESSAGE =
+            "Too many failed login attempts for this account. Try again later or reset your"
+                    + " password.";
 
     private static final String REGISTER_MESSAGE =
             "Check your email to finish signing up. If you already have an account, we've sent"
@@ -144,9 +152,18 @@ public class AuthService {
 
         try {
 
-            User user =
-                    userRepository.findByEmailAndDeletedAtIsNull(
-                            EmailNormalizer.normalize(loginReqeust.getEmail()));
+            String email = EmailNormalizer.normalize(loginReqeust.getEmail());
+            String failuresKey = failedLoginKey(email);
+
+            // Checked before the user lookup and counted for unknown emails too, so the limit
+            // itself doesn't reveal which accounts exist.
+            rateLimiterService.enforceNotReached(
+                    failuresKey,
+                    failedLoginLimitConfig.getMaxFailures(),
+                    failedLoginLimitConfig.getWindow(),
+                    TOO_MANY_FAILED_LOGINS_MESSAGE);
+
+            User user = userRepository.findByEmailAndDeletedAtIsNull(email);
 
             UserAuthProvider userAuthProvider =
                     user == null
@@ -164,8 +181,11 @@ public class AuthService {
                                     : userAuthProvider.getPasswordHash());
 
             if (userAuthProvider == null || !passwordMatches) {
+                rateLimiterService.record(failuresKey, failedLoginLimitConfig.getWindow());
                 throw new FuelException(HttpStatus.UNAUTHORIZED, "Invalid email or password!");
             }
+
+            rateLimiterService.reset(failuresKey);
 
             if (!user.isEmailVerified()) {
                 // Only reachable with the right password, so it reveals nothing to a stranger.
@@ -347,6 +367,11 @@ public class AuthService {
                 rateLimitConfig.getWindow())) {
             emailService.sendAccountExistsEmail(user.getEmail());
         }
+    }
+
+    // Hashed so no email is stored in Redis.
+    private static String failedLoginKey(String email) throws NoSuchAlgorithmException {
+        return "rate_limit:failed-login:" + TokenHasher.sha256Hex(email);
     }
 
     /** A real bcrypt hash to compare against when there's none, created on first use. */

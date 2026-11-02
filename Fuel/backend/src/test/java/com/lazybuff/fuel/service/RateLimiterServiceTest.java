@@ -173,4 +173,62 @@ class RateLimiterServiceTest {
 
         assertThatCode(() -> rateLimiterService.reset(KEY)).doesNotThrowAnyException();
     }
+
+    @Test
+    @DisplayName("enforceNotReached lets a call through below the limit without counting it")
+    void enforceNotReachedAllowsBelowLimit() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(KEY)).thenReturn(String.valueOf(LIMIT - 1));
+
+        assertThatCode(() -> rateLimiterService.enforceNotReached(KEY, LIMIT, WINDOW, MESSAGE))
+                .doesNotThrowAnyException();
+
+        verify(valueOperations, never()).increment(any());
+    }
+
+    @Test
+    @DisplayName("enforceNotReached lets a call through when nothing has been counted")
+    void enforceNotReachedAllowsWithoutCounter() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(KEY)).thenReturn(null);
+
+        assertThatCode(() -> rateLimiterService.enforceNotReached(KEY, LIMIT, WINDOW, MESSAGE))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("enforceNotReached rejects once the limit is reached, with the time left")
+    void enforceNotReachedRejectsAtLimit() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(KEY)).thenReturn(String.valueOf(LIMIT));
+        when(redisTemplate.getExpire(KEY, TimeUnit.SECONDS)).thenReturn(90L);
+
+        assertThatThrownBy(() -> rateLimiterService.enforceNotReached(KEY, LIMIT, WINDOW, MESSAGE))
+                .isInstanceOf(RateLimitExceededException.class)
+                .hasMessage(MESSAGE)
+                .extracting(ex -> ((RateLimitExceededException) ex).getRetryAfter())
+                .isEqualTo(Duration.ofSeconds(90));
+    }
+
+    @Test
+    @DisplayName("enforceNotReached fails open when Redis is unavailable")
+    void enforceNotReachedFailsOpen() {
+        when(redisTemplate.opsForValue())
+                .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        assertThatCode(() -> rateLimiterService.enforceNotReached(KEY, LIMIT, WINDOW, MESSAGE))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("record counts a hit and starts the window on the first one")
+    void recordCountsHit() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.increment(KEY)).thenReturn(1L);
+
+        rateLimiterService.record(KEY, WINDOW);
+
+        verify(valueOperations).increment(KEY);
+        verify(redisTemplate).expire(KEY, WINDOW);
+    }
 }

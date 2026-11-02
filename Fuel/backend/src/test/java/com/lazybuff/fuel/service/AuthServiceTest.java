@@ -4,12 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.lazybuff.fuel.config.FailedLoginLimitConfig;
 import com.lazybuff.fuel.config.JwtConfig;
 import com.lazybuff.fuel.config.RateLimitConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
@@ -24,6 +27,7 @@ import com.lazybuff.fuel.entity.UserAuthProvider;
 import com.lazybuff.fuel.entity.UserGoals;
 import com.lazybuff.fuel.entity.VerificationCode;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.exception.RateLimitExceededException;
 import com.lazybuff.fuel.repository.RefreshTokenRepository;
 import com.lazybuff.fuel.repository.UserAuthProviderRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
@@ -60,6 +64,10 @@ class AuthServiceTest {
     @Mock private RateLimiterService rateLimiterService;
 
     private final RateLimitConfig rateLimitConfig = rateLimitConfig();
+    private final FailedLoginLimitConfig failedLoginLimitConfig = new FailedLoginLimitConfig();
+
+    private static final String FAILED_LOGIN_KEY =
+            "rate_limit:failed-login:" + TestDataFactory.sha256(TestDataFactory.EMAIL);
 
     // Real config holder so the expiry values flow through to the response untouched.
     private final JwtConfig jwtConfig = TestDataFactory.jwtConfig();
@@ -91,7 +99,8 @@ class AuthServiceTest {
                         verificationCodeService,
                         emailService,
                         rateLimiterService,
-                        rateLimitConfig);
+                        rateLimitConfig,
+                        failedLoginLimitConfig);
         request = TestDataFactory.registerRequest();
         persistedUser = TestDataFactory.persistedUser();
     }
@@ -588,6 +597,97 @@ class AuthServiceTest {
             assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("refresh store unavailable");
+        }
+    }
+
+    @Nested
+    @DisplayName("login - failed-login limit")
+    class LoginFailedLoginLimit {
+
+        private final LoginReqeust loginRequest = TestDataFactory.loginRequest();
+
+        private void stubAccount(boolean passwordMatches) {
+            when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL))
+                    .thenReturn(persistedUser);
+            when(userAuthProviderRepository.findByUser_IdAndProvider(
+                            TestDataFactory.USER_ID, AuthProvider.EMAIL))
+                    .thenReturn(TestDataFactory.emailAuthProvider(persistedUser));
+            when(passwordEncoder.matches(
+                            TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
+                    .thenReturn(passwordMatches);
+        }
+
+        @Test
+        @DisplayName("checks the limit by a hash of the email, with the configured values")
+        void checksLimitByHashedEmail() {
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(FuelException.class);
+
+            verify(rateLimiterService)
+                    .enforceNotReached(
+                            eq(FAILED_LOGIN_KEY),
+                            eq(failedLoginLimitConfig.getMaxFailures()),
+                            eq(failedLoginLimitConfig.getWindow()),
+                            any());
+            assertThat(FAILED_LOGIN_KEY).doesNotContain(TestDataFactory.EMAIL);
+        }
+
+        @Test
+        @DisplayName("rejects with 429 before looking up the account or checking the password")
+        void rejectsOverLimitWithoutCheckingPassword() {
+            doThrow(new RateLimitExceededException("Too many", java.time.Duration.ofMinutes(5)))
+                    .when(rateLimiterService)
+                    .enforceNotReached(eq(FAILED_LOGIN_KEY), anyInt(), any(), any());
+
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(RateLimitExceededException.class);
+
+            verifyNoInteractions(userRepository, passwordEncoder, jwtService, refreshTokenService);
+        }
+
+        @Test
+        @DisplayName("counts a wrong password against the account")
+        void countsWrongPassword() {
+            stubAccount(false);
+
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(FuelException.class);
+
+            verify(rateLimiterService).record(FAILED_LOGIN_KEY, failedLoginLimitConfig.getWindow());
+            verify(rateLimiterService, never()).reset(any());
+        }
+
+        @Test
+        @DisplayName("counts an unknown email too, so the limit doesn't reveal accounts")
+        void countsUnknownEmail() {
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(FuelException.class);
+
+            verify(rateLimiterService).record(FAILED_LOGIN_KEY, failedLoginLimitConfig.getWindow());
+        }
+
+        @Test
+        @DisplayName("clears the count after a correct password")
+        void clearsCountOnSuccess() throws Exception {
+            persistedUser.setEmailVerified(true);
+            stubAccount(true);
+
+            authService.login(loginRequest, TestDataFactory.CLIENT_INFO);
+
+            verify(rateLimiterService).reset(FAILED_LOGIN_KEY);
+            verify(rateLimiterService, never()).record(any(), any());
+        }
+
+        @Test
+        @DisplayName("doesn't count a correct password on an unverified account as a failure")
+        void doesNotCountUnverifiedAsFailure() {
+            stubAccount(true);
+
+            assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
+                    .isInstanceOf(FuelException.class)
+                    .hasMessage("Please verify your email before logging in.");
+
+            verify(rateLimiterService, never()).record(any(), any());
         }
     }
 
