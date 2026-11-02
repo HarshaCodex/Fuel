@@ -1,6 +1,6 @@
 # Email Setup
 
-Fuel sends transactional email (verification codes, password-reset links) through Spring's
+Fuel sends transactional email (verification codes, password-reset codes, account notices) through Spring's
 `JavaMailSender` over SMTP. The same code serves every environment. Only configuration changes.
 
 | Environment | Profile | Where mail goes |
@@ -20,14 +20,13 @@ MAIL_PORT=587                     # optional, defaults to 587 (STARTTLS)
 MAIL_USERNAME=<provider SMTP username>
 MAIL_PASSWORD=<provider SMTP password / API key>
 MAIL_FROM=no-reply@<your-verified-domain>
-FRONTEND_URL=https://<your-app-domain>
 ```
 
 The `prod` profile (`application-prod.properties`) always enables SMTP auth and **requires**
 STARTTLS. It also sets `spring.mail.test-connection=true`, so the app connects and logs in to the
 provider at startup:
 
-- Missing `MAIL_HOST`, `MAIL_FROM` or `FRONTEND_URL`: startup fails with
+- Missing `MAIL_HOST` or `MAIL_FROM`: startup fails with
   `Could not resolve placeholder ...`.
 - Missing or wrong `MAIL_USERNAME` / `MAIL_PASSWORD`, or an unreachable provider: startup fails
   with a mail authentication/connection error.

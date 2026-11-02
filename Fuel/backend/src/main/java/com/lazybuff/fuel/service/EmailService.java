@@ -21,9 +21,6 @@ public class EmailService {
     @Value("${app.mail.verification-subject}")
     private String verificationEmailSubject;
 
-    @Value("${app.frontend.reset-password.url}")
-    private String resetPasswordLink;
-
     @Value("${app.mail.forgot-password-subject}")
     private String forgotPasswordEmailSubject;
 
@@ -53,14 +50,18 @@ public class EmailService {
 
         try {
 
-            String resetLink = resetPasswordLink + verificationCode;
-
             SimpleMailMessage message = new SimpleMailMessage();
 
             message.setFrom(fromEmailAddress);
             message.setTo(to);
             message.setSubject(forgotPasswordEmailSubject);
-            message.setText("Reset your password: " + resetLink);
+            // The code itself, not a link: codes in URLs end up in browser history and server
+            // logs, and the app's reset screen takes the code directly (#88).
+            message.setText(
+                    "Your password reset code is: "
+                            + verificationCode
+                            + "\n\nEnter it in the Fuel app within 15 minutes. If you didn't ask"
+                            + " to reset your password, you can ignore this email.");
 
             javaMailSender.send(message);
 

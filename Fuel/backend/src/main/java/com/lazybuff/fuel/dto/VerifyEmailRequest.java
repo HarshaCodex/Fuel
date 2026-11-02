@@ -2,6 +2,7 @@ package com.lazybuff.fuel.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -26,5 +27,6 @@ public class VerifyEmailRequest {
     private String email;
 
     @NotBlank(message = "Verification code field cannot be blank.")
+    @Size(max = 10, message = "Verification code must be at most 10 characters.")
     private String verificationCode;
 }

@@ -29,8 +29,6 @@ class EmailServiceTest {
     private static final String VERIFICATION_SUBJECT = "Verify your email address";
     private static final String FORGOT_PASSWORD_SUBJECT = "Forgot Your Password?";
     private static final String ACCOUNT_EXISTS_SUBJECT = "You already have a Fuel account";
-    private static final String RESET_PASSWORD_BASE_URL =
-            "https://app.example.com/reset-password?token=";
     private static final String TO = "john.doe@example.com";
     private static final String CODE = "12345";
 
@@ -48,7 +46,6 @@ class EmailServiceTest {
                 emailService, "verificationEmailSubject", VERIFICATION_SUBJECT);
         ReflectionTestUtils.setField(
                 emailService, "forgotPasswordEmailSubject", FORGOT_PASSWORD_SUBJECT);
-        ReflectionTestUtils.setField(emailService, "resetPasswordLink", RESET_PASSWORD_BASE_URL);
         ReflectionTestUtils.setField(
                 emailService, "accountExistsEmailSubject", ACCOUNT_EXISTS_SUBJECT);
     }
@@ -90,9 +87,8 @@ class EmailServiceTest {
     class SendResetPasswordEmail {
 
         @Test
-        @DisplayName(
-                "sends a message with the forgot-password subject and a link containing the token")
-        void sendsResetLinkEmail() {
+        @DisplayName("sends the code itself with the forgot-password subject, not a link")
+        void sendsResetCodeEmail() {
             emailService.sendResetPasswordEmail(TO, CODE);
 
             verify(javaMailSender).send(messageCaptor.capture());
@@ -101,9 +97,9 @@ class EmailServiceTest {
             assertThat(sent.getFrom()).isEqualTo(FROM);
             assertThat(sent.getTo()).containsExactly(TO);
             assertThat(sent.getSubject()).isEqualTo(FORGOT_PASSWORD_SUBJECT);
-            // Regression: the email must contain an actual link with the raw token, not the bare
-            // code, and must never reuse the email-verification subject/wording.
-            assertThat(sent.getText()).contains(RESET_PASSWORD_BASE_URL + CODE);
+            // A code in a URL would end up in browser history and server logs (#88).
+            assertThat(sent.getText()).contains("Your password reset code is: " + CODE);
+            assertThat(sent.getText()).doesNotContain("http");
             assertThat(sent.getSubject()).isNotEqualTo(VERIFICATION_SUBJECT);
         }
 

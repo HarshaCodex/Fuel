@@ -214,8 +214,9 @@ up. Password login (`/api/auth/login`) returns `403` until the email is verified
 
 Request field rules:
 
-- `password` — 8–30 chars with at least one uppercase, one lowercase, one digit, and one
-  special character (`@$!%*?&`).
+- `password` — 8–64 characters of any kind (spaces and symbols included), with at least one
+  uppercase letter, one lowercase letter, one digit and one symbol, and at most 72 bytes (bcrypt's
+  limit; only matters for emoji or non-Latin scripts). Login doesn't re-check these rules.
 - `timezone` — required IANA zone id (e.g. `Asia/Kolkata`, `America/New_York`, `UTC`). The
   client is expected to send its own zone; an unrecognised value returns `400 Bad Request`.
   It is stored per-user (no longer derived from the server's clock).
