@@ -28,9 +28,10 @@ public class ResetPasswordRequest {
     @Size(min = 1, max = 255, message = "Email must be less than 255 characters.")
     private String email;
 
+    @ToString.Exclude
     @NotBlank(message = "Reset code field cannot be blank.")
     @Size(max = 10, message = "Reset code must be at most 10 characters.")
     private String resetCode;
 
-    @NewPassword private String newPassword;
+    @ToString.Exclude @NewPassword private String newPassword;
 }

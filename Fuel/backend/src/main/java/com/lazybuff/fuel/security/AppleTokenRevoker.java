@@ -187,5 +187,12 @@ public class AppleTokenRevoker {
     /** The parts of Apple's token response we use. */
     record AppleTokenResponse(
             @JsonProperty("access_token") String accessToken,
-            @JsonProperty("refresh_token") String refreshToken) {}
+            @JsonProperty("refresh_token") String refreshToken) {
+
+        /** Records print every component by default; these are Apple tokens (#91). */
+        @Override
+        public String toString() {
+            return "AppleTokenResponse[tokens hidden]";
+        }
+    }
 }

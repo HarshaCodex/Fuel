@@ -41,6 +41,7 @@ DATABASE_URL=jdbc:postgresql://localhost:5432/fuel
 DATABASE_USERNAME=fuel_user
 DATABASE_PASSWORD=fuel_pass
 JWT_SECRET=<base64-encoded-secret>
+VERIFICATION_CODE_SECRET=<base64-encoded-secret>
 # Optional: only needed to test Google Sign-In
 GOOGLE_CLIENT_IDS=<ios-client-id>,<android-client-id>,<web-client-id>
 # Optional: only needed to test Sign in with Apple
@@ -62,6 +63,15 @@ Notes:
   ```bash
   openssl rand -base64 64 | tr -d '\n'
   ```
+- `VERIFICATION_CODE_SECRET` is the key for hashing stored email-verification and password-reset
+  codes (HMAC-SHA256), so a database copy alone can't reveal them. Base64, at least 32 bytes; use a
+  different value from `JWT_SECRET`:
+
+  ```bash
+  openssl rand -base64 32 | tr -d '\n'
+  ```
+
+  Changing it invalidates codes already sent (they expire within 24 hours anyway).
 - `GOOGLE_CLIENT_IDS` is a comma-separated list of the Google OAuth client IDs (from Google Cloud
   Console → APIs & Services → Credentials) for each app that signs users in. `POST /api/auth/oauth/google`
   only accepts ID tokens whose audience is in this list; if it is unset, every Google sign-in returns 401.
@@ -93,6 +103,10 @@ starting the app.
 | `fuel-postgres` | `5432` | PostgreSQL 16 database |
 | `fuel-redis` | `6379` | Redis 7 cache |
 | `fuel-mailpit` | `1025` (SMTP) / `8025` (UI) | Local mail catcher (emails never leave your machine; see [EMAIL_SETUP.md](EMAIL_SETUP.md) for real delivery) |
+
+Postgres, Redis and Mailpit listen on `127.0.0.1` only. They use dev credentials (or none), and
+Mailpit shows every verification and reset code, so they aren't reachable from your network. The
+app's `8080` stays on all interfaces so a phone on the same Wi-Fi can reach it.
 
 The app image is a multi-stage build (see `Dockerfile`): it compiles with the Temurin 25 JDK
 and runs on the Temurin 25 JRE as an unprivileged user.
@@ -134,8 +148,8 @@ docker compose logs mailpit
 
 ### 2b. Export environment variables
 
-`application.properties` reads `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, and
-`JWT_SECRET` from the environment, and **has no defaults for them** — the app will fail to
+`application.properties` reads `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`,
+`JWT_SECRET` and `VERIFICATION_CODE_SECRET` from the environment, and **has no defaults for them** — the app will fail to
 start if they're missing. There is no dotenv library, so Spring does **not** read `.env`
 automatically when run via Maven. Export the values from `.env` into your shell first:
 
@@ -262,6 +276,7 @@ docker compose down -v
 |---------|-----|
 | App exits immediately with a placeholder/`${...}` or "Could not resolve" error | Env vars aren't set. For Option 2, run `set -a && source .env && set +a` before starting. |
 | `WeakKeyException` / JWT key too short | `JWT_SECRET` must be Base64 and ≥ 64 bytes. Regenerate with `openssl rand -base64 64`. |
+| `VERIFICATION_CODE_SECRET must ...` at startup | Missing, not Base64, or shorter than 32 bytes. Generate with `openssl rand -base64 32`. |
 | `Connection refused` on port 5432 | Postgres may still be initializing. Run `docker compose ps` and wait for `healthy`, then retry. |
 | Flyway migration errors on startup | Confirm the DB container is healthy before starting the app. |
 | `429 Too many requests` on login/register while testing | Per-IP limits (login 5/min, register 3/min, Google 10/min; see `app.rate-limit.per-ip.*`), or 10 failed logins for one email in 15 minutes (`app.rate-limit.failed-login.*`). Wait for `Retry-After`, or clear them: `docker exec fuel-redis redis-cli --scan --pattern 'rate_limit:*' \| xargs docker exec fuel-redis redis-cli del`. |

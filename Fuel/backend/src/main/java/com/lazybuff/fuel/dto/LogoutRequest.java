@@ -18,6 +18,7 @@ import lombok.ToString;
 @Builder
 public class LogoutRequest {
 
+    @ToString.Exclude
     @NotBlank(message = "Refresh token field cannot be blank.")
     private String refreshToken;
 }

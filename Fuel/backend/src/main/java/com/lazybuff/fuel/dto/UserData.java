@@ -27,8 +27,8 @@ public class UserData {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Boolean isNewUser;
 
-    private String accessToken;
-    private String refreshToken;
+    @ToString.Exclude private String accessToken;
+    @ToString.Exclude private String refreshToken;
     private long accessTokenExpiresIn;
     private long refreshTokenExpiresIn;
 }
