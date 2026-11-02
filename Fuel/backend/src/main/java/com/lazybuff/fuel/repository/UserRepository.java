@@ -29,4 +29,22 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             value = "DELETE FROM users WHERE deleted_at IS NOT NULL AND deleted_at < :cutoff",
             nativeQuery = true)
     int purgeDeletedBefore(@Param("cutoff") Instant cutoff);
+
+    /**
+     * Permanently deletes active accounts whose email is still unverified and that were created
+     * before {@code cutoff} (#89). Only email/password sign-ups can be unverified; Google and Apple
+     * accounts are verified when created or linked. Related rows cascade as in {@link
+     * #purgeDeletedBefore}.
+     *
+     * @return the number of accounts purged
+     */
+    @Modifying
+    @Query(
+            value =
+                    """
+                    DELETE FROM users
+                    WHERE email_verified = FALSE AND deleted_at IS NULL AND created_at < :cutoff
+                    """,
+            nativeQuery = true)
+    int purgeUnverifiedCreatedBefore(@Param("cutoff") Instant cutoff);
 }

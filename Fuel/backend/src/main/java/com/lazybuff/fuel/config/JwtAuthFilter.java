@@ -37,7 +37,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 Jws<Claims> jws = jwtService.parseAndValidate(authHeader.substring(7));
                 String userId = jws.getPayload().getSubject();
                 var auth = new UsernamePasswordAuthenticationToken(userId, null, List.of());
-                auth.setDetails(jws.getPayload().get("email", String.class));
                 SecurityContextHolder.getContext().setAuthentication(auth);
             } catch (JwtException | IllegalArgumentException exception) {
                 SecurityContextHolder.clearContext();

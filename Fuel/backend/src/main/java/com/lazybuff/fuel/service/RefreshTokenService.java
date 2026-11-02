@@ -58,7 +58,7 @@ public class RefreshTokenService {
 
     @Transactional
     public void revoke(String rawToken) throws NoSuchAlgorithmException {
-        refreshTokenRepository.deleteByTokenHash(TokenHasher.sha256Hex(rawToken));
+        refreshTokenRepository.deleteByTokenHashReturningCount(TokenHasher.sha256Hex(rawToken));
     }
 
     @Transactional
@@ -88,12 +88,18 @@ public class RefreshTokenService {
         RefreshToken token = refreshToken.get();
 
         if (token.getExpiresAt().isBefore(Instant.now())) {
-            refreshTokenRepository.deleteByTokenHash(tokenHash);
+            refreshTokenRepository.deleteByTokenHashReturningCount(tokenHash);
             throw new FuelException(
                     HttpStatus.UNAUTHORIZED, "Refresh token invalid, expired or revoked");
         }
 
-        refreshTokenRepository.deleteByTokenHash(tokenHash);
+        // Two requests can find the same token at once; only the one that deletes it may use it.
+        // The other gets the usual 401 (not 500, #89). No revoke-all: a client firing parallel
+        // refreshes is common and not a sign of theft.
+        if (refreshTokenRepository.deleteByTokenHashReturningCount(tokenHash) == 0) {
+            throw new FuelException(
+                    HttpStatus.UNAUTHORIZED, "Refresh token invalid, expired or revoked");
+        }
         return token.getUser();
     }
 }

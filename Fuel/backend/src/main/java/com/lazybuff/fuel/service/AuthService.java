@@ -303,9 +303,7 @@ public class AuthService {
 
             RefreshTokenResponse response =
                     RefreshTokenResponse.builder()
-                            .accessToken(
-                                    jwtService.generateToken(
-                                            user.getId().toString(), user.getEmail()))
+                            .accessToken(jwtService.generateToken(user.getId().toString()))
                             .refreshToken(
                                     refreshTokenService.issueRefreshToken(
                                             user, clientInfo.deviceInfo(), clientInfo.ipAddress()))
@@ -348,7 +346,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .name(user.getName())
                 .emailVerified(user.isEmailVerified())
-                .accessToken(jwtService.generateToken(user.getId().toString(), user.getEmail()))
+                .accessToken(jwtService.generateToken(user.getId().toString()))
                 .refreshToken(
                         refreshTokenService.issueRefreshToken(
                                 user, clientInfo.deviceInfo(), clientInfo.ipAddress()))

@@ -79,8 +79,7 @@ class OAuthAccountServiceTest {
     }
 
     private void stubTokens() throws Exception {
-        when(jwtService.generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
-                .thenReturn(ACCESS_TOKEN);
+        when(jwtService.generateToken(TestDataFactory.USER_ID.toString())).thenReturn(ACCESS_TOKEN);
         when(refreshTokenService.issueRefreshToken(
                         any(User.class),
                         eq(TestDataFactory.DEVICE_INFO),

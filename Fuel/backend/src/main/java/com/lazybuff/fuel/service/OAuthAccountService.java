@@ -177,8 +177,7 @@ public class OAuthAccountService {
                         .name(user.getName())
                         .emailVerified(user.isEmailVerified())
                         .isNewUser(isNewUser)
-                        .accessToken(
-                                jwtService.generateToken(user.getId().toString(), user.getEmail()))
+                        .accessToken(jwtService.generateToken(user.getId().toString()))
                         .refreshToken(
                                 refreshTokenService.issueRefreshToken(
                                         user, clientInfo.deviceInfo(), clientInfo.ipAddress()))

@@ -136,7 +136,7 @@ class RefreshTokenServiceTest {
             refreshTokenService.revoke(raw);
 
             ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
-            verify(refreshTokenRepository).deleteByTokenHash(hashCaptor.capture());
+            verify(refreshTokenRepository).deleteByTokenHashReturningCount(hashCaptor.capture());
             assertThat(hashCaptor.getValue()).isEqualTo(TokenHasher.sha256Hex(raw));
         }
     }
@@ -215,10 +215,15 @@ class RefreshTokenServiceTest {
             when(refreshTokenRepository.findByTokenHash(TokenHasher.sha256Hex(RAW_TOKEN)))
                     .thenReturn(Optional.of(existing));
 
+            when(refreshTokenRepository.deleteByTokenHashReturningCount(
+                            TokenHasher.sha256Hex(RAW_TOKEN)))
+                    .thenReturn(1);
+
             User owner = refreshTokenService.rotate(RAW_TOKEN, null);
 
             assertThat(owner).isSameAs(user);
-            verify(refreshTokenRepository).deleteByTokenHash(TokenHasher.sha256Hex(RAW_TOKEN));
+            verify(refreshTokenRepository)
+                    .deleteByTokenHashReturningCount(TokenHasher.sha256Hex(RAW_TOKEN));
             verify(refreshTokenRepository, never()).deleteByUser_Id(any());
         }
 
@@ -236,7 +241,29 @@ class RefreshTokenServiceTest {
                     .extracting("httpStatus")
                     .isEqualTo(HttpStatus.UNAUTHORIZED);
 
-            verify(refreshTokenRepository).deleteByTokenHash(TokenHasher.sha256Hex(RAW_TOKEN));
+            verify(refreshTokenRepository)
+                    .deleteByTokenHashReturningCount(TokenHasher.sha256Hex(RAW_TOKEN));
+            verify(refreshTokenRepository, never()).deleteByUser_Id(any());
+        }
+
+        @Test
+        @DisplayName("throws 401 (not 500) when a concurrent request used the token first")
+        void rejectsTokenConsumedConcurrently() throws Exception {
+            RefreshToken existing = TestDataFactory.refreshToken(user);
+            existing.setTokenHash(TokenHasher.sha256Hex(RAW_TOKEN));
+            when(refreshTokenRepository.findByTokenHash(TokenHasher.sha256Hex(RAW_TOKEN)))
+                    .thenReturn(Optional.of(existing));
+            // Found it, but the other request deleted it first.
+            when(refreshTokenRepository.deleteByTokenHashReturningCount(
+                            TokenHasher.sha256Hex(RAW_TOKEN)))
+                    .thenReturn(0);
+
+            assertThatThrownBy(() -> refreshTokenService.rotate(RAW_TOKEN, TestDataFactory.USER_ID))
+                    .isInstanceOf(FuelException.class)
+                    .extracting("httpStatus")
+                    .isEqualTo(HttpStatus.UNAUTHORIZED);
+
+            // Parallel refreshes from one app are normal, so the user's other sessions survive.
             verify(refreshTokenRepository, never()).deleteByUser_Id(any());
         }
 
