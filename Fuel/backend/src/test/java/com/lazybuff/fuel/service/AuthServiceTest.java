@@ -125,8 +125,7 @@ class AuthServiceTest {
     }
 
     private void stubSignIn() throws Exception {
-        when(jwtService.generateToken(TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
-                .thenReturn(ACCESS_TOKEN);
+        when(jwtService.generateToken(TestDataFactory.USER_ID.toString())).thenReturn(ACCESS_TOKEN);
         when(refreshTokenService.issueRefreshToken(
                         persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
                 .thenReturn(REFRESH_TOKEN);
@@ -386,8 +385,7 @@ class AuthServiceTest {
             when(passwordEncoder.matches(
                             TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
                     .thenReturn(true);
-            when(jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+            when(jwtService.generateToken(TestDataFactory.USER_ID.toString()))
                     .thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.issueRefreshToken(
                             persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
@@ -561,8 +559,7 @@ class AuthServiceTest {
             when(passwordEncoder.matches(
                             TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
                     .thenReturn(true);
-            when(jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+            when(jwtService.generateToken(TestDataFactory.USER_ID.toString()))
                     .thenThrow(new RuntimeException("signing key unavailable"));
 
             assertThatThrownBy(() -> authService.login(loginRequest, TestDataFactory.CLIENT_INFO))
@@ -587,8 +584,7 @@ class AuthServiceTest {
             when(passwordEncoder.matches(
                             TestDataFactory.RAW_PASSWORD, TestDataFactory.HASHED_PASSWORD))
                     .thenReturn(true);
-            when(jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+            when(jwtService.generateToken(TestDataFactory.USER_ID.toString()))
                     .thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.issueRefreshToken(
                             persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
@@ -770,8 +766,7 @@ class AuthServiceTest {
                             .refreshToken(RAW_REFRESH_TOKEN)
                             .build();
             when(refreshTokenService.rotate(RAW_REFRESH_TOKEN, null)).thenReturn(persistedUser);
-            when(jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+            when(jwtService.generateToken(TestDataFactory.USER_ID.toString()))
                     .thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.issueRefreshToken(
                             persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
@@ -794,8 +789,7 @@ class AuthServiceTest {
                             .refreshToken(RAW_REFRESH_TOKEN)
                             .build();
             when(refreshTokenService.rotate(RAW_REFRESH_TOKEN, null)).thenReturn(persistedUser);
-            when(jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+            when(jwtService.generateToken(TestDataFactory.USER_ID.toString()))
                     .thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.issueRefreshToken(
                             persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))
@@ -816,8 +810,7 @@ class AuthServiceTest {
                             .build();
             when(refreshTokenService.rotate(RAW_REFRESH_TOKEN, TestDataFactory.USER_ID))
                     .thenReturn(persistedUser);
-            when(jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL))
+            when(jwtService.generateToken(TestDataFactory.USER_ID.toString()))
                     .thenReturn(ACCESS_TOKEN);
             when(refreshTokenService.issueRefreshToken(
                             persistedUser, TestDataFactory.DEVICE_INFO, TestDataFactory.IP_ADDRESS))

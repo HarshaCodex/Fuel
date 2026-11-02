@@ -35,4 +35,24 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
                     """,
             nativeQuery = true)
     int deleteCustomFoodsOfUsersDeletedBefore(@Param("cutoff") Instant cutoff);
+
+    /**
+     * Deletes custom foods created by unverified accounts created before {@code cutoff}, ahead of
+     * {@link UserRepository#purgeUnverifiedCreatedBefore}, for the same reason as above.
+     *
+     * @return the number of foods deleted
+     */
+    @Modifying
+    @Query(
+            value =
+                    """
+                    DELETE FROM food_items
+                    WHERE source = 'USER'
+                      AND created_by IN (
+                          SELECT id FROM users
+                          WHERE email_verified = FALSE AND deleted_at IS NULL
+                            AND created_at < :cutoff)
+                    """,
+            nativeQuery = true)
+    int deleteCustomFoodsOfUnverifiedUsersCreatedBefore(@Param("cutoff") Instant cutoff);
 }

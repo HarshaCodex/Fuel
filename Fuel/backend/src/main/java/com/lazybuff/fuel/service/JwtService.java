@@ -23,11 +23,14 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
+    /**
+     * Issues an access token for {@code userId}. It carries only the user ID: JWTs are signed, not
+     * encrypted, and tokens end up in client logs and crash reports, so no personal data (#89).
+     */
     @NoLogging
-    public String generateToken(String userId, String email) {
+    public String generateToken(String userId) {
         return Jwts.builder()
-                .subject(userId.toString())
-                .claim("email", email)
+                .subject(userId)
                 .issuedAt(new Date())
                 .expiration(
                         new Date(

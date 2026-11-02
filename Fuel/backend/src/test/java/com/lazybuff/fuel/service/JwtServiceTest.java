@@ -32,13 +32,11 @@ class JwtServiceTest {
     class GenerateToken {
 
         @Test
-        @DisplayName("produces a token whose claims match the supplied user id and email")
+        @DisplayName("produces a token carrying the user id and expiry, and no email")
         void generatesTokenWithExpectedClaims() {
             long before = System.currentTimeMillis();
 
-            String token =
-                    jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL);
+            String token = jwtService.generateToken(TestDataFactory.USER_ID.toString());
 
             long after = System.currentTimeMillis();
 
@@ -48,7 +46,10 @@ class JwtServiceTest {
 
             Claims claims = jwtService.parseAndValidate(token).getPayload();
             assertThat(claims.getSubject()).isEqualTo(TestDataFactory.USER_ID.toString());
-            assertThat(claims.get("email", String.class)).isEqualTo(TestDataFactory.EMAIL);
+            // Signed, not encrypted: anyone holding the token can read it, so no personal data
+            // (#89).
+            assertThat(claims).doesNotContainKey("email");
+            assertThat(claims.keySet()).containsExactlyInAnyOrder("sub", "iat", "exp");
             assertThat(claims.getIssuedAt()).isNotNull();
             // JWT exp is stored at whole-second precision, so allow a 1s slack on the lower bound.
             long expiryMillis = TestDataFactory.ACCESS_TOKEN_EXPIRY_SECONDS * 1000L;
@@ -60,8 +61,8 @@ class JwtServiceTest {
         @Test
         @DisplayName("issues distinct tokens for different users")
         void generatesDistinctTokensPerUser() {
-            String tokenOne = jwtService.generateToken("user-one", "one@example.com");
-            String tokenTwo = jwtService.generateToken("user-two", "two@example.com");
+            String tokenOne = jwtService.generateToken("user-one");
+            String tokenTwo = jwtService.generateToken("user-two");
 
             assertThat(tokenOne).isNotEqualTo(tokenTwo);
             assertThat(jwtService.parseAndValidate(tokenOne).getPayload().getSubject())
@@ -78,16 +79,12 @@ class JwtServiceTest {
         @Test
         @DisplayName("round-trips a freshly generated token")
         void parsesValidToken() {
-            String token =
-                    jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL);
+            String token = jwtService.generateToken(TestDataFactory.USER_ID.toString());
 
             Jws<Claims> parsed = jwtService.parseAndValidate(token);
 
             assertThat(parsed.getPayload().getSubject())
                     .isEqualTo(TestDataFactory.USER_ID.toString());
-            assertThat(parsed.getPayload().get("email", String.class))
-                    .isEqualTo(TestDataFactory.EMAIL);
         }
 
         @Test
@@ -100,9 +97,7 @@ class JwtServiceTest {
         @Test
         @DisplayName("rejects a token whose signature was tampered with")
         void rejectsTamperedSignature() {
-            String token =
-                    jwtService.generateToken(
-                            TestDataFactory.USER_ID.toString(), TestDataFactory.EMAIL);
+            String token = jwtService.generateToken(TestDataFactory.USER_ID.toString());
             // Flip the signature segment while keeping header/payload intact.
             String[] parts = token.split("\\.");
             String tampered = parts[0] + "." + parts[1] + "." + parts[2] + "abc";
@@ -125,7 +120,7 @@ class JwtServiceTest {
                                     otherSecret,
                                     TestDataFactory.ACCESS_TOKEN_EXPIRY_SECONDS,
                                     TestDataFactory.REFRESH_TOKEN_EXPIRY_SECONDS));
-            String foreignToken = foreignService.generateToken("intruder", "intruder@example.com");
+            String foreignToken = foreignService.generateToken("intruder");
 
             assertThatThrownBy(() -> jwtService.parseAndValidate(foreignToken))
                     .isInstanceOf(SignatureException.class);
@@ -141,7 +136,7 @@ class JwtServiceTest {
                                     TestDataFactory.JWT_SECRET,
                                     -60_000L,
                                     TestDataFactory.REFRESH_TOKEN_EXPIRY_SECONDS));
-            String expiredToken = expiringService.generateToken("user", "user@example.com");
+            String expiredToken = expiringService.generateToken("user");
 
             assertThatThrownBy(() -> jwtService.parseAndValidate(expiredToken))
                     .isInstanceOf(io.jsonwebtoken.ExpiredJwtException.class);

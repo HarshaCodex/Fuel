@@ -37,6 +37,8 @@ that, because getting tokens back would reveal the email was new.
 Together these also close the "squatter" gap: someone who registers another person's email can't
 verify it, so they can't log in, and the real owner can take the address back with a password
 reset (which replaces the password and ends all sessions) or Google/Apple sign-in (ADR 0001).
+Sign-ups that are never verified are purged after 7 days (#89,
+`app.unverified-account.retention`).
 
 ## Consequences
 
