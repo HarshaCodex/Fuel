@@ -216,6 +216,12 @@ Both return `{"status":"UP"}` with `200`; readiness returns `503` / `DOWN` while
 unreachable. Redis isn't part of the check, because the rate limiters keep working (fail open)
 without it. No other actuator endpoint is exposed.
 
+**Request IDs:** every response carries an `X-Request-Id` header, and every log line of that
+request (including async email work) is tagged with the same ID: `[<id>]` on the console,
+`"requestId"` in the prod JSON logs, and a `requestId` tag on Sentry errors. Search the logs for an
+ID to see one request from start to finish. Clients may send their own `X-Request-Id` (8–64
+letters, digits, `.`, `_` or `-`); anything else is replaced with a UUID.
+
 **Smoke-test the auth endpoint:**
 
 ```bash
