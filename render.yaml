@@ -1,0 +1,121 @@
+# Render Blueprint (#102): https://render.com/docs/blueprint-spec
+# Staging deploys from `dev`, production from `main`, each only after GitHub checks pass.
+# Setup, every env var and rollback: Fuel/docs/DEPLOYMENT.md.
+#
+# Secrets are declared with `sync: false`: Render asks for them when the Blueprint is first
+# applied and stores them in the dashboard. Never put a secret value in this file.
+
+envVarGroups:
+  # Non-secret settings shared by both environments.
+  - name: fuel-common
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # Upstash Redis only accepts TLS connections.
+      - key: REDIS_SSL
+        value: "true"
+      - key: REDIS_PORT
+        value: "6379"
+      # Resend SMTP: the username is the literal word "resend"; the password is an API key.
+      - key: MAIL_HOST
+        value: smtp.resend.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        value: resend
+
+services:
+  - type: web
+    name: fuel-api-staging
+    runtime: docker
+    branch: dev
+    # Free instances sleep after 15 idle minutes (the first request then takes ~1 min). Fine for
+    # staging; switch to `starter` if that gets in the way.
+    plan: free
+    # Keep Render, Neon and Upstash in the same region: every request talks to all three.
+    region: virginia
+    dockerfilePath: ./Fuel/backend/Dockerfile
+    dockerContext: ./Fuel/backend
+    # Liveness, not readiness: Flyway already refuses to start without the database, and a
+    # database blip shouldn't make Render restart instances that are otherwise fine.
+    healthCheckPath: /actuator/health/liveness
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - Fuel/backend/**
+    envVars:
+      - fromGroup: fuel-common
+      - key: APP_ENVIRONMENT
+        value: staging
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # Base64, at least 64 bytes (HS512): openssl rand -base64 64. Render's generated values
+      # are only 32 bytes, so this one is pasted in.
+      - key: JWT_SECRET
+        sync: false
+      # Base64, at least 32 bytes: exactly what Render generates.
+      - key: VERIFICATION_CODE_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: APPLE_CLIENT_IDS
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+
+  - type: web
+    name: fuel-api
+    runtime: docker
+    branch: main
+    # 0.5 CPU / 512 MB, always on. The JVM heap is sized from this (Dockerfile JAVA_OPTS).
+    plan: starter
+    region: virginia
+    dockerfilePath: ./Fuel/backend/Dockerfile
+    dockerContext: ./Fuel/backend
+    healthCheckPath: /actuator/health/liveness
+    autoDeployTrigger: checksPass
+    # Matches the app's 20 s graceful shutdown with room to spare.
+    maxShutdownDelaySeconds: 30
+    buildFilter:
+      paths:
+        - Fuel/backend/**
+    envVars:
+      - fromGroup: fuel-common
+      - key: APP_ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: VERIFICATION_CODE_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: APPLE_CLIENT_IDS
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
