@@ -45,18 +45,15 @@ class MdcTaskDecoratorTest {
     }
 
     @Test
-    @DisplayName("doesn't let one task's ID leak into the next task on the same thread")
+    @DisplayName("clears the request ID from the worker thread once the task is done")
     void shouldNotLeakBetweenTasks() throws Exception {
         MDC.put(RequestIdFilter.MDC_KEY, "req-first-1");
-        final Runnable first = decorator.decorate(() -> {});
-        worker.submit(first).get();
+        worker.submit(decorator.decorate(() -> {})).get();
 
-        MDC.clear();
-        final AtomicReference<String> seen = new AtomicReference<>("not run");
-        final Runnable second =
-                decorator.decorate(() -> seen.set(MDC.get(RequestIdFilter.MDC_KEY)));
+        final AtomicReference<String> leaked = new AtomicReference<>("not run");
+        worker.submit(() -> leaked.set(MDC.get(RequestIdFilter.MDC_KEY))).get();
 
-        assertThat(requestIdSeenBy(second, seen)).isNull();
+        assertThat(leaked.get()).isNull();
     }
 
     @Test
