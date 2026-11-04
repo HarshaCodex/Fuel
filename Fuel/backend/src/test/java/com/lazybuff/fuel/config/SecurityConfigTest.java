@@ -13,6 +13,7 @@ import com.lazybuff.fuel.controller.FoodItemController;
 import com.lazybuff.fuel.logging.RequestIdFilter;
 import com.lazybuff.fuel.security.RestAccessDeniedHandler;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
+import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodService;
 import com.lazybuff.fuel.service.JwtService;
 import com.lazybuff.fuel.service.RateLimiterService;
@@ -53,6 +54,7 @@ class SecurityConfigTest {
     @MockitoBean private JwtService jwtService;
 
     @MockitoBean private FoodService foodService;
+    @MockitoBean private CustomFoodService customFoodService;
 
     // WebConfig (a WebMvcConfigurer, so part of the slice) needs it to register rate-limit
     // interceptors.
