@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.lazybuff.fuel.controller.FoodItemController;
 import com.lazybuff.fuel.security.RestAccessDeniedHandler;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
+import com.lazybuff.fuel.service.BarcodeService;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
@@ -92,6 +93,8 @@ class HealthEndpointTest {
     @MockitoBean private FoodService foodService;
     @MockitoBean private CustomFoodService customFoodService;
     @MockitoBean private FoodSearchService foodSearchService;
+
+    @MockitoBean private BarcodeService barcodeService;
 
     @MockitoBean private RateLimiterService rateLimiterService;
 

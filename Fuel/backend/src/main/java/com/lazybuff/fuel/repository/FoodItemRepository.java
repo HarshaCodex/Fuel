@@ -4,6 +4,7 @@ import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.util.FoodSource;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,24 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
 
     @EntityGraph(attributePaths = "servingSizes")
     Optional<FoodItem> findWithServingSizesById(UUID id);
+
+    /**
+     * The shared (OFF or USDA) food carrying {@code barcode}, OFF first. Never returns {@code USER}
+     * foods: custom foods may carry a barcode but are private to their owner. Call through {@link
+     * #findSharedByBarcode}.
+     */
+    Optional<FoodItem> findFirstByBarcodeAndSourceInAndDeletedAtIsNullOrderBySourceAscIdAsc(
+            String barcode, Collection<FoodSource> sources);
+
+    default Optional<FoodItem> findSharedByBarcode(String barcode) {
+        return findFirstByBarcodeAndSourceInAndDeletedAtIsNullOrderBySourceAscIdAsc(
+                barcode, List.of(FoodSource.OFF, FoodSource.USDA));
+    }
+
+    /** Stores the canonical barcode on a saved shared food. */
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE FoodItem f SET f.barcode = :barcode WHERE f.id = :id")
+    int setBarcode(@Param("id") UUID id, @Param("barcode") String barcode);
 
     Optional<FoodItem> findByIdAndSourceAndUser_Id(UUID id, FoodSource source, UUID userId);
 

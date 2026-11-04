@@ -19,6 +19,7 @@ import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.dto.CustomFoodResponse;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
+import com.lazybuff.fuel.service.BarcodeService;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
@@ -61,6 +62,8 @@ class CustomFoodControllerTest {
 
     @Mock private FoodSearchService foodSearchService;
 
+    @Mock private BarcodeService barcodeService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -68,7 +71,10 @@ class CustomFoodControllerTest {
         mockMvc =
                 MockMvcBuilders.standaloneSetup(
                                 new FoodItemController(
-                                        foodService, customFoodService, foodSearchService))
+                                        foodService,
+                                        customFoodService,
+                                        foodSearchService,
+                                        barcodeService))
                         .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .build();

@@ -19,12 +19,15 @@ import com.lazybuff.fuel.config.SecurityConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.dto.CustomFoodResponse;
+import com.lazybuff.fuel.dto.FoodItemDetail;
 import com.lazybuff.fuel.dto.FoodSearchItem;
 import com.lazybuff.fuel.dto.PageResponse;
+import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.logging.RequestIdFilter;
 import com.lazybuff.fuel.security.RestAccessDeniedHandler;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
+import com.lazybuff.fuel.service.BarcodeService;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
@@ -39,6 +42,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -75,6 +79,8 @@ class CustomFoodControllerSecurityTest {
     @MockitoBean private FoodService foodService;
 
     @MockitoBean private FoodSearchService foodSearchService;
+
+    @MockitoBean private BarcodeService barcodeService;
 
     // WebConfig needs it to register rate-limit interceptors.
     @MockitoBean private RateLimiterService rateLimiterService;
@@ -391,5 +397,60 @@ class CustomFoodControllerSecurityTest {
                 .andExpect(status().isOk());
 
         verify(foodSearchService).search(USER_ID, "chicken", 0, 20);
+    }
+
+    private static final String BARCODE_URL = "/api/food/barcode/";
+
+    @Test
+    @DisplayName("returns 401 for a barcode lookup without an access token")
+    void shouldReturnUnauthorizedWhenLookingUpBarcodeWithoutToken() throws Exception {
+        mockMvc.perform(get(BARCODE_URL + "5000112637922")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(barcodeService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1234567", "123456789012345", "50001126379ab", "5000112%2063792"})
+    @DisplayName("returns 400 for a barcode that is not 8 to 14 digits, without a lookup")
+    void shouldReturnBadRequestForInvalidBarcode(String code) throws Exception {
+        givenValidToken();
+
+        mockMvc.perform(get(BARCODE_URL + code).header("Authorization", "Bearer good"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(barcodeService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"12345678", "12345678901234"})
+    @DisplayName("accepts the shortest and longest barcode and routes to the barcode lookup")
+    void shouldLookUpBarcodeWithCallersId(String code) throws Exception {
+        givenValidToken();
+        when(barcodeService.lookup(USER_ID, code))
+                .thenReturn(
+                        ApiResponse.<FoodItemDetail>builder()
+                                .status(HttpStatus.OK.value())
+                                .message("Success")
+                                .data(FoodItemDetail.builder().name("Oats").build())
+                                .timestamp(LocalDateTime.now())
+                                .build());
+
+        mockMvc.perform(get(BARCODE_URL + code).header("Authorization", "Bearer good"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value("Oats"));
+
+        verifyNoInteractions(foodService);
+    }
+
+    @Test
+    @DisplayName("maps a not-found lookup to the standard 404 body")
+    void shouldReturnNotFoundForUnknownBarcode() throws Exception {
+        givenValidToken();
+        when(barcodeService.lookup(USER_ID, "12345678"))
+                .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "Food item not found"));
+
+        mockMvc.perform(get(BARCODE_URL + "12345678").header("Authorization", "Bearer good"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Food item not found"));
     }
 }

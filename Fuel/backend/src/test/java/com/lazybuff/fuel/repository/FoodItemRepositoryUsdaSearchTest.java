@@ -189,4 +189,58 @@ class FoodItemRepositoryUsdaSearchTest {
                                 Integer.class))
                 .isEqualTo(2);
     }
+
+    private UUID insertWithBarcode(String source, String sourceId, String barcode, UUID owner) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO food_items (id, name, source, source_id, barcode, serving_size,"
+                        + " serving_unit, calories, protein, carbs, fat, created_by)"
+                        + " VALUES (?, ?, ?, ?, ?, 100, 'g', 10, 1, 1, 1, ?)",
+                id,
+                "Food " + source,
+                source,
+                sourceId,
+                barcode,
+                owner);
+        return id;
+    }
+
+    @Test
+    @DisplayName("finds a shared food by barcode, preferring OFF over USDA and ignoring USER foods")
+    void shouldFindSharedFoodByBarcodePreferringOff() {
+        String barcode = "0000000099001";
+        UUID owner = insertUser();
+        insertWithBarcode("USER", null, barcode, owner);
+        UUID usda = insertWithBarcode("USDA", "u-99001", barcode, null);
+
+        assertThat(foodItemRepository.findSharedByBarcode(barcode))
+                .map(FoodItem::getId)
+                .contains(usda);
+
+        UUID off = insertWithBarcode("OFF", "o-99001", barcode, null);
+
+        assertThat(foodItemRepository.findSharedByBarcode(barcode))
+                .map(FoodItem::getId)
+                .contains(off);
+    }
+
+    @Test
+    @DisplayName("finds nothing when only a USER food carries the barcode")
+    void shouldIgnoreCustomFoodBarcode() {
+        insertWithBarcode("USER", null, "0000000099002", insertUser());
+
+        assertThat(foodItemRepository.findSharedByBarcode("0000000099002")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("setBarcode stores the barcode on the saved food")
+    void shouldSetBarcode() {
+        UUID id = upsert("99003", "Beans", "50.0");
+
+        assertThat(foodItemRepository.setBarcode(id, "0000000099003")).isEqualTo(1);
+
+        assertThat(foodItemRepository.findSharedByBarcode("0000000099003"))
+                .map(FoodItem::getId)
+                .contains(id);
+    }
 }
