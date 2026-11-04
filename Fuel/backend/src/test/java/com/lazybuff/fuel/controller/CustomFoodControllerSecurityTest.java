@@ -19,6 +19,7 @@ import com.lazybuff.fuel.config.SecurityConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.dto.CustomFoodResponse;
+import com.lazybuff.fuel.dto.FoodSearchItem;
 import com.lazybuff.fuel.dto.PageResponse;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.logging.RequestIdFilter;
@@ -321,5 +322,74 @@ class CustomFoodControllerSecurityTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(customFoodService);
+    }
+
+    private static final String SEARCH_URL = "/api/food/search";
+
+    @Test
+    @DisplayName("returns 401 for searching foods without an access token")
+    void shouldReturnUnauthorizedWhenSearchingWithoutToken() throws Exception {
+        mockMvc.perform(get(SEARCH_URL).param("q", "chicken")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(foodSearchService);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"a,0,20", "chicken,-1,20", "chicken,0,0", "chicken,0,51"})
+    @DisplayName("returns 400 for a short query, negative page or size outside 1 to 50")
+    void shouldReturnBadRequestForInvalidSearch(String q, String page, String size)
+            throws Exception {
+        givenValidToken();
+
+        mockMvc.perform(
+                        get(SEARCH_URL)
+                                .param("q", q)
+                                .param("page", page)
+                                .param("size", size)
+                                .header("Authorization", "Bearer good"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(foodSearchService);
+    }
+
+    @Test
+    @DisplayName("returns 400 for a missing or over-long search query")
+    void shouldReturnBadRequestForMissingOrLongQuery() throws Exception {
+        givenValidToken();
+
+        mockMvc.perform(get(SEARCH_URL).header("Authorization", "Bearer good"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(
+                        get(SEARCH_URL)
+                                .param("q", "a".repeat(101))
+                                .header("Authorization", "Bearer good"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(foodSearchService);
+    }
+
+    @Test
+    @DisplayName("searches with the caller's id and default paging")
+    void shouldSearchWithDefaults() throws Exception {
+        givenValidToken();
+        when(foodSearchService.search(USER_ID, "chicken", 0, 20))
+                .thenReturn(
+                        ApiResponse.<PageResponse<FoodSearchItem>>builder()
+                                .status(200)
+                                .message("Success")
+                                .data(
+                                        PageResponse.<FoodSearchItem>builder()
+                                                .content(List.of())
+                                                .build())
+                                .timestamp(LocalDateTime.now())
+                                .build());
+
+        mockMvc.perform(
+                        get(SEARCH_URL)
+                                .param("q", "chicken")
+                                .header("Authorization", "Bearer good"))
+                .andExpect(status().isOk());
+
+        verify(foodSearchService).search(USER_ID, "chicken", 0, 20);
     }
 }
