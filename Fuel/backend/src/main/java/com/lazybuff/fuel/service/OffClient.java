@@ -94,22 +94,72 @@ public class OffClient {
             throw unavailable(HttpStatus.SERVICE_UNAVAILABLE);
         }
 
+        return parse(
+                get(
+                        "/cgi/search.pl?search_terms={q}&search_simple=1&action=process"
+                                + "&json=1&page_size={size}&page=1"
+                                + "&fields=code,product_name,brands,nutriments",
+                        query,
+                        config.getOff().getMaxResults()));
+    }
+
+    /**
+     * Looks one product up by barcode. Empty when OFF does not know it or it has no usable
+     * nutrition.
+     *
+     * @param code digits only; passed as a URI variable
+     * @throws FuelException as {@link #search}
+     */
+    public Optional<OffFood> findByBarcode(String code) {
+        if (!config.getOff().hasUserAgent()) {
+            throw unavailable(HttpStatus.SERVICE_UNAVAILABLE);
+        }
         String body;
         try {
             body =
-                    restClient
-                            .get()
-                            .uri(
-                                    "/cgi/search.pl?search_terms={q}&search_simple=1&action=process"
-                                            + "&json=1&page_size={size}&page=1"
-                                            + "&fields=code,product_name,brands,nutriments",
-                                    query,
-                                    config.getOff().getMaxResults())
-                            .header(HttpHeaders.USER_AGENT, config.getOff().getUserAgent())
-                            .retrieve()
-                            .body(String.class);
+                    get(
+                            "/api/v2/product/{code}.json?fields=code,product_name,brands,nutriments",
+                            code);
+        } catch (NotFoundException exception) {
+            return Optional.empty();
+        }
+        try {
+            JsonNode root = body == null || body.isBlank() ? null : jsonMapper.readTree(body);
+            if (root == null || !root.isObject()) {
+                log.error("OFF lookup returned an unusable body");
+                throw unavailable(HttpStatus.BAD_GATEWAY);
+            }
+            JsonNode product = root.path("product");
+            if (root.path("status").asInt(1) == 0 || !product.isObject()) {
+                return Optional.empty();
+            }
+            return toFood(product, root.path("code").asString("").trim());
+        } catch (JacksonException exception) {
+            log.error("OFF lookup returned unparsable JSON");
+            throw unavailable(HttpStatus.BAD_GATEWAY);
+        }
+    }
+
+    /** An OFF 404 means "no such product", which is an answer rather than a failure. */
+    private static final class NotFoundException extends RuntimeException {
+        NotFoundException() {
+            super(null, null, false, false);
+        }
+    }
+
+    private String get(String uri, Object... variables) {
+        try {
+            return restClient
+                    .get()
+                    .uri(uri, variables)
+                    .header(HttpHeaders.USER_AGENT, config.getOff().getUserAgent())
+                    .retrieve()
+                    .body(String.class);
         } catch (RestClientResponseException exception) {
             int status = exception.getStatusCode().value();
+            if (status == 404) {
+                throw new NotFoundException();
+            }
             boolean retryable = status == 429 || status >= 500;
             if (retryable) {
                 log.warn("OFF search failed with status {}", status);
@@ -124,7 +174,6 @@ public class OffClient {
             log.error("OFF search failed: {}", exception.getClass().getSimpleName());
             throw unavailable(HttpStatus.BAD_GATEWAY);
         }
-        return parse(body);
     }
 
     private List<OffFood> parse(String body) {
@@ -146,7 +195,14 @@ public class OffClient {
     }
 
     private Optional<OffFood> toFood(JsonNode node) {
+        return toFood(node, "");
+    }
+
+    private Optional<OffFood> toFood(JsonNode node, String fallbackCode) {
         String code = node.path("code").asString("").trim();
+        if (code.isEmpty()) {
+            code = fallbackCode;
+        }
         String name = node.path("product_name").asString("").trim();
         if (!code.matches("\\d{1," + MAX_CODE + "}") || name.isEmpty()) {
             return Optional.empty();
