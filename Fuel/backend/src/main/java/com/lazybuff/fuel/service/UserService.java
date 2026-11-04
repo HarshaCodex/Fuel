@@ -4,6 +4,7 @@ import com.lazybuff.fuel.annotation.NoLogging;
 import com.lazybuff.fuel.config.AccountDeletionConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.DeleteAccountRequest;
+import com.lazybuff.fuel.dto.UpdateProfileRequest;
 import com.lazybuff.fuel.dto.UserProfile;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.UserAuthProvider;
@@ -18,6 +19,7 @@ import com.lazybuff.fuel.security.VerifiedAppleToken;
 import com.lazybuff.fuel.util.AuthProvider;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,6 +70,45 @@ public class UserService {
                                 () ->
                                         new IllegalStateException(
                                                 "User " + userId + " has no auth provider"));
+
+        return buildProfileResponse(user);
+    }
+
+    /**
+     * Updates the caller's name and/or timezone; null fields are left unchanged.
+     *
+     * @throws FuelException 404 if the user no longer exists, 400 if the timezone is not an IANA
+     *     zone id
+     */
+    @Transactional
+    public ApiResponse<UserProfile> updateProfile(UUID userId, UpdateProfileRequest request) {
+
+        User user = findActiveUser(userId);
+
+        String timezone = request.getTimezone();
+        if (timezone != null && !ZoneId.getAvailableZoneIds().contains(timezone)) {
+            throw new FuelException(HttpStatus.BAD_REQUEST, "Invalid timezone.");
+        }
+
+        if (request.getName() != null) {
+            user.setName(request.getName().strip());
+        }
+        if (timezone != null) {
+            user.setTimezone(timezone);
+        }
+
+        return buildProfileResponse(userRepository.save(user));
+    }
+
+    private ApiResponse<UserProfile> buildProfileResponse(User user) {
+
+        UserAuthProvider originalProvider =
+                userAuthProviderRepository
+                        .findFirstByUser_IdOrderByCreatedAtAsc(user.getId())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "User " + user.getId() + " has no auth provider"));
 
         UserProfile profile =
                 new UserProfile(

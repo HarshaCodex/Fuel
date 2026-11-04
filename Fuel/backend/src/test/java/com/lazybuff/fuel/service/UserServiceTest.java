@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 import com.lazybuff.fuel.config.AccountDeletionConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.DeleteAccountRequest;
+import com.lazybuff.fuel.dto.UpdateProfileRequest;
 import com.lazybuff.fuel.dto.UserProfile;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.UserAuthProvider;
@@ -38,6 +39,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -140,6 +143,120 @@ class UserServiceTest {
                 .extracting(e -> ((FuelException) e).getHttpStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
         verifyNoInteractions(userAuthProviderRepository);
+    }
+
+    private void stubForUpdate() {
+        when(userRepository.findByIdAndDeletedAtIsNull(TestDataFactory.USER_ID))
+                .thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userAuthProviderRepository.findFirstByUser_IdOrderByCreatedAtAsc(
+                        TestDataFactory.USER_ID))
+                .thenReturn(Optional.of(TestDataFactory.emailAuthProvider(user)));
+    }
+
+    @Test
+    @DisplayName("updates only the name and keeps the timezone")
+    void shouldUpdateNameOnly() {
+        stubForUpdate();
+
+        ApiResponse<UserProfile> response =
+                userService.updateProfile(
+                        TestDataFactory.USER_ID,
+                        UpdateProfileRequest.builder().name("New Name").build());
+
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        assertThat(response.getData().name()).isEqualTo("New Name");
+        assertThat(response.getData().timezone()).isEqualTo(TestDataFactory.TIMEZONE);
+        verify(userRepository).save(user);
+    }
+
+    @Test
+    @DisplayName("updates only the timezone and keeps the name")
+    void shouldUpdateTimezoneOnly() {
+        stubForUpdate();
+
+        ApiResponse<UserProfile> response =
+                userService.updateProfile(
+                        TestDataFactory.USER_ID,
+                        UpdateProfileRequest.builder().timezone("UTC").build());
+
+        assertThat(response.getData().timezone()).isEqualTo("UTC");
+        assertThat(response.getData().name()).isEqualTo(TestDataFactory.NAME);
+    }
+
+    @Test
+    @DisplayName("updates both name and timezone")
+    void shouldUpdateNameAndTimezone() {
+        stubForUpdate();
+
+        ApiResponse<UserProfile> response =
+                userService.updateProfile(
+                        TestDataFactory.USER_ID,
+                        new UpdateProfileRequest("Harsha B", "Europe/London"));
+
+        assertThat(response.getData().name()).isEqualTo("Harsha B");
+        assertThat(response.getData().timezone()).isEqualTo("Europe/London");
+    }
+
+    @Test
+    @DisplayName("strips surrounding whitespace from the name")
+    void shouldStripName() {
+        stubForUpdate();
+
+        ApiResponse<UserProfile> response =
+                userService.updateProfile(
+                        TestDataFactory.USER_ID,
+                        UpdateProfileRequest.builder().name("  Padded Name  ").build());
+
+        assertThat(response.getData().name()).isEqualTo("Padded Name");
+    }
+
+    @Test
+    @DisplayName("an empty request changes nothing and returns the profile")
+    void shouldChangeNothingForEmptyRequest() {
+        stubForUpdate();
+
+        ApiResponse<UserProfile> response =
+                userService.updateProfile(TestDataFactory.USER_ID, new UpdateProfileRequest());
+
+        assertThat(response.getData().name()).isEqualTo(TestDataFactory.NAME);
+        assertThat(response.getData().timezone()).isEqualTo(TestDataFactory.TIMEZONE);
+        assertThat(response.getData().email()).isEqualTo(TestDataFactory.EMAIL);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Mars/Base", "+05:00", "asia/kolkata", "GMT+5"})
+    @DisplayName("rejects a timezone that is not an IANA id without saving")
+    void shouldRejectInvalidTimezone(String timezone) {
+        when(userRepository.findByIdAndDeletedAtIsNull(TestDataFactory.USER_ID))
+                .thenReturn(Optional.of(user));
+
+        assertThatThrownBy(
+                        () ->
+                                userService.updateProfile(
+                                        TestDataFactory.USER_ID,
+                                        new UpdateProfileRequest("Changed", timezone)))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(userRepository, never()).save(any(User.class));
+        assertThat(user.getName()).isEqualTo(TestDataFactory.NAME);
+    }
+
+    @Test
+    @DisplayName("returns 404 when updating a user that no longer exists")
+    void shouldReturnNotFoundWhenUpdatingMissingUser() {
+        when(userRepository.findByIdAndDeletedAtIsNull(TestDataFactory.USER_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () ->
+                                userService.updateProfile(
+                                        TestDataFactory.USER_ID, new UpdateProfileRequest()))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Nested
