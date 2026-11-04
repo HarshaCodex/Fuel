@@ -20,6 +20,8 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
     @EntityGraph(attributePaths = "servingSizes")
     Optional<FoodItem> findWithServingSizesById(UUID id);
 
+    Optional<FoodItem> findByIdAndSourceAndUser_Id(UUID id, FoodSource source, UUID userId);
+
     /**
      * Live foods of {@code source} created by {@code userId}, newest first. The id breaks ties so
      * paging is stable.

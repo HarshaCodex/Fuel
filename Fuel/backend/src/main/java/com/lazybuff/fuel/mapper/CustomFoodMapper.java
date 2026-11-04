@@ -7,6 +7,7 @@ import com.lazybuff.fuel.util.ServingUnit;
 import java.util.Locale;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 import org.mapstruct.ReportingPolicy;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
@@ -24,6 +25,19 @@ public interface CustomFoodMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
     FoodItem toEntity(CustomFoodRequest request);
+
+    /** Replaces the editable fields of an existing food; ownership and identity stay untouched. */
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "servingSizes", ignore = true)
+    @Mapping(target = "source", ignore = true)
+    @Mapping(target = "sourceId", ignore = true)
+    @Mapping(target = "barcode", ignore = true)
+    @Mapping(target = "fiber", source = "fiber", defaultValue = "0")
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
+    void updateEntity(CustomFoodRequest request, @MappingTarget FoodItem foodItem);
 
     @Mapping(target = "createdBy", source = "user.id")
     CustomFoodResponse toResponse(FoodItem foodItem);

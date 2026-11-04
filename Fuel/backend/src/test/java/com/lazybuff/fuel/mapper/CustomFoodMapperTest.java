@@ -90,6 +90,59 @@ class CustomFoodMapperTest {
     }
 
     @Test
+    @DisplayName("update overwrites editable fields and leaves identity and ownership untouched")
+    void shouldUpdateEditableFieldsAndKeepIdentity() {
+        UUID id = UUID.randomUUID();
+        User owner = User.builder().id(UUID.randomUUID()).build();
+        OffsetDateTime createdAt = OffsetDateTime.parse("2026-01-02T03:04:05Z");
+        OffsetDateTime updatedAt = OffsetDateTime.parse("2026-01-03T03:04:05Z");
+        FoodItem food =
+                FoodItem.builder()
+                        .id(id)
+                        .user(owner)
+                        .name("Old")
+                        .brand("OldBrand")
+                        .source(FoodSource.USER)
+                        .barcode("123")
+                        .servingSize(BigDecimal.ONE)
+                        .servingUnit(ServingUnit.TSP)
+                        .calories(BigDecimal.ONE)
+                        .protein(BigDecimal.ONE)
+                        .carbs(BigDecimal.ONE)
+                        .fat(BigDecimal.ONE)
+                        .fiber(new BigDecimal("9"))
+                        .createdAt(createdAt)
+                        .updatedAt(updatedAt)
+                        .build();
+
+        mapper.updateEntity(request("  New  ", "  Home ", "cup", null), food);
+
+        assertThat(food.getName()).isEqualTo("New");
+        assertThat(food.getBrand()).isEqualTo("Home");
+        assertThat(food.getServingUnit()).isEqualTo(ServingUnit.CUP);
+        assertThat(food.getServingSize()).isEqualByComparingTo("200");
+        assertThat(food.getCalories()).isEqualByComparingTo("180");
+        assertThat(food.getFiber()).isEqualByComparingTo("0");
+        assertThat(food.getId()).isEqualTo(id);
+        assertThat(food.getUser()).isSameAs(owner);
+        assertThat(food.getSource()).isEqualTo(FoodSource.USER);
+        assertThat(food.getBarcode()).isEqualTo("123");
+        assertThat(food.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(food.getUpdatedAt()).isEqualTo(updatedAt);
+        assertThat(food.getDeletedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("update turns a blank brand into null")
+    void shouldClearBrandOnUpdateWhenBlank() {
+        FoodItem food = mapper.toEntity(request("Dal", "Home", "g", null));
+
+        mapper.updateEntity(request("Dal", "  ", "g", null), food);
+
+        assertThat(food.getBrand()).isNull();
+    }
+
+    @Test
     @DisplayName("maps an entity to a response with the owner id and a lowercase unit")
     void shouldMapEntityToResponse() {
         UUID owner = UUID.randomUUID();

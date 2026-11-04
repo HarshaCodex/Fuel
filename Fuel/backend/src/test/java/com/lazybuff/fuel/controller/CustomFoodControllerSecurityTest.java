@@ -7,8 +7,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -222,5 +224,99 @@ class CustomFoodControllerSecurityTest {
                                 .param("size", String.valueOf(size))
                                 .header("Authorization", "Bearer good"))
                 .andExpect(status().isOk());
+    }
+
+    private static final UUID FOOD_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final String ITEM_URL = URL + "/" + FOOD_ID;
+
+    @Test
+    @DisplayName("returns 401 for updating a custom food without an access token")
+    void shouldReturnUnauthorizedWhenUpdatingWithoutToken() throws Exception {
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    @Test
+    @DisplayName("returns 401 for deleting a custom food without an access token")
+    void shouldReturnUnauthorizedWhenDeletingWithoutToken() throws Exception {
+        mockMvc.perform(delete(ITEM_URL))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    @Test
+    @DisplayName("returns 401 for update and delete with an invalid access token")
+    void shouldReturnUnauthorizedForInvalidTokenOnWrites() throws Exception {
+        when(jwtService.parseAndValidate("bad"))
+                .thenThrow(new io.jsonwebtoken.JwtException("invalid"));
+
+        mockMvc.perform(
+                        put(ITEM_URL)
+                                .header("Authorization", "Bearer bad")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(BODY))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete(ITEM_URL).header("Authorization", "Bearer bad"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    @Test
+    @DisplayName("updates for the token's user id and the path id")
+    void shouldUpdateForTokenUserAndPathId() throws Exception {
+        givenValidToken();
+        when(customFoodService.update(eq(USER_ID), eq(FOOD_ID), any(CustomFoodRequest.class)))
+                .thenReturn(
+                        ApiResponse.<CustomFoodResponse>builder()
+                                .status(HttpStatus.OK.value())
+                                .message("Custom food updated")
+                                .data(CustomFoodResponse.builder().id(FOOD_ID).name("Dal").build())
+                                .timestamp(LocalDateTime.now())
+                                .build());
+
+        mockMvc.perform(
+                        put(ITEM_URL)
+                                .header("Authorization", "Bearer good")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(BODY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(FOOD_ID.toString()));
+
+        verify(customFoodService).update(eq(USER_ID), eq(FOOD_ID), any(CustomFoodRequest.class));
+    }
+
+    @Test
+    @DisplayName("deletes for the token's user id and the path id")
+    void shouldDeleteForTokenUserAndPathId() throws Exception {
+        givenValidToken();
+
+        mockMvc.perform(delete(ITEM_URL).header("Authorization", "Bearer good"))
+                .andExpect(status().isNoContent());
+
+        verify(customFoodService).delete(USER_ID, FOOD_ID);
+        verifyNoInteractions(foodService);
+    }
+
+    @Test
+    @DisplayName("returns 400 for a non-UUID id on update and delete through the full chain")
+    void shouldReturnBadRequestForMalformedIdOnWrites() throws Exception {
+        givenValidToken();
+
+        mockMvc.perform(
+                        put(URL + "/nope")
+                                .header("Authorization", "Bearer good")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(BODY))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(delete(URL + "/nope").header("Authorization", "Bearer good"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(customFoodService);
     }
 }

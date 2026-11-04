@@ -43,20 +43,22 @@ class FoodItemRepositoryCustomFoodTest {
         return id;
     }
 
-    private void insertFood(
+    private UUID insertFood(
             String name, String source, UUID owner, String createdAt, String deletedAt) {
+        UUID id = UUID.randomUUID();
         jdbc.update(
                 "INSERT INTO food_items (id, name, source, source_id, serving_size, serving_unit,"
                         + " calories, protein, carbs, fat, created_by, created_at, deleted_at)"
                         + " VALUES (?, ?, ?, ?, 100, 'g', 10, 1, 1, 1, ?, ?::timestamptz,"
                         + " ?::timestamptz)",
-                UUID.randomUUID(),
+                id,
                 name,
                 source,
                 "USER".equals(source) ? null : "src-" + name,
                 owner,
                 createdAt,
                 deletedAt);
+        return id;
     }
 
     private Page<FoodItem> list(UUID owner, int page, int size) {
@@ -119,5 +121,81 @@ class FoodItemRepositoryCustomFoodTest {
         assertThat(first)
                 .extracting(f -> f.getId().toString())
                 .isSortedAccordingTo(java.util.Comparator.reverseOrder());
+    }
+
+    @Test
+    @DisplayName("finds the caller's live USER food by id")
+    void shouldFindLiveOwnedUserFoodById() {
+        UUID a = insertUser();
+        UUID id = insertFood("mine", "USER", a, "2026-01-01T00:00:00Z", null);
+
+        var found = foodItemRepository.findByIdAndSourceAndUser_Id(id, FoodSource.USER, a);
+
+        assertThat(found).get().extracting(FoodItem::getName).isEqualTo("mine");
+    }
+
+    @Test
+    @DisplayName("finds nothing for another user's USER food")
+    void shouldNotFindAnotherUsersFood() {
+        UUID id = insertFood("theirs", "USER", insertUser(), "2026-01-01T00:00:00Z", null);
+
+        assertThat(
+                        foodItemRepository.findByIdAndSourceAndUser_Id(
+                                id, FoodSource.USER, insertUser()))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("finds nothing for a USDA food whose created_by is the caller")
+    void shouldNotFindNonUserSourceFoodOwnedByCaller() {
+        UUID a = insertUser();
+        UUID id = insertFood("usda", "USDA", a, "2026-01-01T00:00:00Z", null);
+
+        assertThat(foodItemRepository.findByIdAndSourceAndUser_Id(id, FoodSource.USER, a))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("finds nothing for an unknown id")
+    void shouldNotFindUnknownId() {
+        assertThat(
+                        foodItemRepository.findByIdAndSourceAndUser_Id(
+                                UUID.randomUUID(), FoodSource.USER, insertUser()))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("excludes soft-deleted foods from the owned lookup and the id lookup")
+    void shouldExcludeSoftDeletedRows() {
+        UUID a = insertUser();
+        UUID id = insertFood("gone", "USER", a, "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z");
+
+        assertThat(foodItemRepository.findByIdAndSourceAndUser_Id(id, FoodSource.USER, a))
+                .isEmpty();
+        assertThat(foodItemRepository.findWithServingSizesById(id)).isEmpty();
+        assertThat(list(a, 0, 20).getTotalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("hides a food from the list and id lookup after deletedAt is set and flushed")
+    void shouldHideFoodAfterSoftDelete() {
+        UUID a = insertUser();
+        UUID id = insertFood("soon-gone", "USER", a, "2026-01-01T00:00:00Z", null);
+        FoodItem food =
+                foodItemRepository
+                        .findByIdAndSourceAndUser_Id(id, FoodSource.USER, a)
+                        .orElseThrow();
+
+        food.setDeletedAt(java.time.OffsetDateTime.now());
+        foodItemRepository.saveAndFlush(food);
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM food_items WHERE id = ? AND deleted_at IS NOT NULL",
+                                Integer.class,
+                                id))
+                .isEqualTo(1);
+        assertThat(list(a, 0, 20).getTotalElements()).isZero();
+        assertThat(foodItemRepository.findWithServingSizesById(id)).isEmpty();
     }
 }

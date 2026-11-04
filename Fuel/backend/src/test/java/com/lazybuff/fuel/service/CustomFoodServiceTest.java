@@ -20,6 +20,7 @@ import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.FoodSource;
 import com.lazybuff.fuel.util.ServingUnit;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -173,5 +174,134 @@ class CustomFoodServiceTest {
                         e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.NOT_FOUND));
         verify(foodItemRepository, never())
                 .findBySourceAndUser_IdOrderByCreatedAtDescIdDesc(any(), any(), any());
+    }
+
+    private void givenOwnedFood(UUID foodId, FoodItem existing) {
+        when(foodItemRepository.findByIdAndSourceAndUser_Id(foodId, FoodSource.USER, USER_ID))
+                .thenReturn(Optional.of(existing));
+    }
+
+    private static void assertNotFound(Throwable thrown, String message) {
+        assertThat(thrown)
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> {
+                            assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+                            assertThat(e.getMessage()).isEqualTo(message);
+                        });
+    }
+
+    @Test
+    @DisplayName("update replaces the editable fields and keeps id, owner and creation time")
+    void shouldReplaceEditableFieldsOnUpdate() {
+        givenActiveUser();
+        FoodItem existing = food("Old", user);
+        OffsetDateTime createdAt = OffsetDateTime.parse("2026-01-02T03:04:05Z");
+        existing.setCreatedAt(createdAt);
+        existing.setFiber(new BigDecimal("7"));
+        existing.setBrand("OldBrand");
+        UUID foodId = existing.getId();
+        givenOwnedFood(foodId, existing);
+        when(foodItemRepository.save(any(FoodItem.class))).thenAnswer(i -> i.getArgument(0));
+        CustomFoodRequest req =
+                new CustomFoodRequest(
+                        "  New Dal  ",
+                        "   ",
+                        new BigDecimal("250"),
+                        "ml",
+                        new BigDecimal("300"),
+                        new BigDecimal("11.0"),
+                        new BigDecimal("30.0"),
+                        new BigDecimal("6.0"),
+                        null);
+
+        ApiResponse<CustomFoodResponse> result = service().update(USER_ID, foodId, req);
+
+        ArgumentCaptor<FoodItem> captor = ArgumentCaptor.forClass(FoodItem.class);
+        verify(foodItemRepository).save(captor.capture());
+        FoodItem saved = captor.getValue();
+        assertThat(saved).isSameAs(existing);
+        assertThat(saved.getName()).isEqualTo("New Dal");
+        assertThat(saved.getBrand()).isNull();
+        assertThat(saved.getServingUnit()).isEqualTo(ServingUnit.ML);
+        assertThat(saved.getCalories()).isEqualByComparingTo("300");
+        assertThat(saved.getFiber()).isEqualByComparingTo("0");
+        assertThat(saved.getId()).isEqualTo(foodId);
+        assertThat(saved.getUser()).isSameAs(user);
+        assertThat(saved.getSource()).isEqualTo(FoodSource.USER);
+        assertThat(saved.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(saved.getDeletedAt()).isNull();
+        assertThat(result.getStatus()).isEqualTo(200);
+        assertThat(result.getMessage()).isEqualTo("Custom food updated");
+        assertThat(result.getData().getId()).isEqualTo(foodId);
+        assertThat(result.getData().getCreatedBy()).isEqualTo(USER_ID);
+        assertThat(result.getData().getName()).isEqualTo("New Dal");
+        assertThat(result.getData().getCreatedAt()).isEqualTo(createdAt);
+    }
+
+    @Test
+    @DisplayName("update throws 404 and saves nothing when the food is not owned or not found")
+    void shouldThrowNotFoundOnUpdateWhenFoodNotOwned() {
+        givenActiveUser();
+        UUID foodId = UUID.randomUUID();
+        when(foodItemRepository.findByIdAndSourceAndUser_Id(foodId, FoodSource.USER, USER_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().update(USER_ID, foodId, request()))
+                .satisfies(e -> assertNotFound(e, "Food item not found"));
+        verify(foodItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update throws 404 and looks up no food when the user is not found")
+    void shouldThrowNotFoundOnUpdateWhenUserMissing() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().update(USER_ID, UUID.randomUUID(), request()))
+                .satisfies(e -> assertNotFound(e, "User not found"));
+        verify(foodItemRepository, never()).findByIdAndSourceAndUser_Id(any(), any(), any());
+        verify(foodItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("delete sets deletedAt on the owned food and saves it")
+    void shouldSoftDeleteOwnedFood() {
+        givenActiveUser();
+        FoodItem existing = food("Dal", user);
+        UUID foodId = existing.getId();
+        givenOwnedFood(foodId, existing);
+        OffsetDateTime before = OffsetDateTime.now();
+
+        ApiResponse<Void> result = service().delete(USER_ID, foodId);
+
+        verify(foodItemRepository).save(existing);
+        verify(foodItemRepository, never()).delete(any(FoodItem.class));
+        assertThat(existing.getDeletedAt()).isNotNull().isAfterOrEqualTo(before);
+        assertThat(result.getStatus()).isEqualTo(204);
+        assertThat(result.getData()).isNull();
+    }
+
+    @Test
+    @DisplayName("delete throws 404 and saves nothing when the food is not owned or not found")
+    void shouldThrowNotFoundOnDeleteWhenFoodNotOwned() {
+        givenActiveUser();
+        UUID foodId = UUID.randomUUID();
+        when(foodItemRepository.findByIdAndSourceAndUser_Id(foodId, FoodSource.USER, USER_ID))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().delete(USER_ID, foodId))
+                .satisfies(e -> assertNotFound(e, "Food item not found"));
+        verify(foodItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("delete throws 404 and looks up no food when the user is not found")
+    void shouldThrowNotFoundOnDeleteWhenUserMissing() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().delete(USER_ID, UUID.randomUUID()))
+                .satisfies(e -> assertNotFound(e, "User not found"));
+        verify(foodItemRepository, never()).findByIdAndSourceAndUser_Id(any(), any(), any());
+        verify(foodItemRepository, never()).save(any());
     }
 }

@@ -20,9 +20,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -100,5 +102,55 @@ public class FoodItemController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
 
         return ResponseEntity.ok(customFoodService.list(UUID.fromString(userId), page, size));
+    }
+
+    @Operation(summary = "Replace a custom food owned by the caller")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Custom food updated"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Invalid input"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "Food item not found")
+    })
+    @PutMapping(
+            path = "/custom/{id}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<CustomFoodResponse>> updateCustomFood(
+            @AuthenticationPrincipal String userId,
+            @PathVariable UUID id,
+            @Valid @RequestBody CustomFoodRequest request) {
+
+        return ResponseEntity.ok(customFoodService.update(UUID.fromString(userId), id, request));
+    }
+
+    @Operation(summary = "Soft-delete a custom food owned by the caller")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "204",
+                description = "Custom food deleted"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Malformed id"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "Food item not found")
+    })
+    @DeleteMapping(path = "/custom/{id}")
+    public ResponseEntity<Void> deleteCustomFood(
+            @AuthenticationPrincipal String userId, @PathVariable UUID id) {
+
+        customFoodService.delete(UUID.fromString(userId), id);
+        return ResponseEntity.noContent().build();
     }
 }

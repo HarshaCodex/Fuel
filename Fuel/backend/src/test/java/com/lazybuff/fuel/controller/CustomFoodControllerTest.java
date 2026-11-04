@@ -4,16 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.dto.CustomFoodResponse;
+import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodService;
@@ -288,6 +292,153 @@ class CustomFoodControllerTest {
         return ApiResponse.<CustomFoodResponse>builder()
                 .status(HttpStatus.CREATED.value())
                 .message("Custom food created")
+                .data(data)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    private static final UUID FOOD_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final String ITEM_URL = URL + "/" + FOOD_ID;
+
+    @ParameterizedTest(name = "PUT {0}")
+    @MethodSource("invalidBodies")
+    @DisplayName("PUT returns 400 and never calls the service for invalid input")
+    void shouldReturnBadRequestOnPutForInvalidInput(String ignored, String body) throws Exception {
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    @Test
+    @DisplayName("PUT returns 400 for malformed JSON")
+    void shouldReturnBadRequestOnPutForMalformedJson() throws Exception {
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content("{\"name\":"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    @Test
+    @DisplayName("PUT returns 400 for an empty body")
+    void shouldReturnBadRequestOnPutForEmptyBody() throws Exception {
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    @Test
+    @DisplayName("PUT returns 400 for a non-UUID path id")
+    void shouldReturnBadRequestOnPutForMalformedId() throws Exception {
+        mockMvc.perform(
+                        put(URL + "/not-a-uuid")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(valid()))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    @Test
+    @DisplayName("PUT returns 200 with the updated food and passes the token user and path id")
+    void shouldReturnOkWithUpdatedFood() throws Exception {
+        when(customFoodService.update(eq(USER_ID), eq(FOOD_ID), any(CustomFoodRequest.class)))
+                .thenReturn(updated());
+
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content(valid()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Custom food updated"))
+                .andExpect(jsonPath("$.data.id").value(FOOD_ID.toString()))
+                .andExpect(jsonPath("$.data.source").value("USER"))
+                .andExpect(jsonPath("$.data.createdBy").value(USER_ID.toString()));
+    }
+
+    @Test
+    @DisplayName("PUT accepts boundary values and an omitted fiber")
+    void shouldAcceptBoundaryValuesOnPut() throws Exception {
+        when(customFoodService.update(eq(USER_ID), eq(FOOD_ID), any(CustomFoodRequest.class)))
+                .thenReturn(updated());
+        String body = json(quoted(200), "null", "0.1", "\"serving\"", "0", "0", "0", "0", "null");
+
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("PUT ignores owner, source and id fields sent in the body")
+    void shouldIgnoreOwnerFieldsInBodyOnPut() throws Exception {
+        when(customFoodService.update(eq(USER_ID), eq(FOOD_ID), any(CustomFoodRequest.class)))
+                .thenReturn(updated());
+        String body =
+                valid().replace(
+                                "{",
+                                "{\"createdBy\":\"22222222-2222-2222-2222-222222222222\","
+                                        + "\"source\":\"USDA\",\"id\":\"33333333-3333-3333-3333-333333333333\",");
+
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk());
+
+        verify(customFoodService).update(eq(USER_ID), eq(FOOD_ID), any(CustomFoodRequest.class));
+    }
+
+    @Test
+    @DisplayName("PUT maps a not-found food to 404 with the shared message")
+    void shouldReturnNotFoundOnPutWhenServiceSaysNotFound() throws Exception {
+        when(customFoodService.update(eq(USER_ID), eq(FOOD_ID), any(CustomFoodRequest.class)))
+                .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "Food item not found"));
+
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content(valid()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Food item not found"));
+    }
+
+    @Test
+    @DisplayName("DELETE returns 204 with an empty body and passes the token user and path id")
+    void shouldReturnNoContentOnDelete() throws Exception {
+        mockMvc.perform(delete(ITEM_URL))
+                .andExpect(status().isNoContent())
+                .andExpect(
+                        result -> assertThat(result.getResponse().getContentAsString()).isEmpty());
+
+        verify(customFoodService).delete(USER_ID, FOOD_ID);
+    }
+
+    @Test
+    @DisplayName("DELETE maps a not-found food to 404")
+    void shouldReturnNotFoundOnDeleteWhenServiceSaysNotFound() throws Exception {
+        doThrow(new FuelException(HttpStatus.NOT_FOUND, "Food item not found"))
+                .when(customFoodService)
+                .delete(USER_ID, FOOD_ID);
+
+        mockMvc.perform(delete(ITEM_URL))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Food item not found"));
+    }
+
+    @Test
+    @DisplayName("DELETE returns 400 for a non-UUID path id")
+    void shouldReturnBadRequestOnDeleteForMalformedId() throws Exception {
+        mockMvc.perform(delete(URL + "/not-a-uuid")).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    private static ApiResponse<CustomFoodResponse> updated() {
+        CustomFoodResponse data =
+                CustomFoodResponse.builder()
+                        .id(FOOD_ID)
+                        .name("Dal")
+                        .source("USER")
+                        .servingSize(new BigDecimal("200"))
+                        .servingUnit("g")
+                        .createdBy(USER_ID)
+                        .build();
+        return ApiResponse.<CustomFoodResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Custom food updated")
                 .data(data)
                 .timestamp(LocalDateTime.now())
                 .build();
