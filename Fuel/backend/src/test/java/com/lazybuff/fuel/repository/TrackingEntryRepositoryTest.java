@@ -7,6 +7,7 @@ import com.lazybuff.fuel.entity.TrackingEntry;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.util.FoodSource;
 import com.lazybuff.fuel.util.ServingUnit;
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -41,6 +42,8 @@ class TrackingEntryRepositoryTest {
     @Autowired private TrackingEntryRepository trackingEntryRepository;
 
     @Autowired private UserRepository userRepository;
+
+    @Autowired private EntityManager entityManager;
 
     private UUID insertUser(String deletedAt) {
         UUID id = UUID.randomUUID();
@@ -105,6 +108,8 @@ class TrackingEntryRepositoryTest {
                                 .carbs(new BigDecimal("0.00"))
                                 .fat(new BigDecimal("5.40"))
                                 .build());
+        entityManager.flush();
+        entityManager.clear();
 
         assertThat(
                         jdbc.queryForObject(
@@ -116,9 +121,14 @@ class TrackingEntryRepositoryTest {
                 .hasValueSatisfying(
                         e -> {
                             assertThat(e.getServingUnit()).isEqualTo(ServingUnit.G);
-                            assertThat(e.getQuantity()).isEqualByComparingTo("1.50");
-                            assertThat(e.getCalories()).isEqualByComparingTo("247.5");
-                            assertThat(e.getFiber()).isEqualByComparingTo("0");
+                            assertThat(e.getQuantity()).isEqualTo(new BigDecimal("1.50"));
+                            assertThat(e.getServingSize()).isEqualTo(new BigDecimal("150.0"));
+                            assertThat(e.getCalories()).isEqualTo(new BigDecimal("247.5"));
+                            assertThat(e.getProtein()).isEqualTo(new BigDecimal("46.50"));
+                            assertThat(e.getFiber()).isEqualTo(new BigDecimal("0.00"));
+                            assertThat(e.getLogDate()).isEqualTo(LocalDate.of(2026, 6, 10));
+                            assertThat(e.getLoggedAt().toInstant())
+                                    .isEqualTo(Instant.parse("2026-06-10T18:00:00Z"));
                             assertThat(e.getCreatedAt()).isNotNull();
                         });
     }
