@@ -1,5 +1,6 @@
 package com.lazybuff.fuel.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -8,12 +9,14 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
+import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.service.TrackingService;
@@ -242,5 +245,81 @@ class TrackingControllerTest {
                 .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "Entry not found"));
 
         mockMvc.perform(delete(URL + "/" + id)).andExpect(status().isNotFound());
+    }
+
+    private static ApiResponse<TrackingEntryResponse> updated() {
+        return ApiResponse.<TrackingEntryResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Entry updated")
+                .data(TrackingEntryResponse.builder().id(UUID.randomUUID()).build())
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Test
+    @DisplayName("PUT returns 200 with the updated entry for the token's user")
+    void shouldUpdateEntry() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(trackingService.update(eq(USER_ID), eq(id), any(TrackingEntryUpdateRequest.class)))
+                .thenReturn(updated());
+
+        mockMvc.perform(
+                        put(URL + "/" + id)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        "{\"servingSize\":200.0,\"quantity\":1,"
+                                                + "\"mealLabel\":\"dinner\","
+                                                + "\"loggedAt\":\"2026-06-09T12:30:00+05:30\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Entry updated"));
+
+        ArgumentCaptor<TrackingEntryUpdateRequest> captor =
+                ArgumentCaptor.forClass(TrackingEntryUpdateRequest.class);
+        verify(trackingService).update(eq(USER_ID), eq(id), captor.capture());
+        assertThat(captor.getValue().getServingSize()).isEqualTo(new BigDecimal("200"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "{\"quantity\":0}",
+                "{\"quantity\":-1}",
+                "{\"servingSize\":0}",
+                "{\"mealLabel\":\"brunch\"}",
+                "{\"loggedAt\":\"yesterday\"}",
+                "{\"servingSize\":1e999999999}"
+            })
+    @DisplayName("PUT returns 400 for an invalid body")
+    void shouldReturn400ForInvalidUpdateBody(String body) throws Exception {
+        mockMvc.perform(
+                        put(URL + "/" + UUID.randomUUID())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(trackingService);
+    }
+
+    @Test
+    @DisplayName("PUT returns 400 for a malformed id")
+    void shouldReturn400ForMalformedIdOnUpdate() throws Exception {
+        mockMvc.perform(
+                        put(URL + "/not-a-uuid")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(trackingService);
+    }
+
+    @Test
+    @DisplayName("PUT returns 404 when the service reports an unknown entry")
+    void shouldReturn404OnUpdateWhenEntryNotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(trackingService.update(eq(USER_ID), eq(id), any(TrackingEntryUpdateRequest.class)))
+                .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "Entry not found"));
+
+        mockMvc.perform(put(URL + "/" + id).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isNotFound());
     }
 }

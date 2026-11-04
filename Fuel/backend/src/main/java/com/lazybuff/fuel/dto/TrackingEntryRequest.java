@@ -87,7 +87,7 @@ public class TrackingEntryRequest {
     /**
      * Drops trailing zeros so 150.0 passes {@code @Digits}; Jackson keeps the JSON text's scale.
      */
-    private static BigDecimal normalize(BigDecimal value) {
+    static BigDecimal normalize(BigDecimal value) {
         if (value == null) {
             return null;
         }

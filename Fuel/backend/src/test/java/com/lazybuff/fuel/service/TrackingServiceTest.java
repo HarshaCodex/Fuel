@@ -13,6 +13,7 @@ import com.lazybuff.fuel.config.TrackingConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
+import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
 import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.entity.TrackingEntry;
 import com.lazybuff.fuel.entity.User;
@@ -445,6 +446,164 @@ class TrackingServiceTest {
         when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.empty());
 
         assertNotFound(() -> service.delete(USER_ID, ENTRY_ID), "User not found");
+        verifyNoInteractions(trackingEntryRepository);
+    }
+
+    private void givenOwnedEntry(TrackingEntry entry) {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.of(user));
+        when(trackingEntryRepository.findByIdAndUserId(ENTRY_ID, USER_ID))
+                .thenReturn(Optional.of(entry));
+        lenient()
+                .when(trackingEntryRepository.save(any(TrackingEntry.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private static TrackingEntryUpdateRequest update(
+            String size, String quantity, String meal, OffsetDateTime loggedAt) {
+        TrackingEntryUpdateRequest request = new TrackingEntryUpdateRequest();
+        request.setServingSize(size != null ? bd(size) : null);
+        request.setQuantity(quantity != null ? bd(quantity) : null);
+        request.setMealLabel(meal);
+        request.setLoggedAt(loggedAt);
+        return request;
+    }
+
+    private TrackingEntry entryAt150g() {
+        TrackingEntry entry = entryOf(USER_ID, "2026-06-09T08:00:00Z", LocalDate.of(2026, 6, 9));
+        entry.setServingSize(bd("150"));
+        entry.setCalories(bd("247.5"));
+        return entry;
+    }
+
+    @Test
+    @DisplayName("update recomputes nutrients from the original food for a new serving size")
+    void shouldRecomputeNutrientsWhenServingSizeChanges() {
+        TrackingEntry entry = entryAt150g();
+        givenOwnedEntry(entry);
+        when(foodItemRepository.findById(FOOD_ID)).thenReturn(Optional.of(chicken()));
+
+        ApiResponse<TrackingEntryResponse> result =
+                service.update(USER_ID, ENTRY_ID, update("200", null, null, null));
+
+        assertThat(result.getStatus()).isEqualTo(200);
+        assertThat(result.getMessage()).isEqualTo("Entry updated");
+        TrackingEntry saved = savedEntry();
+        assertThat(saved.getServingSize()).isEqualByComparingTo("200");
+        assertThat(saved.getCalories()).isEqualTo(bd("330.0"));
+        assertThat(saved.getProtein()).isEqualTo(bd("62.00"));
+        assertThat(saved.getCarbs()).isEqualTo(bd("0.00"));
+        assertThat(saved.getFat()).isEqualTo(bd("7.20"));
+        assertThat(saved.getFiber()).isEqualTo(bd("0.00"));
+    }
+
+    @Test
+    @DisplayName("update recomputes nutrients when only the quantity changes")
+    void shouldRecomputeNutrientsWhenQuantityChanges() {
+        givenOwnedEntry(entryAt150g());
+        when(foodItemRepository.findById(FOOD_ID)).thenReturn(Optional.of(chicken()));
+
+        service.update(USER_ID, ENTRY_ID, update(null, "2", null, null));
+
+        TrackingEntry saved = savedEntry();
+        assertThat(saved.getServingSize()).isEqualByComparingTo("150");
+        assertThat(saved.getCalories()).isEqualTo(bd("495.0"));
+    }
+
+    @Test
+    @DisplayName("update of the meal alone leaves nutrients untouched and skips the food lookup")
+    void shouldKeepNutrientsWhenOnlyMealChanges() {
+        givenOwnedEntry(entryAt150g());
+
+        service.update(USER_ID, ENTRY_ID, update(null, null, "dinner", null));
+
+        TrackingEntry saved = savedEntry();
+        assertThat(saved.getMealLabel()).isEqualTo("dinner");
+        assertThat(saved.getCalories()).isEqualTo(bd("247.5"));
+        verifyNoInteractions(foodItemRepository);
+    }
+
+    @Test
+    @DisplayName("update of loggedAt moves the log date across a timezone boundary")
+    void shouldChangeLogDateWhenLoggedAtChanges() {
+        user.setTimezone("Asia/Kolkata");
+        givenOwnedEntry(entryAt150g());
+        OffsetDateTime loggedAt = OffsetDateTime.parse("2026-06-10T20:00:00Z");
+
+        service.update(USER_ID, ENTRY_ID, update(null, null, null, loggedAt));
+
+        TrackingEntry saved = savedEntry();
+        assertThat(saved.getLoggedAt().toInstant()).isEqualTo(loggedAt.toInstant());
+        assertThat(saved.getLogDate()).isEqualTo(LocalDate.of(2026, 6, 11));
+    }
+
+    @Test
+    @DisplayName("update returns 400 when loggedAt is too far ahead")
+    void shouldReturn400OnUpdateWhenLoggedAtTooFarAhead() {
+        givenOwnedEntry(entryAt150g());
+        TrackingEntryUpdateRequest request =
+                update(null, null, null, OffsetDateTime.now(ZoneOffset.UTC).plusDays(2));
+
+        assertThatThrownBy(() -> service.update(USER_ID, ENTRY_ID, request))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> {
+                            assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                            assertThat(e.getMessage())
+                                    .isEqualTo("loggedAt is too far in the future");
+                        });
+        verify(trackingEntryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update returns 400 when the recomputed entry is too large")
+    void shouldReturn400OnUpdateWhenEntryTooLarge() {
+        givenOwnedEntry(entryAt150g());
+        when(foodItemRepository.findById(FOOD_ID)).thenReturn(Optional.of(chicken()));
+        TrackingEntryUpdateRequest request = update("999999", "999", null, null);
+
+        assertThatThrownBy(() -> service.update(USER_ID, ENTRY_ID, request))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> {
+                            assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                            assertThat(e.getMessage()).isEqualTo("Entry is too large");
+                        });
+        verify(trackingEntryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update scales from the entry's own snapshot when the food is gone")
+    void shouldScaleFromSnapshotWhenFoodGone() {
+        givenOwnedEntry(entryAt150g());
+        when(foodItemRepository.findById(FOOD_ID)).thenReturn(Optional.empty());
+
+        service.update(USER_ID, ENTRY_ID, update("200", null, null, null));
+
+        // Snapshot 247.5 kcal was for 150 g x 1 here, so 200 g gives 330.0.
+        assertThat(savedEntry().getCalories()).isEqualTo(bd("330.0"));
+    }
+
+    @Test
+    @DisplayName("update returns 404 for another user's or an unknown entry")
+    void shouldReturn404OnUpdateWhenEntryBelongsToAnotherUser() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.of(user));
+        when(trackingEntryRepository.findByIdAndUserId(ENTRY_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        assertNotFound(
+                () -> service.update(USER_ID, ENTRY_ID, update("200", null, null, null)),
+                "Entry not found");
+        verify(trackingEntryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update returns 404 when the caller is deleted")
+    void shouldReturn404OnUpdateWhenUserDeleted() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.empty());
+
+        assertNotFound(
+                () -> service.update(USER_ID, ENTRY_ID, update(null, null, null, null)),
+                "User not found");
         verifyNoInteractions(trackingEntryRepository);
     }
 }

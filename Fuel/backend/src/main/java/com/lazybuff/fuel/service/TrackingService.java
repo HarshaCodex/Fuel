@@ -5,6 +5,7 @@ import com.lazybuff.fuel.config.TrackingConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
+import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
 import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.entity.TrackingEntry;
 import com.lazybuff.fuel.entity.User;
@@ -24,6 +25,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,24 +75,18 @@ public class TrackingService {
 
             OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
             OffsetDateTime loggedAt = request.getLoggedAt() != null ? request.getLoggedAt() : now;
-            if (loggedAt.isAfter(now.plus(trackingConfig.getMaxFutureLog()))) {
-                throw new FuelException(
-                        HttpStatus.BAD_REQUEST, "loggedAt is too far in the future");
-            }
+            checkNotTooFarAhead(loggedAt, now);
 
-            BigDecimal factor = request.getServingSize().multiply(request.getQuantity());
-            BigDecimal calories = scale(food.getCalories(), factor, food, CALORIE_SCALE);
-            BigDecimal protein = scale(food.getProtein(), factor, food, MACRO_SCALE);
-            BigDecimal carbs = scale(food.getCarbs(), factor, food, MACRO_SCALE);
-            BigDecimal fat = scale(food.getFat(), factor, food, MACRO_SCALE);
-            BigDecimal fiber = scale(food.getFiber(), factor, food, MACRO_SCALE);
-            if (calories.compareTo(MAX_CALORIES) > 0
-                    || protein.compareTo(MAX_MACRO) > 0
-                    || carbs.compareTo(MAX_MACRO) > 0
-                    || fat.compareTo(MAX_MACRO) > 0
-                    || fiber.compareTo(MAX_MACRO) > 0) {
-                throw new FuelException(HttpStatus.BAD_REQUEST, "Entry is too large");
-            }
+            Nutrients n =
+                    scaleAll(
+                            new Nutrients(
+                                    food.getCalories(),
+                                    food.getProtein(),
+                                    food.getCarbs(),
+                                    food.getFat(),
+                                    food.getFiber()),
+                            request.getServingSize().multiply(request.getQuantity()),
+                            food.getServingSize());
 
             TrackingEntry entry =
                     TrackingEntry.builder()
@@ -104,11 +100,11 @@ public class TrackingService {
                             .mealLabel(request.getMealLabel())
                             .loggedAt(loggedAt)
                             .logDate(logDate(user, userId, loggedAt))
-                            .calories(calories)
-                            .protein(protein)
-                            .carbs(carbs)
-                            .fat(fat)
-                            .fiber(fiber)
+                            .calories(n.calories())
+                            .protein(n.protein())
+                            .carbs(n.carbs())
+                            .fat(n.fat())
+                            .fiber(n.fiber())
                             .build();
 
             TrackingEntry saved = trackingEntryRepository.save(entry);
@@ -127,11 +123,131 @@ public class TrackingService {
         }
     }
 
-    /** value x amount eaten / food's serving size; multiplies first to keep precision. */
+    /** Rewrites the amount, quantity, meal or time of an entry the caller owns. */
+    @Transactional
+    public ApiResponse<TrackingEntryResponse> update(
+            UUID userId, UUID entryId, TrackingEntryUpdateRequest request) {
+
+        try {
+            User user = findActiveUser(userId);
+            TrackingEntry entry = findOwnedEntry(userId, entryId);
+
+            if (request.getLoggedAt() != null) {
+                checkNotTooFarAhead(request.getLoggedAt(), OffsetDateTime.now(ZoneOffset.UTC));
+                entry.setLoggedAt(request.getLoggedAt());
+                entry.setLogDate(logDate(user, userId, request.getLoggedAt()));
+            }
+            if (request.getMealLabel() != null) {
+                entry.setMealLabel(request.getMealLabel());
+            }
+            if (request.getServingSize() != null || request.getQuantity() != null) {
+                recompute(entry, request);
+            }
+
+            TrackingEntry saved = trackingEntryRepository.save(entry);
+            return ApiResponse.<TrackingEntryResponse>builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Entry updated")
+                    .data(toResponse(saved))
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        } catch (FuelException exception) {
+            log.warn(
+                    "Entry update failed for user:{} entry:{} - {}",
+                    userId,
+                    entryId,
+                    exception.getMessage());
+            throw exception;
+        } catch (Exception exception) {
+            log.error(
+                    "Exception occurred while updating entry:{} for user:{}",
+                    entryId,
+                    userId,
+                    exception);
+            throw exception;
+        }
+    }
+
+    private void recompute(TrackingEntry entry, TrackingEntryUpdateRequest request) {
+        BigDecimal size =
+                request.getServingSize() != null
+                        ? request.getServingSize()
+                        : entry.getServingSize();
+        BigDecimal quantity =
+                request.getQuantity() != null ? request.getQuantity() : entry.getQuantity();
+
+        // A soft-deleted custom food is hidden; its values live on in the entry's own snapshot.
+        Nutrients base;
+        BigDecimal baseSize;
+        Optional<FoodItem> food = foodItemRepository.findById(entry.getFoodId());
+        if (food.isPresent()) {
+            FoodItem item = food.get();
+            base =
+                    new Nutrients(
+                            item.getCalories(),
+                            item.getProtein(),
+                            item.getCarbs(),
+                            item.getFat(),
+                            item.getFiber());
+            baseSize = item.getServingSize();
+        } else {
+            base =
+                    new Nutrients(
+                            entry.getCalories(),
+                            entry.getProtein(),
+                            entry.getCarbs(),
+                            entry.getFat(),
+                            entry.getFiber());
+            baseSize = entry.getServingSize().multiply(entry.getQuantity());
+        }
+
+        Nutrients n = scaleAll(base, size.multiply(quantity), baseSize);
+        entry.setServingSize(size);
+        entry.setQuantity(quantity);
+        entry.setCalories(n.calories());
+        entry.setProtein(n.protein());
+        entry.setCarbs(n.carbs());
+        entry.setFat(n.fat());
+        entry.setFiber(n.fiber());
+    }
+
+    private void checkNotTooFarAhead(OffsetDateTime loggedAt, OffsetDateTime now) {
+        if (loggedAt.isAfter(now.plus(trackingConfig.getMaxFutureLog()))) {
+            throw new FuelException(HttpStatus.BAD_REQUEST, "loggedAt is too far in the future");
+        }
+    }
+
+    private record Nutrients(
+            BigDecimal calories,
+            BigDecimal protein,
+            BigDecimal carbs,
+            BigDecimal fat,
+            BigDecimal fiber) {}
+
+    /** Scales every nutrient to {@code factor} eaten against {@code baseSize}; rejects overflow. */
+    private static Nutrients scaleAll(Nutrients base, BigDecimal factor, BigDecimal baseSize) {
+        Nutrients n =
+                new Nutrients(
+                        scale(base.calories(), factor, baseSize, CALORIE_SCALE),
+                        scale(base.protein(), factor, baseSize, MACRO_SCALE),
+                        scale(base.carbs(), factor, baseSize, MACRO_SCALE),
+                        scale(base.fat(), factor, baseSize, MACRO_SCALE),
+                        scale(base.fiber(), factor, baseSize, MACRO_SCALE));
+        if (n.calories().compareTo(MAX_CALORIES) > 0
+                || n.protein().compareTo(MAX_MACRO) > 0
+                || n.carbs().compareTo(MAX_MACRO) > 0
+                || n.fat().compareTo(MAX_MACRO) > 0
+                || n.fiber().compareTo(MAX_MACRO) > 0) {
+            throw new FuelException(HttpStatus.BAD_REQUEST, "Entry is too large");
+        }
+        return n;
+    }
+
+    /** value x amount eaten / base serving size; multiplies first to keep precision. */
     private static BigDecimal scale(
-            BigDecimal value, BigDecimal factor, FoodItem food, int resultScale) {
+            BigDecimal value, BigDecimal factor, BigDecimal baseSize, int resultScale) {
         return value.multiply(factor)
-                .divide(food.getServingSize(), MathContext.DECIMAL64)
+                .divide(baseSize, MathContext.DECIMAL64)
                 .setScale(resultScale, RoundingMode.HALF_UP);
     }
 
