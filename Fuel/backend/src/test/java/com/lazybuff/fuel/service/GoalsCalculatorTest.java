@@ -84,7 +84,7 @@ class GoalsCalculatorTest {
     void shouldClampToMaximum() {
         GoalsCalculation result =
                 GoalsCalculator.calculate(
-                        true, 13, 250, 600, ActivityLevel.VERY_ACTIVE, GoalType.GAIN, 1000);
+                        true, 13, 300, 300, ActivityLevel.VERY_ACTIVE, GoalType.GAIN, 1000);
 
         assertThat(result.calorieGoal()).isEqualTo(10000);
         assertThat(result.protein()).isEqualTo(1000.0);
