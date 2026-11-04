@@ -25,6 +25,7 @@ import com.lazybuff.fuel.logging.RequestIdFilter;
 import com.lazybuff.fuel.security.RestAccessDeniedHandler;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
 import com.lazybuff.fuel.service.CustomFoodService;
+import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
 import com.lazybuff.fuel.service.JwtService;
 import com.lazybuff.fuel.service.RateLimiterService;
@@ -71,6 +72,8 @@ class CustomFoodControllerSecurityTest {
     @MockitoBean private CustomFoodService customFoodService;
 
     @MockitoBean private FoodService foodService;
+
+    @MockitoBean private FoodSearchService foodSearchService;
 
     // WebConfig needs it to register rate-limit interceptors.
     @MockitoBean private RateLimiterService rateLimiterService;
