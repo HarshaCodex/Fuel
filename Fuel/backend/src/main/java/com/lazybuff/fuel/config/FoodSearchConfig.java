@@ -45,5 +45,11 @@ public class FoodSearchConfig {
 
         /** Most of the caller's own foods added to the first page of results. */
         private int maxCustomResults;
+
+        /** Most USDA lookups (cache misses) one user may trigger per rate-limit window. */
+        private int rateLimit;
+
+        /** Length of the per-user rate-limit window. */
+        private Duration rateLimitWindow;
     }
 }

@@ -116,11 +116,15 @@ public class UsdaClient {
                             .body(String.class);
         } catch (RestClientResponseException exception) {
             int status = exception.getStatusCode().value();
-            log.error("USDA search failed with status {}", status);
             boolean retryable = status == 429 || status >= 500;
+            if (retryable) {
+                log.warn("USDA search failed with status {}", status);
+            } else {
+                log.error("USDA search failed with status {}", status);
+            }
             throw unavailable(retryable ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY);
         } catch (ResourceAccessException exception) {
-            log.error("USDA search unreachable: {}", exception.getClass().getSimpleName());
+            log.warn("USDA search unreachable: {}", exception.getClass().getSimpleName());
             throw unavailable(HttpStatus.SERVICE_UNAVAILABLE);
         } catch (RestClientException exception) {
             log.error("USDA search failed: {}", exception.getClass().getSimpleName());

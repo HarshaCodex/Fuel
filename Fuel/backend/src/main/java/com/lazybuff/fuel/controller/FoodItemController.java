@@ -58,6 +58,9 @@ public class FoodItemController {
                 responseCode = "401",
                 description = "Missing or invalid access token"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many uncached searches from this user; see Retry-After"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "502",
                 description = "USDA rejected the request or answered unusably"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -68,7 +71,7 @@ public class FoodItemController {
     public ResponseEntity<ApiResponse<PageResponse<FoodSearchItem>>> searchFoods(
             @AuthenticationPrincipal String userId,
             @RequestParam @Size(min = 2, max = 100) String q,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(1000) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
 
         return ResponseEntity.ok(foodSearchService.search(UUID.fromString(userId), q, page, size));

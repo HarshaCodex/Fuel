@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,6 +19,7 @@ import com.lazybuff.fuel.dto.FoodSearchItem;
 import com.lazybuff.fuel.dto.PageResponse;
 import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.exception.RateLimitExceededException;
 import com.lazybuff.fuel.mapper.FoodSearchMapper;
 import com.lazybuff.fuel.repository.FoodItemRepository;
 import com.lazybuff.fuel.service.UsdaClient.UsdaFood;
@@ -56,6 +58,7 @@ class FoodSearchServiceTest {
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
     @Mock private PlatformTransactionManager transactionManager;
+    @Mock private RateLimiterService rateLimiterService;
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
@@ -66,6 +69,8 @@ class FoodSearchServiceTest {
         FoodSearchConfig config = new FoodSearchConfig();
         config.getSearch().setCacheTtl(Duration.ofHours(24));
         config.getSearch().setMaxCustomResults(10);
+        config.getSearch().setRateLimit(30);
+        config.getSearch().setRateLimitWindow(Duration.ofMinutes(1));
         service =
                 new FoodSearchService(
                         usdaClient,
@@ -74,7 +79,8 @@ class FoodSearchServiceTest {
                         redisTemplate,
                         new TransactionTemplate(transactionManager),
                         config,
-                        jsonMapper);
+                        jsonMapper,
+                        rateLimiterService);
         org.mockito.Mockito.lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
@@ -277,5 +283,87 @@ class FoodSearchServiceTest {
 
         verify(valueOperations, never()).set(anyString(), anyString(), any(Duration.class));
         assertThat(mock(Object.class)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("counts a cache miss against the user's search limit")
+    void shouldEnforceRateLimitOnCacheMiss() {
+        givenUsdaReturnsOneFood();
+
+        service.search(USER_ID, "chicken", 0, 20);
+
+        verify(rateLimiterService)
+                .enforce(eq("food-search:" + USER_ID), eq(30), eq(Duration.ofMinutes(1)), any());
+    }
+
+    @Test
+    @DisplayName("rejects with 429 and skips USDA when the limit is exceeded")
+    void shouldRejectWhenRateLimitExceeded() {
+        doThrow(new RateLimitExceededException("Too many searches", Duration.ofSeconds(30)))
+                .when(rateLimiterService)
+                .enforce(anyString(), anyInt(), any(), anyString());
+
+        assertThatThrownBy(() -> service.search(USER_ID, "chicken", 0, 20))
+                .isInstanceOf(RateLimitExceededException.class);
+
+        verifyNoInteractions(usdaClient);
+    }
+
+    @Test
+    @DisplayName("does not count a cache hit against the limit")
+    void shouldNotCountCacheHit() throws Exception {
+        when(valueOperations.get(anyString()))
+                .thenReturn(
+                        jsonMapper.writeValueAsString(
+                                new FoodSearchService.CachedPage(List.of(), 0, 0)));
+
+        service.search(USER_ID, "chicken", 0, 20);
+
+        verifyNoInteractions(rateLimiterService, usdaClient);
+    }
+
+    @Test
+    @DisplayName("upserts in fdcId order but returns results in USDA order")
+    void shouldUpsertInStableOrderAndKeepUsdaOrder() {
+        UsdaFood high = usdaFood(900L, "Zeta");
+        UsdaFood low = usdaFood(5L, "Alpha");
+        when(usdaClient.search(anyString(), anyInt(), anyInt()))
+                .thenReturn(new UsdaPage(List.of(high, low), 2, 1));
+        when(foodItemRepository.upsertUsdaFood(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(UUID.randomUUID());
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "x1", 0, 20).getData();
+
+        ArgumentCaptor<String> sourceIds = ArgumentCaptor.forClass(String.class);
+        verify(foodItemRepository, org.mockito.Mockito.times(2))
+                .upsertUsdaFood(
+                        any(),
+                        any(),
+                        sourceIds.capture(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any());
+        assertThat(sourceIds.getAllValues()).containsExactly("5", "900");
+        assertThat(data.getContent())
+                .extracting(FoodSearchItem::name)
+                .containsExactly("Zeta", "Alpha");
+    }
+
+    private static UsdaFood usdaFood(long fdcId, String name) {
+        return new UsdaFood(
+                fdcId,
+                String.valueOf(fdcId),
+                name,
+                null,
+                BigDecimal.ONE,
+                BigDecimal.ONE,
+                BigDecimal.ONE,
+                BigDecimal.ONE,
+                BigDecimal.ONE);
     }
 }

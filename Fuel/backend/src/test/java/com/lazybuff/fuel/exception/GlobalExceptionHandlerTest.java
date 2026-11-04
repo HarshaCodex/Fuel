@@ -13,6 +13,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @DisplayName("GlobalExceptionHandler")
@@ -44,6 +45,19 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().getStatus()).isEqualTo(400);
         assertThat(response.getBody().getMessage()).isEqualTo("Malformed request body");
+    }
+
+    @Test
+    @DisplayName("returns 400 naming the field for a missing request parameter")
+    void shouldReturnBadRequestForMissingParameter() {
+        ResponseEntity<ErrorResponse> response =
+                handler.handleMissingParameter(
+                        new MissingServletRequestParameterException("q", "String"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().getMessage()).isEqualTo("Validation failed");
+        assertThat(response.getBody().getErrors()).hasSize(1);
+        assertThat(response.getBody().getErrors().getFirst().getField()).isEqualTo("q");
     }
 
     @Test

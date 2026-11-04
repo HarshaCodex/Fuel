@@ -136,6 +136,17 @@ class UsdaClientTest {
     }
 
     @Test
+    @DisplayName("percent-encodes &, + and spaces so q cannot add query parameters")
+    void shouldEncodeReservedCharactersInQuery() {
+        usda.expect(requestTo(containsString("query=mac%20%26%20cheese%2B1&pageSize=20")))
+                .andRespond(withSuccess(page(), MediaType.APPLICATION_JSON));
+
+        client.search("mac & cheese+1", 0, 20);
+
+        usda.verify();
+    }
+
+    @Test
     @DisplayName("uses an energy fallback nutrient when kcal is missing")
     void shouldFallBackToAtwaterEnergy() {
         respondWith(page(food("1", "Oats", nutrient(2047, "380"))));

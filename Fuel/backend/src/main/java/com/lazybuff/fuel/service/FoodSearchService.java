@@ -15,9 +15,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +45,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class FoodSearchService {
 
     private static final String CACHE_KEY_PREFIX = "food:search:";
+    private static final String RATE_LIMIT_KEY_PREFIX = "food-search:";
     private static final int MIN_QUERY_LENGTH = 2;
     private static final int MAX_QUERY_LENGTH = 100;
     private static final BigDecimal SERVING_SIZE = BigDecimal.valueOf(100);
@@ -64,6 +68,8 @@ public class FoodSearchService {
 
     private final JsonMapper jsonMapper;
 
+    private final RateLimiterService rateLimiterService;
+
     public ApiResponse<PageResponse<FoodSearchItem>> search(
             UUID userId, String q, int page, int size) {
 
@@ -79,7 +85,7 @@ public class FoodSearchService {
                             + " characters");
         }
 
-        CachedPage usda = usdaPage(query, page, size);
+        CachedPage usda = usdaPage(userId, query, page, size);
 
         List<FoodSearchItem> content = new ArrayList<>();
         if (page == 0) {
@@ -105,7 +111,7 @@ public class FoodSearchService {
                 .build();
     }
 
-    private CachedPage usdaPage(String query, int page, int size) {
+    private CachedPage usdaPage(UUID userId, String query, int page, int size) {
 
         String key = cacheKey(query, page, size);
         CachedPage cached = readCache(key);
@@ -113,13 +119,30 @@ public class FoodSearchService {
             return cached;
         }
 
+        // Only a miss costs a USDA call, so only a miss counts against the user's limit.
+        rateLimiterService.enforce(
+                RATE_LIMIT_KEY_PREFIX + userId,
+                config.getSearch().getRateLimit(),
+                config.getSearch().getRateLimitWindow(),
+                "Too many searches. Please try again later.");
+
         UsdaPage fetched = usdaClient.search(query, page, size);
-        List<FoodSearchItem> items =
-                transactionTemplate.execute(
-                        status -> fetched.foods().stream().map(this::upsert).toList());
+        List<FoodSearchItem> items = transactionTemplate.execute(status -> upsertAll(fetched));
         CachedPage result = new CachedPage(items, fetched.totalHits(), fetched.totalPages());
         writeCache(key, result);
         return result;
+    }
+
+    /**
+     * Upserts in a stable order so overlapping searches lock shared rows in the same order and
+     * cannot deadlock; the result keeps USDA's order.
+     */
+    private List<FoodSearchItem> upsertAll(UsdaPage fetched) {
+        Map<Long, FoodSearchItem> saved = new HashMap<>();
+        fetched.foods().stream()
+                .sorted(Comparator.comparingLong(UsdaClient.UsdaFood::fdcId))
+                .forEach(food -> saved.put(food.fdcId(), upsert(food)));
+        return fetched.foods().stream().map(food -> saved.get(food.fdcId())).toList();
     }
 
     private FoodSearchItem upsert(UsdaClient.UsdaFood food) {

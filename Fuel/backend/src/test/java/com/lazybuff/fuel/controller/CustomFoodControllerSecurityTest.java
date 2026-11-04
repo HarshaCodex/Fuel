@@ -335,8 +335,8 @@ class CustomFoodControllerSecurityTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"a,0,20", "chicken,-1,20", "chicken,0,0", "chicken,0,51"})
-    @DisplayName("returns 400 for a short query, negative page or size outside 1 to 50")
+    @CsvSource({"a,0,20", "chicken,-1,20", "chicken,0,0", "chicken,0,51", "chicken,1001,20"})
+    @DisplayName("returns 400 for a short query, page outside 0 to 1000 or size outside 1 to 50")
     void shouldReturnBadRequestForInvalidSearch(String q, String page, String size)
             throws Exception {
         givenValidToken();

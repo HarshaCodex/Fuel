@@ -85,7 +85,9 @@ Notes:
 - `USDA_API_KEY` is a free key from [api.data.gov](https://api.data.gov/signup/) for USDA FoodData
   Central. `GET /api/food/search` calls USDA with it (sent as the `X-Api-Key` header) and caches
   each result page in Redis for 24 hours. If it is unset, the endpoint returns 503; the rest of
-  the app is unaffected.
+  the app is unaffected. Searches that miss the cache are limited per user
+  (`app.food.search.rate-limit` per `rate-limit-window`, default 30 per minute); beyond that the
+  endpoint returns 429.
 
 ---
 
