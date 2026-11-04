@@ -1,6 +1,8 @@
 package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.GoalsRecalculateRequest;
+import com.lazybuff.fuel.dto.GoalsRecalculateResponse;
 import com.lazybuff.fuel.dto.GoalsRequest;
 import com.lazybuff.fuel.dto.GoalsResponse;
 import com.lazybuff.fuel.service.GoalsService;
@@ -14,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -72,5 +75,35 @@ public class GoalsController {
             @AuthenticationPrincipal String userId, @Valid @RequestBody GoalsRequest request) {
 
         return ResponseEntity.ok(goalsService.put(UUID.fromString(userId), request));
+    }
+
+    @Operation(
+            summary = "Recalculate goals from body stats",
+            description =
+                    "Mifflin-St Jeor TDEE, minus (LOSE) or plus (GAIN) the deficit, clamped to"
+                            + " 800-10000 kcal, with a 40/40/20 macro split. Body is optional:"
+                            + " defaults are MAINTAIN and 500. Goals are then marked auto-calculated.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Goals recalculated and saved"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Body stats not set, or invalid goal or deficit (100-1000)"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "User no longer exists (deleted)")
+    })
+    @PostMapping(value = "/recalculate", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<GoalsRecalculateResponse>> recalculate(
+            @AuthenticationPrincipal String userId,
+            @Valid @RequestBody(required = false) GoalsRecalculateRequest request) {
+
+        GoalsRecalculateRequest effective =
+                request == null ? new GoalsRecalculateRequest(null, null) : request;
+        return ResponseEntity.ok(goalsService.recalculate(UUID.fromString(userId), effective));
     }
 }

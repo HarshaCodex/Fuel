@@ -5,16 +5,20 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.GoalsRecalculateRequest;
+import com.lazybuff.fuel.dto.GoalsRecalculateResponse;
 import com.lazybuff.fuel.dto.GoalsRequest;
 import com.lazybuff.fuel.dto.GoalsResponse;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.service.GoalsService;
+import com.lazybuff.fuel.util.GoalType;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -201,5 +205,91 @@ class GoalsControllerTest {
     @DisplayName("returns 400 for a broken or empty body")
     void shouldRejectUnreadableBody(String json) throws Exception {
         assertBadRequest(json);
+    }
+
+    private static ApiResponse<GoalsRecalculateResponse> recalculated() {
+        return ApiResponse.<GoalsRecalculateResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Goals recalculated")
+                .data(
+                        new GoalsRecalculateResponse(
+                                2259,
+                                225.9,
+                                225.9,
+                                50.2,
+                                true,
+                                2759,
+                                500,
+                                "MIFFLIN_ST_JEOR",
+                                "40/40/20"))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Test
+    @DisplayName("recalculate passes the parsed body and returns the figures")
+    void shouldRecalculateWithBody() throws Exception {
+        when(goalsService.recalculate(USER_ID, new GoalsRecalculateRequest(GoalType.LOSE, 500)))
+                .thenReturn(recalculated());
+
+        mockMvc.perform(
+                        post(URL + "/recalculate")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"goal\":\"LOSE\",\"deficit\":500}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Goals recalculated"))
+                .andExpect(jsonPath("$.data.calorieGoal").value(2259))
+                .andExpect(jsonPath("$.data.isAutoCalculated").value(true))
+                .andExpect(jsonPath("$.data.tdee").value(2759))
+                .andExpect(jsonPath("$.data.macroSplit").value("40/40/20"));
+    }
+
+    @Test
+    @DisplayName("recalculate accepts an absent body")
+    void shouldRecalculateWithoutBody() throws Exception {
+        when(goalsService.recalculate(USER_ID, new GoalsRecalculateRequest(null, null)))
+                .thenReturn(recalculated());
+
+        mockMvc.perform(post(URL + "/recalculate")).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("recalculate accepts an empty object")
+    void shouldRecalculateWithEmptyObject() throws Exception {
+        when(goalsService.recalculate(USER_ID, new GoalsRecalculateRequest(null, null)))
+                .thenReturn(recalculated());
+
+        mockMvc.perform(
+                        post(URL + "/recalculate")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("recalculate returns 400 when body stats are not set")
+    void shouldReturnBadRequestWhenBodyStatsMissing() throws Exception {
+        when(goalsService.recalculate(eq(USER_ID), any()))
+                .thenThrow(new FuelException(HttpStatus.BAD_REQUEST, "Body stats not set"));
+
+        mockMvc.perform(post(URL + "/recalculate")).andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "{\"deficit\":99}",
+                "{\"deficit\":1001}",
+                "{\"goal\":\"MAINTAIN\",\"deficit\":9999}",
+                "{\"goal\":\"BULK\"}"
+            })
+    @DisplayName("recalculate returns 400 for an invalid goal or deficit")
+    void shouldRejectInvalidRecalculateBody(String json) throws Exception {
+        mockMvc.perform(
+                        post(URL + "/recalculate")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(goalsService);
     }
 }

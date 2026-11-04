@@ -2,13 +2,20 @@ package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.annotation.LogArguments;
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.GoalsRecalculateRequest;
+import com.lazybuff.fuel.dto.GoalsRecalculateResponse;
 import com.lazybuff.fuel.dto.GoalsRequest;
 import com.lazybuff.fuel.dto.GoalsResponse;
+import com.lazybuff.fuel.entity.BodyStats;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.UserGoals;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.repository.BodyStatsRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
+import com.lazybuff.fuel.service.GoalsCalculator.GoalsCalculation;
+import com.lazybuff.fuel.util.ActivityLevel;
+import com.lazybuff.fuel.util.GoalType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -39,6 +46,8 @@ public class GoalsService {
     private final UserGoalsRepository userGoalsRepository;
 
     private final UserRepository userRepository;
+
+    private final BodyStatsRepository bodyStatsRepository;
 
     /**
      * Cross-module read (e.g. the dashboard). Does not check the user exists.
@@ -91,6 +100,77 @@ public class GoalsService {
         log.info("Goals saved for user {}", userId);
 
         return success(toResponse(saved));
+    }
+
+    /**
+     * Derives goals from the caller's body stats and stores them as auto-calculated. Body stats are
+     * health data and are never logged.
+     *
+     * @throws FuelException 404 if the user no longer exists, 400 if body stats are not set
+     */
+    @Transactional
+    public ApiResponse<GoalsRecalculateResponse> recalculate(
+            UUID userId, GoalsRecalculateRequest request) {
+
+        User user = findActiveUser(userId);
+        BodyStats stats =
+                bodyStatsRepository
+                        .findByUser_Id(userId)
+                        .orElseThrow(
+                                () ->
+                                        new FuelException(
+                                                HttpStatus.BAD_REQUEST, "Body stats not set"));
+
+        GoalType goal = request.goal() == null ? GoalType.MAINTAIN : request.goal();
+        int deficit =
+                request.deficit() == null ? GoalsCalculator.DEFAULT_DEFICIT : request.deficit();
+        GoalsCalculation result =
+                GoalsCalculator.calculate(
+                        "MALE".equals(stats.getGender()),
+                        stats.getAge(),
+                        stats.getHeightCm().doubleValue(),
+                        stats.getWeightKg().doubleValue(),
+                        ActivityLevel.valueOf(stats.getActivityLevel()),
+                        goal,
+                        deficit);
+
+        UserGoals goals =
+                userGoalsRepository
+                        .findByUser_Id(userId)
+                        .orElseGet(() -> UserGoals.builder().user(user).build());
+        goals.setCalorieGoal(result.calorieGoal());
+        goals.setProteinGoal(result.protein());
+        goals.setCarbGoal(result.carb());
+        goals.setFatGoal(result.fat());
+        goals.setAutoCalculated(true);
+        goals.setGoalType(goal.name());
+        goals.setCalorieAdjustment(
+                switch (goal) {
+                    case LOSE -> -result.deficit();
+                    case GAIN -> result.deficit();
+                    case MAINTAIN -> 0;
+                });
+        goals.setUpdatedAt(OffsetDateTime.now());
+        userGoalsRepository.saveAndFlush(goals);
+        log.info("Goals recalculated for user {}", userId);
+
+        GoalsRecalculateResponse body =
+                new GoalsRecalculateResponse(
+                        result.calorieGoal(),
+                        result.protein(),
+                        result.carb(),
+                        result.fat(),
+                        true,
+                        result.tdee(),
+                        result.deficit(),
+                        GoalsCalculator.FORMULA,
+                        GoalsCalculator.MACRO_SPLIT);
+        return ApiResponse.<GoalsRecalculateResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Goals recalculated")
+                .data(body)
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 
     private double round(BigDecimal value) {
