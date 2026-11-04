@@ -63,14 +63,6 @@ public class UserService {
 
         User user = findActiveUser(userId);
 
-        UserAuthProvider originalProvider =
-                userAuthProviderRepository
-                        .findFirstByUser_IdOrderByCreatedAtAsc(userId)
-                        .orElseThrow(
-                                () ->
-                                        new IllegalStateException(
-                                                "User " + userId + " has no auth provider"));
-
         return buildProfileResponse(user);
     }
 
@@ -90,8 +82,14 @@ public class UserService {
             throw new FuelException(HttpStatus.BAD_REQUEST, "Invalid timezone.");
         }
 
-        if (request.getName() != null) {
-            user.setName(request.getName().strip());
+        String name = request.getName() == null ? null : request.getName().strip();
+        // Bean Validation's \S is ASCII-only, so Unicode-only whitespace can reach here.
+        if (name != null && name.isEmpty()) {
+            throw new FuelException(HttpStatus.BAD_REQUEST, "Name cannot be blank.");
+        }
+
+        if (name != null) {
+            user.setName(name);
         }
         if (timezone != null) {
             user.setTimezone(timezone);

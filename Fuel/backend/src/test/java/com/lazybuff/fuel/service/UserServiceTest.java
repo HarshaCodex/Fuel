@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -98,6 +99,8 @@ class UserServiceTest {
 
         ApiResponse<UserProfile> response = userService.getProfile(TestDataFactory.USER_ID);
 
+        verify(userAuthProviderRepository, times(1))
+                .findFirstByUser_IdOrderByCreatedAtAsc(TestDataFactory.USER_ID);
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
         assertThat(response.getData())
                 .isEqualTo(
@@ -236,6 +239,26 @@ class UserServiceTest {
                                 userService.updateProfile(
                                         TestDataFactory.USER_ID,
                                         new UpdateProfileRequest("Changed", timezone)))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(userRepository, never()).save(any(User.class));
+        assertThat(user.getName()).isEqualTo(TestDataFactory.NAME);
+    }
+
+    @Test
+    @DisplayName("rejects a name made only of Unicode whitespace without saving")
+    void shouldRejectUnicodeWhitespaceName() {
+        when(userRepository.findByIdAndDeletedAtIsNull(TestDataFactory.USER_ID))
+                .thenReturn(Optional.of(user));
+
+        assertThatThrownBy(
+                        () ->
+                                userService.updateProfile(
+                                        TestDataFactory.USER_ID,
+                                        UpdateProfileRequest.builder()
+                                                .name("\u3000\u2003")
+                                                .build()))
                 .isInstanceOfSatisfying(
                         FuelException.class,
                         e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
