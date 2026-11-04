@@ -13,6 +13,7 @@ import com.lazybuff.fuel.repository.FoodItemRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.FoodSource;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Creates and lists the foods a user defined themselves. */
+/** Creates, lists, updates and deletes the foods a user defined themselves. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -87,6 +88,69 @@ public class CustomFoodService {
                     "Exception occurred while listing custom foods for user:{}", userId, exception);
             throw exception;
         }
+    }
+
+    @Transactional
+    public ApiResponse<CustomFoodResponse> update(
+            UUID userId, UUID foodId, CustomFoodRequest request) {
+
+        try {
+            findActiveUser(userId);
+            FoodItem existing = findOwnedFood(userId, foodId);
+            customFoodMapper.updateEntity(request, existing);
+
+            FoodItem saved = foodItemRepository.save(existing);
+            return response(
+                    HttpStatus.OK, "Custom food updated", customFoodMapper.toResponse(saved));
+        } catch (FuelException exception) {
+            log.warn(
+                    "Custom food update failed for user:{} food:{} - {}",
+                    userId,
+                    foodId,
+                    exception.getMessage());
+            throw exception;
+        } catch (Exception exception) {
+            log.error(
+                    "Exception occurred while updating custom food:{} for user:{}",
+                    foodId,
+                    userId,
+                    exception);
+            throw exception;
+        }
+    }
+
+    /** Soft-deletes the food; the row stays so future diary entries keep a valid reference. */
+    @Transactional
+    public ApiResponse<Void> delete(UUID userId, UUID foodId) {
+
+        try {
+            findActiveUser(userId);
+            FoodItem existing = findOwnedFood(userId, foodId);
+            existing.setDeletedAt(OffsetDateTime.now());
+
+            foodItemRepository.save(existing);
+            return response(HttpStatus.NO_CONTENT, "Custom food deleted", null);
+        } catch (FuelException exception) {
+            log.warn(
+                    "Custom food deletion failed for user:{} food:{} - {}",
+                    userId,
+                    foodId,
+                    exception.getMessage());
+            throw exception;
+        } catch (Exception exception) {
+            log.error(
+                    "Exception occurred while deleting custom food:{} for user:{}",
+                    foodId,
+                    userId,
+                    exception);
+            throw exception;
+        }
+    }
+
+    private FoodItem findOwnedFood(UUID userId, UUID foodId) {
+        return foodItemRepository
+                .findByIdAndSourceAndUser_Id(foodId, FoodSource.USER, userId)
+                .orElseThrow(() -> new FuelException(HttpStatus.NOT_FOUND, "Food item not found"));
     }
 
     private User findActiveUser(UUID userId) {
