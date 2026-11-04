@@ -1,9 +1,12 @@
 package com.lazybuff.fuel.repository;
 
 import com.lazybuff.fuel.entity.FoodItem;
+import com.lazybuff.fuel.util.FoodSource;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -16,6 +19,13 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
 
     @EntityGraph(attributePaths = "servingSizes")
     Optional<FoodItem> findWithServingSizesById(UUID id);
+
+    /**
+     * Live foods of {@code source} created by {@code userId}, newest first. The id breaks ties so
+     * paging is stable.
+     */
+    Page<FoodItem> findBySourceAndUser_IdOrderByCreatedAtDescIdDesc(
+            FoodSource source, UUID userId, Pageable pageable);
 
     /**
      * Deletes the custom foods of accounts soft-deleted before {@code cutoff}. Run before purging

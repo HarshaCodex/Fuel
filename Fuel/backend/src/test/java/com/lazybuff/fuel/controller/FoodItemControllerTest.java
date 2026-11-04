@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.FoodItemDetail;
+import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,11 +37,16 @@ class FoodItemControllerTest {
 
     @Mock private FoodService foodService;
 
+    @Mock private CustomFoodService customFoodService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new FoodItemController(foodService)).build();
+        mockMvc =
+                MockMvcBuilders.standaloneSetup(
+                                new FoodItemController(foodService, customFoodService))
+                        .build();
     }
 
     private static ApiResponse<FoodItemDetail> okResponse() {
