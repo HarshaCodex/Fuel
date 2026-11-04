@@ -31,6 +31,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -152,27 +154,27 @@ class TrackingServiceTest {
     }
 
     @Test
-    @DisplayName("rounds half up to one decimal for calories and two for macros")
-    void shouldRoundHalfUp() {
-        givenUserAndFood(food("100", "100", "10", "10", "10", "10"));
+    @DisplayName("rounds a calorie tie up (0.25 becomes 0.3)")
+    void shouldRoundCalorieTieHalfUp() {
+        givenUserAndFood(food("100", "2.5", "1", "1", "1", "1"));
 
-        service.create(USER_ID, request("0.5", "g", "1", null));
-        // 100*0.5/100 = 0.5 cal; 10*0.5/100 = 0.05 macro
-        TrackingEntry entry = savedEntry();
-        assertThat(entry.getCalories()).isEqualByComparingTo("0.5");
-        assertThat(entry.getProtein()).isEqualByComparingTo("0.05");
-        assertThat(entry.getProtein().scale()).isEqualTo(2);
+        service.create(USER_ID, request("10", "g", "1", null));
+
+        assertThat(savedEntry().getCalories()).isEqualByComparingTo("0.3");
     }
 
     @Test
-    @DisplayName("rounds a half calorie value up")
-    void shouldRoundCaloriesHalfUp() {
-        givenUserAndFood(food("100", "1.5", "1", "1", "1", "0"));
+    @DisplayName("rounds a macro tie up (0.025 becomes 0.03)")
+    void shouldRoundMacroTieHalfUp() {
+        givenUserAndFood(food("100", "1", "2.5", "2.5", "2.5", "2.5"));
 
-        service.create(USER_ID, request("5", "g", "1", null));
+        service.create(USER_ID, request("1", "g", "1", null));
 
-        // 1.5 * 5 / 100 = 0.075 -> 0.1
-        assertThat(savedEntry().getCalories()).isEqualByComparingTo("0.1");
+        TrackingEntry entry = savedEntry();
+        assertThat(entry.getProtein()).isEqualByComparingTo("0.03");
+        assertThat(entry.getCarbs()).isEqualByComparingTo("0.03");
+        assertThat(entry.getFat()).isEqualByComparingTo("0.03");
+        assertThat(entry.getFiber()).isEqualByComparingTo("0.03");
     }
 
     @Test
@@ -289,12 +291,20 @@ class TrackingServiceTest {
         assertThat(savedEntry().getLogDate()).isEqualTo(LocalDate.of(2026, 6, 10));
     }
 
-    @Test
-    @DisplayName("returns 400 when the computed values overflow the columns")
-    void shouldReturn400WhenEntryTooLarge() {
-        givenUserAndFood(food("0.1", "900", "1", "1", "1", "0"));
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({
+        "calories,1000000,0,0,0,0",
+        "protein,0,100000,0,0,0",
+        "carbs,0,0,100000,0,0",
+        "fat,0,0,0,100000,0",
+        "fiber,0,0,0,0,100000"
+    })
+    @DisplayName("returns 400 when only one nutrient overflows its column")
+    void shouldReturn400WhenSingleNutrientTooLarge(
+            String ignored, String cal, String protein, String carbs, String fat, String fiber) {
+        givenUserAndFood(food("1", cal, protein, carbs, fat, fiber));
 
-        assertBadRequest(request("999999", "g", "999", null), "Entry is too large");
+        assertBadRequest(request("1", "g", "1", null), "Entry is too large");
     }
 
     @Test
