@@ -15,6 +15,8 @@ public class FoodSearchConfig {
 
     private Usda usda = new Usda();
 
+    private Off off = new Off();
+
     private Search search = new Search();
 
     /** USDA FoodData Central connection. */
@@ -35,6 +37,27 @@ public class FoodSearchConfig {
         }
     }
 
+    /** Open Food Facts connection. Public API, no key. */
+    @Getter
+    @Setter
+    public static class Off {
+
+        private String baseUrl;
+
+        /** Sent as {@code User-Agent}; OFF asks clients to name the app and a contact address. */
+        private String userAgent;
+
+        /** Connect and read timeout for each OFF call. */
+        private Duration httpTimeout;
+
+        /** Most products requested from OFF per search. */
+        private int maxResults;
+
+        public boolean hasUserAgent() {
+            return userAgent != null && !userAgent.isBlank();
+        }
+    }
+
     /** How a search is served. */
     @Getter
     @Setter
@@ -48,6 +71,9 @@ public class FoodSearchConfig {
 
         /** Most USDA lookups (cache misses) one user may trigger per rate-limit window. */
         private int rateLimit;
+
+        /** Open Food Facts is consulted only when USDA returns fewer results than this. */
+        private int offFallbackThreshold;
 
         /** Length of the per-user rate-limit window. */
         private Duration rateLimitWindow;

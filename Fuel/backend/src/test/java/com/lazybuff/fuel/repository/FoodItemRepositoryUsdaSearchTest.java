@@ -133,4 +133,60 @@ class FoodItemRepositoryUsdaSearchTest {
         assertThat(search(me, "a\\_b")).containsExactly("a_b");
         assertThat(search(me, "\\%\\%")).isEmpty();
     }
+
+    private UUID upsertOff(String sourceId, String name, String calories) {
+        return foodItemRepository.upsertOffFood(
+                name,
+                "Acme",
+                sourceId,
+                new BigDecimal("100"),
+                "g",
+                new BigDecimal(calories),
+                new BigDecimal("1.00"),
+                new BigDecimal("2.00"),
+                new BigDecimal("3.00"),
+                new BigDecimal("0.00"));
+    }
+
+    @Test
+    @DisplayName("upserting an OFF product twice keeps one OFF row and the newest nutrients")
+    void shouldUpsertOffWithoutDuplicates() {
+        UUID first = upsertOff("3017620422003", "Spread", "500.0");
+        UUID second = upsertOff("3017620422003", "Spread v2", "540.5");
+
+        assertThat(second).isEqualTo(first);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM food_items WHERE source = 'OFF'"
+                                        + " AND source_id = '3017620422003'",
+                                Integer.class))
+                .isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT calories FROM food_items WHERE id = ?",
+                                BigDecimal.class,
+                                first))
+                .isEqualByComparingTo("540.5");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT source || '/' || name || '/' || coalesce(created_by::text, 'none')"
+                                        + " FROM food_items WHERE id = ?",
+                                String.class,
+                                first))
+                .isEqualTo("OFF/Spread v2/none");
+    }
+
+    @Test
+    @DisplayName("the same source id under USDA and OFF makes two rows")
+    void shouldKeepUsdaAndOffRowsApartForTheSameSourceId() {
+        UUID usda = upsert("555", "Same id", "1.0");
+        UUID off = upsertOff("555", "Same id", "1.0");
+
+        assertThat(off).isNotEqualTo(usda);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM food_items WHERE source_id = '555'",
+                                Integer.class))
+                .isEqualTo(2);
+    }
 }
