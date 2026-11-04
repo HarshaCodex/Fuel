@@ -37,6 +37,8 @@ public class OffClient {
     private static final int MAX_NAME = 300;
     private static final int MAX_BRAND = 200;
     private static final int MAX_CODE = 32;
+    private static final int MAX_SCALE = 100;
+    private static final BigDecimal TOO_LARGE = BigDecimal.valueOf(Long.MAX_VALUE);
     private static final BigDecimal MAX_CALORIES = BigDecimal.valueOf(1000);
     private static final BigDecimal MAX_MACRO = BigDecimal.valueOf(100);
 
@@ -192,17 +194,25 @@ public class OffClient {
 
     /** OFF sends numbers either as JSON numbers or as numeric strings; anything else is missing. */
     private static BigDecimal number(JsonNode value) {
+        BigDecimal number = null;
         if (value.isNumber()) {
-            return value.decimalValue();
-        }
-        if (value.isString()) {
+            number = value.decimalValue();
+        } else if (value.isString()) {
             try {
-                return new BigDecimal(value.asString().trim());
+                number = new BigDecimal(value.asString().trim());
             } catch (NumberFormatException exception) {
                 return null;
             }
         }
-        return null;
+        if (number == null) {
+            return null;
+        }
+        // Absurd exponents would make later comparisons and scaling expensive: a huge value is
+        // replaced by a stand-in that fails every range check, a vanishingly small one is missing.
+        if (number.scale() < -MAX_SCALE) {
+            return number.signum() < 0 ? null : TOO_LARGE;
+        }
+        return number.scale() > MAX_SCALE ? null : number;
     }
 
     /** Missing or negative nutrients count as zero. Not scaled yet: see {@link #scale}. */

@@ -304,6 +304,36 @@ class OffClientTest {
     }
 
     @Test
+    @DisplayName("treats a tiny exponent as missing: zero for a macro, skipped for calories")
+    void shouldTreatAbsurdNegativeExponentAsMissing() {
+        respondWith(
+                products(
+                        product(
+                                "\"1\"",
+                                "Tiny macro",
+                                "",
+                                "\"energy-kcal_100g\":1,\"fat_100g\":\"1e-999999999\""),
+                        product(
+                                "\"2\"",
+                                "Tiny kcal",
+                                "",
+                                "\"energy-kcal_100g\":\"1e-999999999\"")));
+
+        assertTimeout(
+                Duration.ofSeconds(2),
+                () ->
+                        assertThat(search())
+                                .singleElement()
+                                .satisfies(
+                                        food -> {
+                                            assertThat(food.name()).isEqualTo("Tiny macro");
+                                            assertThat(food.fat())
+                                                    .isEqualByComparingTo(
+                                                            java.math.BigDecimal.ZERO);
+                                        }));
+    }
+
+    @Test
     @DisplayName("truncates long names to 300 and brands to 200 characters")
     void shouldTruncateNameAndBrand() {
         respondWith(
