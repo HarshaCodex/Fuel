@@ -4,6 +4,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -75,6 +76,18 @@ class TrackingControllerSecurityTest {
     @DisplayName("DELETE returns 401 without an access token")
     void shouldReturnUnauthorizedOnDeleteWithoutToken() throws Exception {
         mockMvc.perform(delete("/api/tracking/entries/22222222-2222-2222-2222-222222222222"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(trackingService);
+    }
+
+    @Test
+    @DisplayName("PUT returns 401 without an access token")
+    void shouldReturnUnauthorizedOnUpdateWithoutToken() throws Exception {
+        mockMvc.perform(
+                        put("/api/tracking/entries/22222222-2222-2222-2222-222222222222")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(trackingService);

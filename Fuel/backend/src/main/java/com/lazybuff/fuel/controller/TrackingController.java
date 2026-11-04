@@ -3,6 +3,7 @@ package com.lazybuff.fuel.controller;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
+import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
 import com.lazybuff.fuel.service.TrackingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -116,5 +118,37 @@ public class TrackingController {
 
         trackingService.delete(UUID.fromString(userId), id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Update an entry owned by the caller",
+            description =
+                    "Omitted fields stay unchanged. Changing the amount or quantity recomputes"
+                            + " nutrients from the original food. The food cannot be changed.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Entry updated"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description =
+                        "Invalid field, malformed id, loggedAt too far ahead, or entry too large"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "Entry not found (or another user's), or user deleted")
+    })
+    @PutMapping(
+            path = "/entries/{id}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<TrackingEntryResponse>> update(
+            @AuthenticationPrincipal String userId,
+            @PathVariable UUID id,
+            @Valid @RequestBody TrackingEntryUpdateRequest request) {
+
+        return ResponseEntity.ok(trackingService.update(UUID.fromString(userId), id, request));
     }
 }
