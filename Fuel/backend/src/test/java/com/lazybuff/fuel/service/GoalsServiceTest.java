@@ -8,13 +8,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.lazybuff.fuel.dto.GoalsRecalculateRequest;
+import com.lazybuff.fuel.dto.GoalsRecalculateResponse;
 import com.lazybuff.fuel.dto.GoalsRequest;
 import com.lazybuff.fuel.dto.GoalsResponse;
+import com.lazybuff.fuel.entity.BodyStats;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.entity.UserGoals;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.repository.BodyStatsRepository;
 import com.lazybuff.fuel.repository.UserGoalsRepository;
 import com.lazybuff.fuel.repository.UserRepository;
+import com.lazybuff.fuel.util.GoalType;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -37,6 +42,8 @@ class GoalsServiceTest {
     @Mock private UserGoalsRepository userGoalsRepository;
 
     @Mock private UserRepository userRepository;
+
+    @Mock private BodyStatsRepository bodyStatsRepository;
 
     @InjectMocks private GoalsService service;
 
@@ -183,5 +190,109 @@ class GoalsServiceTest {
                         FuelException.class,
                         e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.NOT_FOUND));
         verifyNoInteractions(userGoalsRepository);
+    }
+
+    private void givenBodyStats() {
+        BodyStats stats =
+                BodyStats.builder()
+                        .user(user)
+                        .heightCm(new BigDecimal("180.0"))
+                        .weightKg(new BigDecimal("80.0"))
+                        .age(30)
+                        .gender("MALE")
+                        .activityLevel("MODERATE")
+                        .build();
+        when(bodyStatsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.of(stats));
+    }
+
+    private UserGoals recalculateAndCapture(GoalsRecalculateRequest request) {
+        ArgumentCaptor<UserGoals> captor = ArgumentCaptor.forClass(UserGoals.class);
+        when(userGoalsRepository.saveAndFlush(any(UserGoals.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        service.recalculate(USER_ID, request);
+        verify(userGoalsRepository).saveAndFlush(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    @DisplayName("recalculate inserts an auto-calculated row with a negative adjustment for LOSE")
+    void shouldInsertRecalculatedGoals() {
+        givenActiveUser();
+        givenBodyStats();
+        when(userGoalsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.empty());
+
+        UserGoals saved = recalculateAndCapture(new GoalsRecalculateRequest(GoalType.LOSE, 500));
+
+        assertThat(saved.getCalorieGoal()).isEqualTo(2259);
+        assertThat(saved.getProteinGoal()).isEqualTo(225.9);
+        assertThat(saved.getFatGoal()).isEqualTo(50.2);
+        assertThat(saved.isAutoCalculated()).isTrue();
+        assertThat(saved.getGoalType()).isEqualTo("LOSE");
+        assertThat(saved.getCalorieAdjustment()).isEqualTo(-500);
+        assertThat(saved.getUser()).isSameAs(user);
+        assertThat(saved.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("recalculate overwrites manual goals and stores a positive adjustment for GAIN")
+    void shouldOverwriteManualGoals() {
+        givenActiveUser();
+        givenBodyStats();
+        UserGoals existing = UserGoals.builder().user(user).isAutoCalculated(false).build();
+        when(userGoalsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.of(existing));
+
+        UserGoals saved = recalculateAndCapture(new GoalsRecalculateRequest(GoalType.GAIN, 300));
+
+        assertThat(saved).isSameAs(existing);
+        assertThat(saved.isAutoCalculated()).isTrue();
+        assertThat(saved.getCalorieAdjustment()).isEqualTo(300);
+    }
+
+    @Test
+    @DisplayName("recalculate defaults to MAINTAIN with adjustment 0 and echoes the figures")
+    void shouldDefaultToMaintain() {
+        givenActiveUser();
+        givenBodyStats();
+        when(userGoalsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.empty());
+        when(userGoalsRepository.saveAndFlush(any(UserGoals.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.recalculate(USER_ID, new GoalsRecalculateRequest(null, null));
+
+        GoalsRecalculateResponse data = response.getData();
+        assertThat(response.getMessage()).isEqualTo("Goals recalculated");
+        assertThat(data.calorieGoal()).isEqualTo(2759);
+        assertThat(data.tdee()).isEqualTo(2759);
+        assertThat(data.deficit()).isZero();
+        assertThat(data.isAutoCalculated()).isTrue();
+        assertThat(data.formula()).isEqualTo("MIFFLIN_ST_JEOR");
+        assertThat(data.macroSplit()).isEqualTo("40/40/20");
+    }
+
+    @Test
+    @DisplayName("recalculate returns 400 and saves nothing when body stats are not set")
+    void shouldReturnBadRequestWhenNoBodyStats() {
+        givenActiveUser();
+        when(bodyStatsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () -> service.recalculate(USER_ID, new GoalsRecalculateRequest(null, null)))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        ex -> assertThat(ex.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(userGoalsRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("recalculate returns 404 for a deleted user before checking body stats")
+    void shouldReturnNotFoundWhenRecalculatingForDeletedUser() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () -> service.recalculate(USER_ID, new GoalsRecalculateRequest(null, null)))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        ex -> assertThat(ex.getHttpStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+        verifyNoInteractions(bodyStatsRepository);
     }
 }

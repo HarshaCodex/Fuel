@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.controller;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -57,6 +58,14 @@ class GoalsControllerSecurityTest {
                         put("/api/user/goals")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"calorieGoal\":1800}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    @DisplayName("returns 401 for recalculating goals without an access token")
+    void shouldReturnUnauthorizedWhenRecalculatingWithoutToken() throws Exception {
+        mockMvc.perform(post("/api/user/goals/recalculate"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
