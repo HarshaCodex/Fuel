@@ -19,6 +19,8 @@ public class FoodSearchConfig {
 
     private Search search = new Search();
 
+    private Barcode barcode = new Barcode();
+
     /** USDA FoodData Central connection. */
     @Getter
     @Setter
@@ -74,6 +76,21 @@ public class FoodSearchConfig {
 
         /** Open Food Facts is consulted only when USDA returns fewer results than this. */
         private int offFallbackThreshold;
+
+        /** Length of the per-user rate-limit window. */
+        private Duration rateLimitWindow;
+    }
+
+    /** How a barcode lookup is served. */
+    @Getter
+    @Setter
+    public static class Barcode {
+
+        /** How long a found product is served from Redis. Misses and failures are never cached. */
+        private Duration cacheTtl;
+
+        /** Most outbound lookups (cache and local misses) one user may trigger per window. */
+        private int rateLimit;
 
         /** Length of the per-user rate-limit window. */
         private Duration rateLimitWindow;

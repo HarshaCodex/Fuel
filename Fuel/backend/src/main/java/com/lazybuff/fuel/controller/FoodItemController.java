@@ -6,6 +6,7 @@ import com.lazybuff.fuel.dto.CustomFoodResponse;
 import com.lazybuff.fuel.dto.FoodItemDetail;
 import com.lazybuff.fuel.dto.FoodSearchItem;
 import com.lazybuff.fuel.dto.PageResponse;
+import com.lazybuff.fuel.service.BarcodeService;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +48,8 @@ public class FoodItemController {
 
     private final FoodSearchService foodSearchService;
 
+    private final BarcodeService barcodeService;
+
     @Operation(summary = "Search USDA foods and the caller's own custom foods by name")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -75,6 +79,38 @@ public class FoodItemController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
 
         return ResponseEntity.ok(foodSearchService.search(UUID.fromString(userId), q, page, size));
+    }
+
+    @Operation(summary = "Look up a food by barcode (8 to 14 digits) in Open Food Facts, then USDA")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Food found; saved with an internal id and the canonical barcode"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Barcode is not 8 to 14 digits"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "Food item not found"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many uncached lookups from this user; see Retry-After"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "502",
+                description = "A food database rejected the request or answered unusably"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "503",
+                description = "A food database is unreachable, rate limiting or failing")
+    })
+    @GetMapping(path = "/barcode/{code}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<FoodItemDetail>> getFoodByBarcode(
+            @AuthenticationPrincipal String userId,
+            @PathVariable @Pattern(regexp = "\\d{8,14}") String code) {
+
+        return ResponseEntity.ok(barcodeService.lookup(UUID.fromString(userId), code));
     }
 
     @Operation(summary = "Get a food item with its serving sizes")
