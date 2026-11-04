@@ -96,6 +96,7 @@ public class OffClient {
 
         return parse(
                 get(
+                        false,
                         "/cgi/search.pl?search_terms={q}&search_simple=1&action=process"
                                 + "&json=1&page_size={size}&page=1"
                                 + "&fields=code,product_name,brands,nutriments",
@@ -118,6 +119,7 @@ public class OffClient {
         try {
             body =
                     get(
+                            true,
                             "/api/v2/product/{code}.json?fields=code,product_name,brands,nutriments",
                             code);
         } catch (NotFoundException exception) {
@@ -147,7 +149,7 @@ public class OffClient {
         }
     }
 
-    private String get(String uri, Object... variables) {
+    private String get(boolean notFoundIsEmpty, String uri, Object... variables) {
         try {
             return restClient
                     .get()
@@ -157,21 +159,21 @@ public class OffClient {
                     .body(String.class);
         } catch (RestClientResponseException exception) {
             int status = exception.getStatusCode().value();
-            if (status == 404) {
+            if (notFoundIsEmpty && status == 404) {
                 throw new NotFoundException();
             }
             boolean retryable = status == 429 || status >= 500;
             if (retryable) {
-                log.warn("OFF search failed with status {}", status);
+                log.warn("OFF request failed with status {}", status);
             } else {
-                log.error("OFF search failed with status {}", status);
+                log.error("OFF request failed with status {}", status);
             }
             throw unavailable(retryable ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY);
         } catch (ResourceAccessException exception) {
-            log.warn("OFF search unreachable: {}", exception.getClass().getSimpleName());
+            log.warn("OFF request unreachable: {}", exception.getClass().getSimpleName());
             throw unavailable(HttpStatus.SERVICE_UNAVAILABLE);
         } catch (RestClientException exception) {
-            log.error("OFF search failed: {}", exception.getClass().getSimpleName());
+            log.error("OFF request failed: {}", exception.getClass().getSimpleName());
             throw unavailable(HttpStatus.BAD_GATEWAY);
         }
     }

@@ -590,6 +590,14 @@ class OffClientTest {
         none.verify();
     }
 
+    @Test
+    @DisplayName("maps an OFF 404 on text search to 502, not an empty result")
+    void shouldMapSearchNotFoundToBadGateway() {
+        off.expect(method(HttpMethod.GET)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertUnavailable(HttpStatus.BAD_GATEWAY);
+    }
+
     private void assertLookupFails(HttpStatus expected) {
         assertThatThrownBy(() -> client.findByBarcode("3017620422003"))
                 .isInstanceOfSatisfying(

@@ -405,6 +405,32 @@ class UsdaClientTest {
         none.verify();
     }
 
+    @Test
+    @DisplayName("returns empty for an all-zero code even when a hit has no gtinUpc")
+    void shouldReturnEmptyForAllZeroCode() {
+        respondWith(
+                page(
+                        "{\"fdcId\":5,\"description\":\"Bar\",\"foodNutrients\":["
+                                + nutrient(1008, "200")
+                                + "]}",
+                        branded("6", "")));
+
+        assertThat(client.findByGtin("0000000000000")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("skips hits with a missing or blank gtinUpc")
+    void shouldSkipHitsWithoutGtin() {
+        respondWith(
+                page(
+                        "{\"fdcId\":5,\"description\":\"Bar\",\"foodNutrients\":["
+                                + nutrient(1008, "200")
+                                + "]}",
+                        branded("6", " ")));
+
+        assertThat(client.findByGtin("023700011527")).isEmpty();
+    }
+
     private void assertGtinFails(HttpStatus expected) {
         assertThatThrownBy(() -> client.findByGtin("023700011527"))
                 .isInstanceOfSatisfying(

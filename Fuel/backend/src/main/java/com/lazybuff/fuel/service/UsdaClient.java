@@ -127,6 +127,9 @@ public class UsdaClient {
                         canonical,
                         GTIN_PAGE_SIZE);
         String wanted = stripZeros(canonical);
+        if (wanted.isEmpty()) {
+            return Optional.empty();
+        }
         try {
             JsonNode root = body == null || body.isBlank() ? null : jsonMapper.readTree(body);
             if (root == null || !root.path("foods").isArray()) {
@@ -134,7 +137,7 @@ public class UsdaClient {
                 throw unavailable(HttpStatus.BAD_GATEWAY);
             }
             for (JsonNode node : root.path("foods")) {
-                if (stripZeros(node.path("gtinUpc").asString("").trim()).equals(wanted)) {
+                if (wanted.equals(stripZeros(node.path("gtinUpc").asString("").trim()))) {
                     Optional<UsdaFood> food = toFood(node);
                     if (food.isPresent()) {
                         return food;
@@ -164,16 +167,16 @@ public class UsdaClient {
             int status = exception.getStatusCode().value();
             boolean retryable = status == 429 || status >= 500;
             if (retryable) {
-                log.warn("USDA search failed with status {}", status);
+                log.warn("USDA request failed with status {}", status);
             } else {
-                log.error("USDA search failed with status {}", status);
+                log.error("USDA request failed with status {}", status);
             }
             throw unavailable(retryable ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY);
         } catch (ResourceAccessException exception) {
-            log.warn("USDA search unreachable: {}", exception.getClass().getSimpleName());
+            log.warn("USDA request unreachable: {}", exception.getClass().getSimpleName());
             throw unavailable(HttpStatus.SERVICE_UNAVAILABLE);
         } catch (RestClientException exception) {
-            log.error("USDA search failed: {}", exception.getClass().getSimpleName());
+            log.error("USDA request failed: {}", exception.getClass().getSimpleName());
             throw unavailable(HttpStatus.BAD_GATEWAY);
         }
     }
