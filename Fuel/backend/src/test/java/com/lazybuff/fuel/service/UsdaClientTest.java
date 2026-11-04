@@ -302,6 +302,146 @@ class UsdaClientTest {
         }
     }
 
+    private static String branded(String fdcId, String gtin) {
+        return "{\"fdcId\":"
+                + fdcId
+                + ",\"description\":\"Bar "
+                + fdcId
+                + "\",\"gtinUpc\":\""
+                + gtin
+                + "\",\"brandOwner\":\"Acme\",\"foodNutrients\":["
+                + nutrient(1008, "200")
+                + "]}";
+    }
+
+    @Test
+    @DisplayName("searches branded foods by GTIN with the key in a header only")
+    void shouldSearchBrandedByGtin() {
+        usda.expect(
+                        requestTo(
+                                containsString(
+                                        "/foods/search?query=023700011527&dataType=Branded&pageSize=25")))
+                .andExpect(header("X-Api-Key", API_KEY))
+                .andExpect(requestTo(not(containsString(API_KEY))))
+                .andRespond(
+                        withSuccess(
+                                page(branded("1", "023700011527")), MediaType.APPLICATION_JSON));
+
+        assertThat(client.findByGtin("023700011527"))
+                .hasValueSatisfying(food -> assertThat(food.fdcId()).isEqualTo(1));
+        usda.verify();
+    }
+
+    @Test
+    @DisplayName("ignores fuzzy hits whose gtinUpc differs")
+    void shouldIgnoreFuzzyGtinHits() {
+        respondWith(page(branded("1", "999999999999"), branded("2", "023700011527")));
+
+        assertThat(client.findByGtin("023700011527"))
+                .hasValueSatisfying(food -> assertThat(food.fdcId()).isEqualTo(2));
+    }
+
+    @Test
+    @DisplayName("matches a GTIN that differs only by leading zeros")
+    void shouldMatchIgnoringLeadingZeros() {
+        respondWith(page(branded("3", "23700011527")));
+
+        assertThat(client.findByGtin("0023700011527"))
+                .hasValueSatisfying(food -> assertThat(food.fdcId()).isEqualTo(3));
+    }
+
+    @Test
+    @DisplayName("returns empty when no food has that GTIN")
+    void shouldReturnEmptyWhenNoGtinMatches() {
+        respondWith(page(branded("1", "999999999999")));
+
+        assertThat(client.findByGtin("023700011527")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("returns empty when the matching food has no calories")
+    void shouldReturnEmptyWhenMatchHasNoNutrition() {
+        respondWith(
+                page(
+                        "{\"fdcId\":4,\"description\":\"Bar\",\"gtinUpc\":\"023700011527\","
+                                + "\"foodNutrients\":[]}"));
+
+        assertThat(client.findByGtin("023700011527")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("maps GTIN lookup failures like search")
+    void shouldMapGtinFailures() {
+        usda.expect(method(HttpMethod.GET)).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+        assertGtinFails(HttpStatus.SERVICE_UNAVAILABLE);
+        usda.reset();
+
+        usda.expect(method(HttpMethod.GET)).andRespond(withServerError());
+        assertGtinFails(HttpStatus.SERVICE_UNAVAILABLE);
+        usda.reset();
+
+        usda.expect(method(HttpMethod.GET)).andRespond(withBadRequest());
+        assertGtinFails(HttpStatus.BAD_GATEWAY);
+        usda.reset();
+
+        respondWith("{not json");
+        assertGtinFails(HttpStatus.BAD_GATEWAY);
+    }
+
+    @Test
+    @DisplayName("returns 503 for a GTIN lookup without calling USDA when no key is set")
+    void shouldSkipGtinLookupWithoutKey() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer none = MockRestServiceServer.bindTo(builder).build();
+        UsdaClient unconfigured =
+                new UsdaClient(config(BASE_URL, "", Duration.ofSeconds(5)), builder);
+
+        assertThatThrownBy(() -> unconfigured.findByGtin("023700011527"))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        exception ->
+                                assertThat(exception.getHttpStatus())
+                                        .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+        none.verify();
+    }
+
+    @Test
+    @DisplayName("returns empty for an all-zero code even when a hit has no gtinUpc")
+    void shouldReturnEmptyForAllZeroCode() {
+        respondWith(
+                page(
+                        "{\"fdcId\":5,\"description\":\"Bar\",\"foodNutrients\":["
+                                + nutrient(1008, "200")
+                                + "]}",
+                        branded("6", "")));
+
+        assertThat(client.findByGtin("0000000000000")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("skips hits with a missing or blank gtinUpc")
+    void shouldSkipHitsWithoutGtin() {
+        respondWith(
+                page(
+                        "{\"fdcId\":5,\"description\":\"Bar\",\"foodNutrients\":["
+                                + nutrient(1008, "200")
+                                + "]}",
+                        branded("6", " ")));
+
+        assertThat(client.findByGtin("023700011527")).isEmpty();
+    }
+
+    private void assertGtinFails(HttpStatus expected) {
+        assertThatThrownBy(() -> client.findByGtin("023700011527"))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        exception -> {
+                            assertThat(exception.getHttpStatus()).isEqualTo(expected);
+                            assertThat(exception.getMessage())
+                                    .isEqualTo("Food search is temporarily unavailable");
+                        });
+    }
+
     private void assertUnavailable(HttpStatus expected) {
         assertThatThrownBy(() -> client.search("chicken", 0, 20))
                 .isInstanceOfSatisfying(

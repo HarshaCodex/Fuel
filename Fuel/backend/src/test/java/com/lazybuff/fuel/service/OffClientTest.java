@@ -474,6 +474,141 @@ class OffClientTest {
         }
     }
 
+    private static final String BARCODE_URL =
+            BASE_URL
+                    + "/api/v2/product/3017620422003.json?fields=code,product_name,brands,nutriments";
+
+    private static String lookup(String product) {
+        return "{\"status\":1,\"code\":\"3017620422003\",\"product\":" + product + "}";
+    }
+
+    private void expectLookup(org.springframework.test.web.client.ResponseCreator response) {
+        off.expect(requestTo(BARCODE_URL))
+                .andExpect(header("User-Agent", USER_AGENT))
+                .andRespond(response);
+    }
+
+    @Test
+    @DisplayName("finds a product by barcode with the User-Agent and the code as a path segment")
+    void shouldFindByBarcode() {
+        expectLookup(
+                withSuccess(
+                        lookup(product("\"3017620422003\"", "Granola", "Acme", VALID)),
+                        MediaType.APPLICATION_JSON));
+
+        var food = client.findByBarcode("3017620422003");
+
+        assertThat(food).isPresent();
+        assertThat(food.get().code()).isEqualTo("3017620422003");
+        assertThat(food.get().name()).isEqualTo("Granola");
+        assertThat(food.get().brand()).isEqualTo("Acme");
+        off.verify();
+    }
+
+    @Test
+    @DisplayName("falls back to the top-level code when the product has none")
+    void shouldFallBackToTopLevelCode() {
+        expectLookup(
+                withSuccess(
+                        lookup("{\"product_name\":\"Granola\",\"nutriments\":{" + VALID + "}}"),
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.findByBarcode("3017620422003"))
+                .hasValueSatisfying(food -> assertThat(food.code()).isEqualTo("3017620422003"));
+    }
+
+    @Test
+    @DisplayName("returns empty on HTTP 404")
+    void shouldReturnEmptyOnNotFound() {
+        expectLookup(withStatus(HttpStatus.NOT_FOUND));
+
+        assertThat(client.findByBarcode("3017620422003")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("returns empty when OFF answers status 0")
+    void shouldReturnEmptyOnStatusZero() {
+        expectLookup(
+                withSuccess(
+                        "{\"status\":0,\"code\":\"3017620422003\",\"status_verbose\":\"product not found\"}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.findByBarcode("3017620422003")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("returns empty when the product has no usable nutrition")
+    void shouldReturnEmptyWithoutNutrition() {
+        expectLookup(
+                withSuccess(
+                        lookup(product("\"3017620422003\"", "Granola", "Acme", "")),
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.findByBarcode("3017620422003")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("maps barcode lookup failures like search: 429/5xx to 503, other 4xx to 502")
+    void shouldMapBarcodeFailures() {
+        expectLookup(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+        assertLookupFails(HttpStatus.SERVICE_UNAVAILABLE);
+        off.reset();
+
+        expectLookup(withServerError());
+        assertLookupFails(HttpStatus.SERVICE_UNAVAILABLE);
+        off.reset();
+
+        expectLookup(withBadRequest());
+        assertLookupFails(HttpStatus.BAD_GATEWAY);
+    }
+
+    @Test
+    @DisplayName("maps an unparsable or non-object barcode body to 502")
+    void shouldMapUnusableBarcodeBodyToBadGateway() {
+        expectLookup(withSuccess("{not json", MediaType.APPLICATION_JSON));
+        assertLookupFails(HttpStatus.BAD_GATEWAY);
+        off.reset();
+
+        expectLookup(withSuccess("[]", MediaType.APPLICATION_JSON));
+        assertLookupFails(HttpStatus.BAD_GATEWAY);
+    }
+
+    @Test
+    @DisplayName("returns 503 for a barcode lookup without calling OFF when no user agent is set")
+    void shouldSkipBarcodeLookupWithoutUserAgent() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer none = MockRestServiceServer.bindTo(builder).build();
+        OffClient unconfigured =
+                new OffClient(config(BASE_URL, " ", Duration.ofSeconds(5)), builder);
+
+        assertThatThrownBy(() -> unconfigured.findByBarcode("3017620422003"))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        exception ->
+                                assertThat(exception.getHttpStatus())
+                                        .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+        none.verify();
+    }
+
+    @Test
+    @DisplayName("maps an OFF 404 on text search to 502, not an empty result")
+    void shouldMapSearchNotFoundToBadGateway() {
+        off.expect(method(HttpMethod.GET)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertUnavailable(HttpStatus.BAD_GATEWAY);
+    }
+
+    private void assertLookupFails(HttpStatus expected) {
+        assertThatThrownBy(() -> client.findByBarcode("3017620422003"))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        exception -> {
+                            assertThat(exception.getHttpStatus()).isEqualTo(expected);
+                            assertThat(exception.getMessage())
+                                    .isEqualTo("Food search is temporarily unavailable");
+                        });
+    }
+
     private void assertUnavailable(HttpStatus expected) {
         assertThatThrownBy(this::search)
                 .isInstanceOfSatisfying(

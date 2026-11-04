@@ -38,6 +38,7 @@ public class UsdaClient {
     private static final String API_KEY_HEADER = "X-Api-Key";
     private static final int MAX_NAME = 300;
     private static final int MAX_BRAND = 200;
+    private static final int GTIN_PAGE_SIZE = 25;
     private static final long CALORIES = 1008;
     private static final long[] CALORIES_FALLBACKS = {2047, 2048};
     private static final long PROTEIN = 1003;
@@ -101,36 +102,83 @@ public class UsdaClient {
             throw unavailable(HttpStatus.SERVICE_UNAVAILABLE);
         }
 
-        String body;
+        return parse(
+                get(
+                        "/foods/search?query={q}&pageSize={size}&pageNumber={page}",
+                        query,
+                        size,
+                        page + 1));
+    }
+
+    /**
+     * Finds a branded food by GTIN/UPC. USDA has no GTIN endpoint, so this searches by the code and
+     * keeps only a food whose {@code gtinUpc} matches once leading zeros are ignored on both sides.
+     *
+     * @param canonical digits only
+     * @throws FuelException as {@link #search}
+     */
+    public Optional<UsdaFood> findByGtin(String canonical) {
+        if (!config.getUsda().hasApiKey()) {
+            throw unavailable(HttpStatus.SERVICE_UNAVAILABLE);
+        }
+        String body =
+                get(
+                        "/foods/search?query={q}&dataType=Branded&pageSize={size}",
+                        canonical,
+                        GTIN_PAGE_SIZE);
+        String wanted = stripZeros(canonical);
+        if (wanted.isEmpty()) {
+            return Optional.empty();
+        }
         try {
-            body =
-                    restClient
-                            .get()
-                            .uri(
-                                    "/foods/search?query={q}&pageSize={size}&pageNumber={page}",
-                                    query,
-                                    size,
-                                    page + 1)
-                            .header(API_KEY_HEADER, config.getUsda().getApiKey())
-                            .retrieve()
-                            .body(String.class);
+            JsonNode root = body == null || body.isBlank() ? null : jsonMapper.readTree(body);
+            if (root == null || !root.path("foods").isArray()) {
+                log.error("USDA search returned an unusable body");
+                throw unavailable(HttpStatus.BAD_GATEWAY);
+            }
+            for (JsonNode node : root.path("foods")) {
+                if (wanted.equals(stripZeros(node.path("gtinUpc").asString("").trim()))) {
+                    Optional<UsdaFood> food = toFood(node);
+                    if (food.isPresent()) {
+                        return food;
+                    }
+                }
+            }
+            return Optional.empty();
+        } catch (JacksonException exception) {
+            log.error("USDA search returned unparsable JSON");
+            throw unavailable(HttpStatus.BAD_GATEWAY);
+        }
+    }
+
+    private static String stripZeros(String digits) {
+        return digits.replaceFirst("^0+", "");
+    }
+
+    private String get(String uri, Object... variables) {
+        try {
+            return restClient
+                    .get()
+                    .uri(uri, variables)
+                    .header(API_KEY_HEADER, config.getUsda().getApiKey())
+                    .retrieve()
+                    .body(String.class);
         } catch (RestClientResponseException exception) {
             int status = exception.getStatusCode().value();
             boolean retryable = status == 429 || status >= 500;
             if (retryable) {
-                log.warn("USDA search failed with status {}", status);
+                log.warn("USDA request failed with status {}", status);
             } else {
-                log.error("USDA search failed with status {}", status);
+                log.error("USDA request failed with status {}", status);
             }
             throw unavailable(retryable ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_GATEWAY);
         } catch (ResourceAccessException exception) {
-            log.warn("USDA search unreachable: {}", exception.getClass().getSimpleName());
+            log.warn("USDA request unreachable: {}", exception.getClass().getSimpleName());
             throw unavailable(HttpStatus.SERVICE_UNAVAILABLE);
         } catch (RestClientException exception) {
-            log.error("USDA search failed: {}", exception.getClass().getSimpleName());
+            log.error("USDA request failed: {}", exception.getClass().getSimpleName());
             throw unavailable(HttpStatus.BAD_GATEWAY);
         }
-        return parse(body);
     }
 
     private UsdaPage parse(String body) {
