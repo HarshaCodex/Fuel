@@ -11,6 +11,7 @@ import com.lazybuff.fuel.repository.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,7 +80,9 @@ public class BodyStatsService {
         stats.setGender(request.getGender());
         stats.setActivityLevel(request.getActivityLevel());
 
-        BodyStats saved = bodyStatsRepository.save(stats);
+        // Set explicitly so an identical PUT still bumps the timestamp; flush so it is populated.
+        stats.setUpdatedAt(OffsetDateTime.now());
+        BodyStats saved = bodyStatsRepository.saveAndFlush(stats);
         log.info("Body stats saved for user {}", userId);
 
         return success(toResponse(saved));

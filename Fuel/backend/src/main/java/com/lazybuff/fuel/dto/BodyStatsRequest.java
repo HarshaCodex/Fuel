@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -23,6 +24,7 @@ public class BodyStatsRequest {
     @Schema(description = "Height in heightUnit (decimal feet when ft)", example = "175")
     @NotNull
     @Positive
+    @DecimalMax("1000")
     private BigDecimal height;
 
     @Schema(
@@ -36,6 +38,7 @@ public class BodyStatsRequest {
     @Schema(description = "Weight in weightUnit", example = "72.5")
     @NotNull
     @Positive
+    @DecimalMax("2000")
     private BigDecimal weight;
 
     @Schema(

@@ -212,7 +212,7 @@ class BodyStatsControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0", "-1", "-175.5", "null"})
+    @ValueSource(strings = {"0", "-1", "-175.5", "null", "1e999999999", "1001"})
     @DisplayName("returns 400 for a zero, negative or missing height")
     void shouldRejectBadHeight(String height) throws Exception {
         assertBadRequest(
@@ -220,8 +220,8 @@ class BodyStatsControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0", "-1", "null"})
-    @DisplayName("returns 400 for a zero, negative or missing weight")
+    @ValueSource(strings = {"0", "-1", "null", "1e999999999", "2001"})
+    @DisplayName("returns 400 for a zero, negative, missing or huge weight")
     void shouldRejectBadWeight(String weight) throws Exception {
         assertBadRequest(body("175", "\"cm\"", weight, "\"kg\"", "25", "\"MALE\"", "\"MODERATE\""));
     }

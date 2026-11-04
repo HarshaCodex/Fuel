@@ -63,7 +63,7 @@ class BodyStatsServiceTest {
     private BodyStats savedFromPut(BodyStatsRequest request) {
         ArgumentCaptor<BodyStats> captor = ArgumentCaptor.forClass(BodyStats.class);
         service.put(USER_ID, request);
-        verify(bodyStatsRepository).save(captor.capture());
+        verify(bodyStatsRepository).saveAndFlush(captor.capture());
         return captor.getValue();
     }
 
@@ -116,7 +116,8 @@ class BodyStatsServiceTest {
     void shouldInsertWhenNoneExist() {
         givenActiveUser();
         when(bodyStatsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.empty());
-        when(bodyStatsRepository.save(any(BodyStats.class))).thenAnswer(i -> i.getArgument(0));
+        when(bodyStatsRepository.saveAndFlush(any(BodyStats.class)))
+                .thenAnswer(i -> i.getArgument(0));
 
         BodyStats saved = savedFromPut(request("175", "cm", "72.5", "kg", 25));
 
@@ -143,7 +144,8 @@ class BodyStatsServiceTest {
                         .activityLevel("LIGHT")
                         .build();
         when(bodyStatsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.of(existing));
-        when(bodyStatsRepository.save(any(BodyStats.class))).thenAnswer(i -> i.getArgument(0));
+        when(bodyStatsRepository.saveAndFlush(any(BodyStats.class)))
+                .thenAnswer(i -> i.getArgument(0));
 
         BodyStats saved = savedFromPut(request("175", "cm", "72.5", "kg", 25));
 
@@ -159,7 +161,8 @@ class BodyStatsServiceTest {
     void shouldConvertFeet(String feet, String expectedCm) {
         givenActiveUser();
         when(bodyStatsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.empty());
-        when(bodyStatsRepository.save(any(BodyStats.class))).thenAnswer(i -> i.getArgument(0));
+        when(bodyStatsRepository.saveAndFlush(any(BodyStats.class)))
+                .thenAnswer(i -> i.getArgument(0));
 
         BodyStats saved = savedFromPut(request(feet, "ft", "70", "kg", 25));
 
@@ -172,7 +175,8 @@ class BodyStatsServiceTest {
     void shouldConvertPounds(String pounds, String expectedKg) {
         givenActiveUser();
         when(bodyStatsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.empty());
-        when(bodyStatsRepository.save(any(BodyStats.class))).thenAnswer(i -> i.getArgument(0));
+        when(bodyStatsRepository.saveAndFlush(any(BodyStats.class)))
+                .thenAnswer(i -> i.getArgument(0));
 
         BodyStats saved = savedFromPut(request("175", "cm", pounds, "lbs", 25));
 
@@ -185,7 +189,8 @@ class BodyStatsServiceTest {
     void shouldAcceptBoundaryValues(String height, String weight, int age) {
         givenActiveUser();
         when(bodyStatsRepository.findByUser_Id(USER_ID)).thenReturn(Optional.empty());
-        when(bodyStatsRepository.save(any(BodyStats.class))).thenAnswer(i -> i.getArgument(0));
+        when(bodyStatsRepository.saveAndFlush(any(BodyStats.class)))
+                .thenAnswer(i -> i.getArgument(0));
 
         BodyStats saved = savedFromPut(request(height, "cm", weight, "kg", age));
 
@@ -210,7 +215,7 @@ class BodyStatsServiceTest {
                 .isInstanceOfSatisfying(
                         FuelException.class,
                         e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
-        verify(bodyStatsRepository, never()).save(any());
+        verify(bodyStatsRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -222,7 +227,7 @@ class BodyStatsServiceTest {
                 .isInstanceOfSatisfying(
                         FuelException.class,
                         e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.NOT_FOUND));
-        verify(bodyStatsRepository, never()).save(any());
+        verify(bodyStatsRepository, never()).saveAndFlush(any());
     }
 
     @Test
