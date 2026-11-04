@@ -6,11 +6,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.DeleteAccountRequest;
+import com.lazybuff.fuel.dto.UpdateProfileRequest;
 import com.lazybuff.fuel.dto.UserProfile;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
@@ -26,6 +28,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -159,5 +163,94 @@ class UserControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(userService);
+    }
+
+    private static final String PROFILE_URL = "/api/user/profile";
+
+    @Test
+    @DisplayName("updates the profile and returns the updated shape")
+    void shouldUpdateProfile() throws Exception {
+        UserProfile profile =
+                new UserProfile(
+                        USER_ID.toString(),
+                        "user@example.com",
+                        "Harsha B",
+                        null,
+                        true,
+                        AuthProvider.EMAIL,
+                        "Asia/Kolkata",
+                        OffsetDateTime.of(2026, 6, 1, 10, 0, 0, 0, ZoneOffset.UTC));
+        when(userService.updateProfile(eq(USER_ID), any(UpdateProfileRequest.class)))
+                .thenReturn(
+                        ApiResponse.<UserProfile>builder()
+                                .status(HttpStatus.OK.value())
+                                .message("Success")
+                                .data(profile)
+                                .timestamp(LocalDateTime.now())
+                                .build());
+
+        mockMvc.perform(
+                        put(PROFILE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"Harsha B\",\"timezone\":\"Asia/Kolkata\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Success"))
+                .andExpect(jsonPath("$.data.name").value("Harsha B"))
+                .andExpect(jsonPath("$.data.timezone").value("Asia/Kolkata"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    @DisplayName("returns 400 for a blank name")
+    void shouldRejectBlankName(String name) throws Exception {
+        mockMvc.perform(
+                        put(PROFILE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"" + name + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("name"));
+
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    @DisplayName("returns 400 for a name longer than 100 characters")
+    void shouldRejectOverlongName() throws Exception {
+        mockMvc.perform(
+                        put(PROFILE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"name\":\"" + "a".repeat(101) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("name"));
+
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    @DisplayName("returns 400 for a timezone longer than 50 characters")
+    void shouldRejectOverlongTimezone() throws Exception {
+        mockMvc.perform(
+                        put(PROFILE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"timezone\":\"" + "a".repeat(51) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("timezone"));
+
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    @DisplayName("returns 400 when the service rejects the timezone")
+    void shouldReturnBadRequestForInvalidTimezone() throws Exception {
+        when(userService.updateProfile(eq(USER_ID), any(UpdateProfileRequest.class)))
+                .thenThrow(new FuelException(HttpStatus.BAD_REQUEST, "Invalid timezone."));
+
+        mockMvc.perform(
+                        put(PROFILE_URL)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"timezone\":\"Mars/Base\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid timezone."));
     }
 }
