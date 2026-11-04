@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,6 +18,7 @@ import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.service.TrackingService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -173,5 +177,70 @@ class TrackingControllerTest {
 
         mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(valid()))
                 .andExpect(status().isNotFound());
+    }
+
+    private static ApiResponse<List<TrackingEntryResponse>> listResponse() {
+        return ApiResponse.<List<TrackingEntryResponse>>builder()
+                .status(200)
+                .message("Success")
+                .data(List.of())
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Test
+    @DisplayName("GET lists the entries of the requested date")
+    void shouldListEntriesForDate() throws Exception {
+        when(trackingService.listByDate(USER_ID, LocalDate.of(2026, 6, 9)))
+                .thenReturn(listResponse());
+
+        mockMvc.perform(get(URL).param("date", "2026-06-09"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @DisplayName("GET without a date passes null to the service")
+    void shouldListEntriesWithoutDate() throws Exception {
+        when(trackingService.listByDate(USER_ID, null)).thenReturn(listResponse());
+
+        mockMvc.perform(get(URL)).andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-13-45", "abc"})
+    @DisplayName("GET returns 400 for an invalid date")
+    void shouldReturn400ForInvalidDate(String date) throws Exception {
+        mockMvc.perform(get(URL).param("date", date)).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(trackingService);
+    }
+
+    @Test
+    @DisplayName("DELETE returns 204")
+    void shouldDeleteEntry() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(delete(URL + "/" + id)).andExpect(status().isNoContent());
+
+        verify(trackingService).delete(USER_ID, id);
+    }
+
+    @Test
+    @DisplayName("DELETE returns 400 for a malformed id")
+    void shouldReturn400ForMalformedId() throws Exception {
+        mockMvc.perform(delete(URL + "/not-a-uuid")).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(trackingService);
+    }
+
+    @Test
+    @DisplayName("DELETE returns 404 when the service reports an unknown entry")
+    void shouldReturn404WhenEntryNotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(trackingService.delete(USER_ID, id))
+                .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "Entry not found"));
+
+        mockMvc.perform(delete(URL + "/" + id)).andExpect(status().isNotFound());
     }
 }

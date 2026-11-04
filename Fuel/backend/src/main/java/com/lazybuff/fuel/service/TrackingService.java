@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -134,16 +135,84 @@ public class TrackingService {
                 .setScale(resultScale, RoundingMode.HALF_UP);
     }
 
-    private LocalDate logDate(User user, UUID userId, OffsetDateTime loggedAt) {
-        ZoneId zone;
+    /** Entries logged on {@code date} (the user's local date), oldest first; today if null. */
+    @Transactional(readOnly = true)
+    public ApiResponse<List<TrackingEntryResponse>> listByDate(UUID userId, LocalDate date) {
+
         try {
-            zone = ZoneId.of(user.getTimezone());
+            User user = findActiveUser(userId);
+            LocalDate day = date != null ? date : LocalDate.now(zoneOf(user, userId));
+            List<TrackingEntryResponse> entries =
+                    trackingEntryRepository
+                            .findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(userId, day)
+                            .stream()
+                            .map(this::toResponse)
+                            .toList();
+            return ApiResponse.<List<TrackingEntryResponse>>builder()
+                    .status(HttpStatus.OK.value())
+                    .message("Success")
+                    .data(entries)
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        } catch (FuelException exception) {
+            log.warn("Entry listing failed for user:{} - {}", userId, exception.getMessage());
+            throw exception;
+        } catch (Exception exception) {
+            log.error("Exception occurred while listing entries for user:{}", userId, exception);
+            throw exception;
+        }
+    }
+
+    /** Soft-deletes the entry so it drops out of the diary but stays for later purging. */
+    @Transactional
+    public ApiResponse<Void> delete(UUID userId, UUID entryId) {
+
+        try {
+            findActiveUser(userId);
+            TrackingEntry entry = findOwnedEntry(userId, entryId);
+            entry.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+
+            trackingEntryRepository.save(entry);
+            return ApiResponse.<Void>builder()
+                    .status(HttpStatus.NO_CONTENT.value())
+                    .message("Entry deleted")
+                    .timestamp(LocalDateTime.now())
+                    .build();
+        } catch (FuelException exception) {
+            log.warn(
+                    "Entry deletion failed for user:{} entry:{} - {}",
+                    userId,
+                    entryId,
+                    exception.getMessage());
+            throw exception;
+        } catch (Exception exception) {
+            log.error(
+                    "Exception occurred while deleting entry:{} for user:{}",
+                    entryId,
+                    userId,
+                    exception);
+            throw exception;
+        }
+    }
+
+    private TrackingEntry findOwnedEntry(UUID userId, UUID entryId) {
+        return trackingEntryRepository
+                .findByIdAndUserId(entryId, userId)
+                .orElseThrow(() -> new FuelException(HttpStatus.NOT_FOUND, "Entry not found"));
+    }
+
+    private ZoneId zoneOf(User user, UUID userId) {
+        try {
+            return ZoneId.of(user.getTimezone());
         } catch (DateTimeException exception) {
             // Registration does not validate IANA ids; the timezone itself is not logged.
             log.warn("User:{} has an invalid timezone, using UTC", userId);
-            zone = ZoneOffset.UTC;
+            return ZoneOffset.UTC;
         }
-        return loggedAt.atZoneSameInstant(zone).toLocalDate();
+    }
+
+    private LocalDate logDate(User user, UUID userId, OffsetDateTime loggedAt) {
+        return loggedAt.atZoneSameInstant(zoneOf(user, userId)).toLocalDate();
     }
 
     private TrackingEntryResponse toResponse(TrackingEntry entry) {
