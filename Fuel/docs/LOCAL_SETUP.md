@@ -88,6 +88,10 @@ Notes:
   the app is unaffected. Searches that miss the cache are limited per user
   (`app.food.search.rate-limit` per `rate-limit-window`, default 30 per minute); beyond that the
   endpoint returns 429.
+- Open Food Facts needs no key. When USDA returns fewer than 5 results on the first page, search
+  appends matching OFF products (`source` = `OFF`); if OFF is slow or down, the USDA results are
+  still returned. Optionally set `OFF_USER_AGENT` (app name plus a contact address, as OFF asks);
+  it defaults to `Fuel/1.0`.
 
 ---
 

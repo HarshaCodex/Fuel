@@ -95,6 +95,7 @@ Create a Java project and copy its DSN into `SENTRY_DSN`. Without it, nothing is
 | `APPLE_CLIENT_IDS` | you | iOS bundle ID / Services ID |
 | `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | you, later | Needed before App Store submission (token revocation on account deletion); add in the dashboard |
 | `USDA_API_KEY` | you | Free key from [api.data.gov](https://api.data.gov/signup/); without it `GET /api/food/search` returns 503. Add it in the Render dashboard |
+| `OFF_USER_AGENT` | you (optional) | `User-Agent` sent to Open Food Facts, which needs no key. Defaults to `Fuel/1.0`; set it to the app name plus a contact address, as OFF asks of API clients. Set it in the Render dashboard, never in the repo |
 | `SENTRY_DSN` | you | Optional |
 | `JAVA_OPTS` | optional | Overrides the Dockerfile default `-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError` |
 

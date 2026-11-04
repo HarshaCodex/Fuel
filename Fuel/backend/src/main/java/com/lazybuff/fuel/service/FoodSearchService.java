@@ -8,6 +8,7 @@ import com.lazybuff.fuel.dto.PageResponse;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.mapper.FoodSearchMapper;
 import com.lazybuff.fuel.repository.FoodItemRepository;
+import com.lazybuff.fuel.service.OffClient.OffFood;
 import com.lazybuff.fuel.service.UsdaClient.UsdaPage;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -21,7 +22,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -33,10 +36,12 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Searches USDA foods, saving each result so it has an internal id, and puts the caller's matching
- * custom foods first on page 0.
+ * custom foods first on page 0. When USDA is exhausted on page 0 with few results, Open Food Facts
+ * products are appended; an OFF failure never fails the search.
  *
- * <p>The USDA part is cached in Redis (shared by all users); custom foods are per user and never
- * cached. Redis failures are logged and skipped: search keeps working, just uncached.
+ * <p>The USDA and OFF parts are cached in Redis (shared by all users, under separate keys, so an
+ * OFF outage cannot poison USDA entries); custom foods are per user and never cached. Redis
+ * failures are logged and skipped: search keeps working, just uncached.
  */
 @Service
 @RequiredArgsConstructor
@@ -45,6 +50,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class FoodSearchService {
 
     private static final String CACHE_KEY_PREFIX = "food:search:";
+    private static final String OFF_CACHE_KEY_PREFIX = "food:search:off:";
     private static final String RATE_LIMIT_KEY_PREFIX = "food-search:";
     private static final int MIN_QUERY_LENGTH = 2;
     private static final int MAX_QUERY_LENGTH = 100;
@@ -54,7 +60,12 @@ public class FoodSearchService {
     /** What is cached for one USDA result page. */
     record CachedPage(List<FoodSearchItem> items, long totalHits, int totalPages) {}
 
+    /** What is cached for one OFF search, already saved so every item has an internal id. */
+    record CachedOff(List<FoodSearchItem> items) {}
+
     private final UsdaClient usdaClient;
+
+    private final OffClient offClient;
 
     private final FoodItemRepository foodItemRepository;
 
@@ -93,14 +104,16 @@ public class FoodSearchService {
         }
         int customCount = content.size();
         content.addAll(usda.items());
+        List<FoodSearchItem> off = offItems(query, page, usda);
+        content.addAll(off);
 
-        int totalPages = Math.max(usda.totalPages(), customCount > 0 ? 1 : 0);
+        int totalPages = Math.max(usda.totalPages(), customCount + off.size() > 0 ? 1 : 0);
         PageResponse<FoodSearchItem> data =
                 PageResponse.<FoodSearchItem>builder()
                         .content(content)
                         .page(page)
                         .size(size)
-                        .totalElements(usda.totalHits() + customCount)
+                        .totalElements(usda.totalHits() + customCount + off.size())
                         .totalPages(totalPages)
                         .build();
         return ApiResponse.<PageResponse<FoodSearchItem>>builder()
@@ -114,7 +127,7 @@ public class FoodSearchService {
     private CachedPage usdaPage(UUID userId, String query, int page, int size) {
 
         String key = cacheKey(query, page, size);
-        CachedPage cached = readCache(key);
+        CachedPage cached = readCache(key, CachedPage.class);
         if (cached != null) {
             return cached;
         }
@@ -131,6 +144,71 @@ public class FoodSearchService {
         CachedPage result = new CachedPage(items, fetched.totalHits(), fetched.totalPages());
         writeCache(key, result);
         return result;
+    }
+
+    /**
+     * OFF products to append after USDA's. Only asked when USDA is exhausted on page 0 with few
+     * results, so paging stays consistent. Failures are not cached and fall back to USDA alone.
+     */
+    private List<FoodSearchItem> offItems(String query, int page, CachedPage usda) {
+        if (page != 0
+                || usda.items().size() >= config.getSearch().getOffFallbackThreshold()
+                || usda.totalPages() > 1) {
+            return List.of();
+        }
+        String key = offCacheKey(query);
+        CachedOff cached = readCache(key, CachedOff.class);
+        if (cached == null) {
+            List<OffFood> fetched;
+            try {
+                fetched = offClient.search(query);
+            } catch (FuelException exception) {
+                log.warn(
+                        "OFF search failed, serving USDA only: {} {}",
+                        exception.getClass().getSimpleName(),
+                        exception.getHttpStatus().value());
+                return List.of();
+            }
+            List<FoodSearchItem> saved = transactionTemplate.execute(status -> upsertOff(fetched));
+            cached = new CachedOff(saved);
+            writeCache(key, cached);
+        }
+        Set<String> usdaNames =
+                usda.items().stream()
+                        .map(item -> nameAndBrand(item.name(), item.brand()))
+                        .collect(Collectors.toSet());
+        return cached.items().stream()
+                .filter(item -> !usdaNames.contains(nameAndBrand(item.name(), item.brand())))
+                .toList();
+    }
+
+    /** Same stable-order upsert as {@link #upsertAll}; the result keeps OFF's order. */
+    private List<FoodSearchItem> upsertOff(List<OffFood> fetched) {
+        Map<String, FoodSearchItem> saved = new HashMap<>();
+        fetched.stream()
+                .sorted(Comparator.comparing(OffFood::code))
+                .forEach(food -> saved.put(food.code(), upsertOff(food)));
+        return fetched.stream().map(food -> saved.get(food.code())).toList();
+    }
+
+    private FoodSearchItem upsertOff(OffFood food) {
+        UUID id =
+                foodItemRepository.upsertOffFood(
+                        food.name(),
+                        food.brand(),
+                        food.sourceId(),
+                        SERVING_SIZE,
+                        SERVING_UNIT,
+                        food.calories(),
+                        food.protein(),
+                        food.carbs(),
+                        food.fat(),
+                        food.fiber());
+        return foodSearchMapper.fromOff(id, food);
+    }
+
+    private static String nameAndBrand(String name, String brand) {
+        return normalise(name) + "|" + normalise(brand == null ? "" : brand);
     }
 
     /**
@@ -171,17 +249,17 @@ public class FoodSearchService {
                 .toList();
     }
 
-    private CachedPage readCache(String key) {
+    private <T> T readCache(String key, Class<T> type) {
         try {
             String json = redisTemplate.opsForValue().get(key);
-            return json == null ? null : jsonMapper.readValue(json, CachedPage.class);
+            return json == null ? null : jsonMapper.readValue(json, type);
         } catch (RuntimeException exception) {
             log.warn("Food search cache read failed: {}", exception.getClass().getSimpleName());
             return null;
         }
     }
 
-    private void writeCache(String key, CachedPage page) {
+    private void writeCache(String key, Object page) {
         try {
             redisTemplate
                     .opsForValue()
@@ -196,14 +274,23 @@ public class FoodSearchService {
 
     /** Equivalent queries ("Chicken Breast", "chicken breast") share one entry. */
     static String cacheKey(String query, int page, int size) {
-        String normalised = query.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+        return CACHE_KEY_PREFIX + sha256(normalise(query) + "|" + page + "|" + size);
+    }
+
+    static String offCacheKey(String query) {
+        return OFF_CACHE_KEY_PREFIX + sha256(normalise(query));
+    }
+
+    private static String normalise(String text) {
+        return text.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+    }
+
+    private static String sha256(String text) {
         try {
             byte[] hash =
                     MessageDigest.getInstance("SHA-256")
-                            .digest(
-                                    (normalised + "|" + page + "|" + size)
-                                            .getBytes(StandardCharsets.UTF_8));
-            return CACHE_KEY_PREFIX + HexFormat.of().formatHex(hash);
+                            .digest(text.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);
         }

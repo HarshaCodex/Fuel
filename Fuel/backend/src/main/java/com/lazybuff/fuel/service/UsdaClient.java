@@ -207,7 +207,7 @@ public class UsdaClient {
         return value.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private static String truncate(String text, int maxCodePoints) {
+    static String truncate(String text, int maxCodePoints) {
         if (text.codePointCount(0, text.length()) <= maxCodePoints) {
             return text;
         }
