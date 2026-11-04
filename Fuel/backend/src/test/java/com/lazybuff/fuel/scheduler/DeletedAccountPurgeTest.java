@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.lazybuff.fuel.config.AccountDeletionConfig;
 import com.lazybuff.fuel.repository.FoodItemRepository;
+import com.lazybuff.fuel.repository.TrackingEntryRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,6 +26,7 @@ class DeletedAccountPurgeTest {
 
     @Mock private UserRepository userRepository;
     @Mock private FoodItemRepository foodItemRepository;
+    @Mock private TrackingEntryRepository trackingEntryRepository;
 
     private DeletedAccountPurge purge;
 
@@ -32,7 +34,10 @@ class DeletedAccountPurgeTest {
     void setUp() {
         purge =
                 new DeletedAccountPurge(
-                        userRepository, foodItemRepository, new AccountDeletionConfig());
+                        userRepository,
+                        foodItemRepository,
+                        trackingEntryRepository,
+                        new AccountDeletionConfig());
     }
 
     @Test
@@ -45,9 +50,12 @@ class DeletedAccountPurgeTest {
         purge.purgeDeletedAccounts();
 
         ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
-        InOrder order = inOrder(foodItemRepository, userRepository);
-        // Custom foods first: once the users are gone, the foods can no longer be traced to them.
-        order.verify(foodItemRepository).deleteCustomFoodsOfUsersDeletedBefore(cutoff.capture());
+        InOrder order = inOrder(trackingEntryRepository, foodItemRepository, userRepository);
+        // Entries before foods: the entries' foreign key would block the food delete.
+        order.verify(trackingEntryRepository).deleteEntriesOfUsersDeletedBefore(cutoff.capture());
+        // Custom foods before users: once the users are gone, the foods can no longer be traced to
+        // them.
+        order.verify(foodItemRepository).deleteCustomFoodsOfUsersDeletedBefore(cutoff.getValue());
         order.verify(userRepository).purgeDeletedBefore(cutoff.getValue());
         assertThat(cutoff.getValue())
                 .isBetween(

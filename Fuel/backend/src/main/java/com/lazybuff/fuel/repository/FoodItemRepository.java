@@ -41,6 +41,19 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
     @Query("UPDATE FoodItem f SET f.barcode = :barcode WHERE f.id = :id")
     int setBarcode(@Param("id") UUID id, @Param("barcode") String barcode);
 
+    /**
+     * A live food the caller may log: any shared food, or their own custom food. Another user's
+     * custom food is empty, the same as a missing one. LEFT JOIN because shared foods have no
+     * owner.
+     */
+    @Query(
+            """
+            SELECT f FROM FoodItem f LEFT JOIN f.user u
+            WHERE f.id = :id
+              AND (f.source <> com.lazybuff.fuel.util.FoodSource.USER OR u.id = :userId)
+            """)
+    Optional<FoodItem> findLoggableById(@Param("id") UUID id, @Param("userId") UUID userId);
+
     Optional<FoodItem> findByIdAndSourceAndUser_Id(UUID id, FoodSource source, UUID userId);
 
     /**
