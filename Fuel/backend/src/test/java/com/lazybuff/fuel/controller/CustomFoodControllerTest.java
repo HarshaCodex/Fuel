@@ -210,6 +210,20 @@ class CustomFoodControllerTest {
     }
 
     @Test
+    @DisplayName("accepts values with trailing zeros such as 200.00")
+    void shouldAcceptTrailingZeros() throws Exception {
+        when(customFoodService.create(eq(USER_ID), any(CustomFoodRequest.class)))
+                .thenReturn(created());
+        String body =
+                json(
+                        "\"Dal\"", "null", "200.00", "\"g\"", "180.00", "9.50", "24.00", "5.00",
+                        "4.00");
+
+        mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
     @DisplayName("returns 201 with the created food and passes the token's user id")
     void shouldReturnCreatedWithFoodAndTokenUser() throws Exception {
         when(customFoodService.create(eq(USER_ID), any(CustomFoodRequest.class)))

@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
-import lombok.AllArgsConstructor;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -19,7 +19,6 @@ import lombok.ToString;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 @ToString
 @Schema(description = "Custom food with nutrients for one serving")
 public class CustomFoodRequest {
@@ -37,6 +36,7 @@ public class CustomFoodRequest {
     @NotNull
     @Positive
     @Digits(integer = 6, fraction = 1)
+    @Setter(AccessLevel.NONE)
     private BigDecimal servingSize;
 
     @Schema(
@@ -53,24 +53,28 @@ public class CustomFoodRequest {
     @NotNull
     @PositiveOrZero
     @Digits(integer = 6, fraction = 1)
+    @Setter(AccessLevel.NONE)
     private BigDecimal calories;
 
     @Schema(description = "Protein in grams per serving", example = "9.0")
     @NotNull
     @PositiveOrZero
     @Digits(integer = 5, fraction = 2)
+    @Setter(AccessLevel.NONE)
     private BigDecimal protein;
 
     @Schema(description = "Carbohydrates in grams per serving", example = "24.0")
     @NotNull
     @PositiveOrZero
     @Digits(integer = 5, fraction = 2)
+    @Setter(AccessLevel.NONE)
     private BigDecimal carbs;
 
     @Schema(description = "Fat in grams per serving", example = "5.0")
     @NotNull
     @PositiveOrZero
     @Digits(integer = 5, fraction = 2)
+    @Setter(AccessLevel.NONE)
     private BigDecimal fat;
 
     @Schema(
@@ -79,5 +83,62 @@ public class CustomFoodRequest {
             nullable = true)
     @PositiveOrZero
     @Digits(integer = 5, fraction = 2)
+    @Setter(AccessLevel.NONE)
     private BigDecimal fiber;
+
+    public CustomFoodRequest(
+            String name,
+            String brand,
+            BigDecimal servingSize,
+            String servingUnit,
+            BigDecimal calories,
+            BigDecimal protein,
+            BigDecimal carbs,
+            BigDecimal fat,
+            BigDecimal fiber) {
+        this.name = name;
+        this.brand = brand;
+        this.servingUnit = servingUnit;
+        setServingSize(servingSize);
+        setCalories(calories);
+        setProtein(protein);
+        setCarbs(carbs);
+        setFat(fat);
+        setFiber(fiber);
+    }
+
+    public void setServingSize(BigDecimal servingSize) {
+        this.servingSize = normalize(servingSize);
+    }
+
+    public void setCalories(BigDecimal calories) {
+        this.calories = normalize(calories);
+    }
+
+    public void setProtein(BigDecimal protein) {
+        this.protein = normalize(protein);
+    }
+
+    public void setCarbs(BigDecimal carbs) {
+        this.carbs = normalize(carbs);
+    }
+
+    public void setFat(BigDecimal fat) {
+        this.fat = normalize(fat);
+    }
+
+    public void setFiber(BigDecimal fiber) {
+        this.fiber = normalize(fiber);
+    }
+
+    /**
+     * Drops trailing zeros so 200.00 passes {@code @Digits}; Jackson keeps the JSON text's scale.
+     */
+    private static BigDecimal normalize(BigDecimal value) {
+        if (value == null) {
+            return null;
+        }
+        BigDecimal stripped = value.stripTrailingZeros();
+        return stripped.scale() < 0 ? stripped.setScale(0) : stripped;
+    }
 }

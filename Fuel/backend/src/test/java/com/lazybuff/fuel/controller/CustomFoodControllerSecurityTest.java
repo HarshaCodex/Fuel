@@ -196,6 +196,21 @@ class CustomFoodControllerSecurityTest {
     }
 
     @ParameterizedTest
+    @CsvSource({"abc,20", "0,x"})
+    @DisplayName("returns 400 for non-numeric paging")
+    void shouldReturnBadRequestForNonNumericPaging(String page, String size) throws Exception {
+        givenValidToken();
+
+        mockMvc.perform(
+                        get(URL).param("page", page)
+                                .param("size", size)
+                                .header("Authorization", "Bearer good"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(customFoodService);
+    }
+
+    @ParameterizedTest
     @CsvSource({"0,1", "3,50"})
     @DisplayName("accepts the paging boundaries")
     void shouldAcceptPagingBoundaries(int page, int size) throws Exception {
