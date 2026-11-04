@@ -185,4 +185,64 @@ class TrackingEntryRepositoryTest {
         assertThat(countEntries(recentlyDeleted)).isEqualTo(1);
         assertThat(countEntries(active)).isEqualTo(1);
     }
+
+    private UUID insertEntryAt(UUID userId, UUID foodId, String loggedAt, String logDate) {
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO tracking_entries (id, user_id, food_id, food_name, food_source,"
+                        + " serving_size, serving_unit, quantity, logged_at, log_date,"
+                        + " calories, protein, carbs, fat)"
+                        + " VALUES (?, ?, ?, 'Rice', 'USDA', 100, 'g', 1, ?::timestamptz,"
+                        + " ?::date, 130, 2.7, 28, 0.3)",
+                id,
+                userId,
+                foodId,
+                loggedAt,
+                logDate);
+        return id;
+    }
+
+    @Test
+    @DisplayName("findByIdAndUserId returns empty for another user's entry")
+    void shouldNotFindEntryOfAnotherUser() {
+        UUID owner = insertUser(null);
+        UUID other = insertUser(null);
+        UUID entry = insertEntryAt(owner, insertFood(), "2026-06-09T08:00:00Z", "2026-06-09");
+
+        assertThat(trackingEntryRepository.findByIdAndUserId(entry, owner)).isPresent();
+        assertThat(trackingEntryRepository.findByIdAndUserId(entry, other)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("list returns only the user's rows of the date, oldest first")
+    void shouldListOwnRowsOfDateInOrder() {
+        UUID food = insertFood();
+        UUID owner = insertUser(null);
+        UUID other = insertUser(null);
+        UUID late = insertEntryAt(owner, food, "2026-06-09T18:00:00Z", "2026-06-09");
+        UUID early = insertEntryAt(owner, food, "2026-06-09T07:00:00Z", "2026-06-09");
+        insertEntryAt(owner, food, "2026-06-10T07:00:00Z", "2026-06-10");
+        insertEntryAt(other, food, "2026-06-09T09:00:00Z", "2026-06-09");
+
+        var entries =
+                trackingEntryRepository.findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(
+                        owner, LocalDate.of(2026, 6, 9));
+
+        assertThat(entries).extracting(TrackingEntry::getId).containsExactly(early, late);
+    }
+
+    @Test
+    @DisplayName("soft-deleted rows are excluded from both queries")
+    void shouldExcludeSoftDeletedRows() {
+        UUID owner = insertUser(null);
+        UUID entry = insertEntryAt(owner, insertFood(), "2026-06-09T08:00:00Z", "2026-06-09");
+        jdbc.update("UPDATE tracking_entries SET deleted_at = NOW() WHERE id = ?", entry);
+
+        assertThat(trackingEntryRepository.findByIdAndUserId(entry, owner)).isEmpty();
+        assertThat(
+                        trackingEntryRepository
+                                .findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(
+                                        owner, LocalDate.of(2026, 6, 9)))
+                .isEmpty();
+    }
 }

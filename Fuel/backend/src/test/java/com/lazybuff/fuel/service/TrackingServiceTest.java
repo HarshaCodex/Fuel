@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -24,7 +25,9 @@ import com.lazybuff.fuel.util.ServingUnit;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -320,5 +323,128 @@ class TrackingServiceTest {
                             assertThat(e.getMessage()).isEqualTo("User not found");
                         });
         verifyNoInteractions(foodItemRepository, trackingEntryRepository);
+    }
+
+    private static final UUID ENTRY_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+    private TrackingEntry entryOf(UUID owner, String loggedAt, LocalDate logDate) {
+        return TrackingEntry.builder()
+                .id(ENTRY_ID)
+                .user(User.builder().id(owner).build())
+                .foodId(FOOD_ID)
+                .foodName("Chicken breast")
+                .foodSource(FoodSource.USDA)
+                .servingSize(bd("100"))
+                .servingUnit(ServingUnit.G)
+                .quantity(bd("1"))
+                .loggedAt(OffsetDateTime.parse(loggedAt))
+                .logDate(logDate)
+                .calories(bd("165"))
+                .protein(bd("31"))
+                .carbs(bd("0"))
+                .fat(bd("3.6"))
+                .fiber(bd("0"))
+                .build();
+    }
+
+    private void assertNotFound(org.junit.jupiter.api.function.Executable call, String message) {
+        assertThatThrownBy(call::execute)
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> {
+                            assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+                            assertThat(e.getMessage()).isEqualTo(message);
+                        });
+    }
+
+    @Test
+    @DisplayName("lists the entries of the given date")
+    void shouldListEntriesOfGivenDate() {
+        LocalDate day = LocalDate.of(2026, 6, 9);
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.of(user));
+        when(trackingEntryRepository.findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(
+                        USER_ID, day))
+                .thenReturn(List.of(entryOf(USER_ID, "2026-06-09T08:00:00Z", day)));
+
+        ApiResponse<List<TrackingEntryResponse>> result = service.listByDate(USER_ID, day);
+
+        assertThat(result.getStatus()).isEqualTo(200);
+        assertThat(result.getMessage()).isEqualTo("Success");
+        assertThat(result.getData()).hasSize(1);
+        assertThat(result.getData().get(0).getId()).isEqualTo(ENTRY_ID);
+    }
+
+    @Test
+    @DisplayName("lists today in the user's timezone when no date is given")
+    void shouldListTodayInUserTimezoneWhenDateMissing() {
+        user.setTimezone("Asia/Kolkata");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.of(user));
+        when(trackingEntryRepository.findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(
+                        USER_ID, today))
+                .thenReturn(List.of());
+
+        service.listByDate(USER_ID, null);
+
+        verify(trackingEntryRepository)
+                .findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(USER_ID, today);
+    }
+
+    @Test
+    @DisplayName("returns an empty list when the day has no entries")
+    void shouldReturnEmptyListWhenNoEntries() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.of(user));
+        when(trackingEntryRepository.findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(
+                        any(), any()))
+                .thenReturn(List.of());
+
+        ApiResponse<List<TrackingEntryResponse>> result =
+                service.listByDate(USER_ID, LocalDate.of(2026, 6, 9));
+
+        assertThat(result.getData()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("list returns 404 when the caller is deleted")
+    void shouldReturn404OnListWhenUserDeleted() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.empty());
+
+        assertNotFound(() -> service.listByDate(USER_ID, null), "User not found");
+        verifyNoInteractions(trackingEntryRepository);
+    }
+
+    @Test
+    @DisplayName("delete soft-deletes the entry")
+    void shouldSoftDeleteEntry() {
+        TrackingEntry entry = entryOf(USER_ID, "2026-06-09T08:00:00Z", LocalDate.of(2026, 6, 9));
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.of(user));
+        when(trackingEntryRepository.findByIdAndUserId(ENTRY_ID, USER_ID))
+                .thenReturn(Optional.of(entry));
+
+        ApiResponse<Void> result = service.delete(USER_ID, ENTRY_ID);
+
+        assertThat(result.getStatus()).isEqualTo(204);
+        assertThat(result.getMessage()).isEqualTo("Entry deleted");
+        assertThat(savedEntry().getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("delete returns 404 for another user's or an unknown entry")
+    void shouldReturn404WhenEntryBelongsToAnotherUserOrUnknown() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.of(user));
+        when(trackingEntryRepository.findByIdAndUserId(ENTRY_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        assertNotFound(() -> service.delete(USER_ID, ENTRY_ID), "Entry not found");
+        verify(trackingEntryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("delete returns 404 when the caller is deleted")
+    void shouldReturn404OnDeleteWhenUserDeleted() {
+        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.empty());
+
+        assertNotFound(() -> service.delete(USER_ID, ENTRY_ID), "User not found");
+        verifyNoInteractions(trackingEntryRepository);
     }
 }

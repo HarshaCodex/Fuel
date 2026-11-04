@@ -1,6 +1,8 @@
 package com.lazybuff.fuel.controller;
 
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -57,6 +59,23 @@ class TrackingControllerSecurityTest {
                                 .content(BODY))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
+
+        verifyNoInteractions(trackingService);
+    }
+
+    @Test
+    @DisplayName("GET returns 401 without an access token")
+    void shouldReturnUnauthorizedOnListWithoutToken() throws Exception {
+        mockMvc.perform(get("/api/tracking/entries")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(trackingService);
+    }
+
+    @Test
+    @DisplayName("DELETE returns 401 without an access token")
+    void shouldReturnUnauthorizedOnDeleteWithoutToken() throws Exception {
+        mockMvc.perform(delete("/api/tracking/entries/22222222-2222-2222-2222-222222222222"))
+                .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(trackingService);
     }

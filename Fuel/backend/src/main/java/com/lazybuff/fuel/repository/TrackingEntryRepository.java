@@ -2,6 +2,9 @@ package com.lazybuff.fuel.repository;
 
 import com.lazybuff.fuel.entity.TrackingEntry;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -11,6 +14,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TrackingEntryRepository extends JpaRepository<TrackingEntry, UUID> {
+
+    /** Ownership is part of the query so another user's id looks the same as an unknown one. */
+    Optional<TrackingEntry> findByIdAndUserId(UUID id, UUID userId);
+
+    List<TrackingEntry> findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(
+            UUID userId, LocalDate logDate);
 
     /**
      * Deletes the tracking entries of accounts soft-deleted before {@code cutoff}. Run before
