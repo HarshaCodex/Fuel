@@ -50,6 +50,8 @@ APPLE_CLIENT_IDS=<ios-bundle-id>,<services-id>
 APPLE_TEAM_ID=<team-id>
 APPLE_KEY_ID=<key-id>
 APPLE_PRIVATE_KEY=<contents of the .p8 file>
+# Needed for GET /api/food/search (free key from https://api.data.gov/signup/)
+USDA_API_KEY=<usda-api-key>
 ```
 
 Notes:
@@ -80,6 +82,12 @@ Notes:
   Certificates, Identifiers & Profiles. If it is unset, every Apple sign-in returns 401.
   See [OAUTH_SETUP.md](OAUTH_SETUP.md) for which value each platform needs (including Expo Go) and
   how to debug a 401.
+- `USDA_API_KEY` is a free key from [api.data.gov](https://api.data.gov/signup/) for USDA FoodData
+  Central. `GET /api/food/search` calls USDA with it (sent as the `X-Api-Key` header) and caches
+  each result page in Redis for 24 hours. If it is unset, the endpoint returns 503; the rest of
+  the app is unaffected. Searches that miss the cache are limited per user
+  (`app.food.search.rate-limit` per `rate-limit-window`, default 30 per minute); beyond that the
+  endpoint returns 429.
 
 ---
 

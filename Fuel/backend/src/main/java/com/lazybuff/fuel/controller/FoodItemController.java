@@ -4,8 +4,10 @@ import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.dto.CustomFoodResponse;
 import com.lazybuff.fuel.dto.FoodItemDetail;
+import com.lazybuff.fuel.dto.FoodSearchItem;
 import com.lazybuff.fuel.dto.PageResponse;
 import com.lazybuff.fuel.service.CustomFoodService;
+import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -13,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -40,6 +43,39 @@ public class FoodItemController {
     private final FoodService foodService;
 
     private final CustomFoodService customFoodService;
+
+    private final FoodSearchService foodSearchService;
+
+    @Operation(summary = "Search USDA foods and the caller's own custom foods by name")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Page of matching foods; custom foods come first on page 0"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Invalid query, page or size"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many uncached searches from this user; see Retry-After"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "502",
+                description = "USDA rejected the request or answered unusably"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "503",
+                description = "USDA is unreachable, rate limiting or failing")
+    })
+    @GetMapping(path = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<PageResponse<FoodSearchItem>>> searchFoods(
+            @AuthenticationPrincipal String userId,
+            @RequestParam @Size(min = 2, max = 100) String q,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(1000) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
+
+        return ResponseEntity.ok(foodSearchService.search(UUID.fromString(userId), q, page, size));
+    }
 
     @Operation(summary = "Get a food item with its serving sizes")
     @ApiResponses({

@@ -20,6 +20,7 @@ import com.lazybuff.fuel.dto.CustomFoodResponse;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.service.CustomFoodService;
+import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -58,13 +59,16 @@ class CustomFoodControllerTest {
 
     @Mock private CustomFoodService customFoodService;
 
+    @Mock private FoodSearchService foodSearchService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc =
                 MockMvcBuilders.standaloneSetup(
-                                new FoodItemController(foodService, customFoodService))
+                                new FoodItemController(
+                                        foodService, customFoodService, foodSearchService))
                         .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .build();

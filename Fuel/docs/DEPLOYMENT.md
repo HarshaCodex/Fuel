@@ -94,6 +94,7 @@ Create a Java project and copy its DSN into `SENTRY_DSN`. Without it, nothing is
 | `GOOGLE_CLIENT_IDS` | you | Comma-separated iOS/Android/web client IDs; see [OAUTH_SETUP.md](OAUTH_SETUP.md) |
 | `APPLE_CLIENT_IDS` | you | iOS bundle ID / Services ID |
 | `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` | you, later | Needed before App Store submission (token revocation on account deletion); add in the dashboard |
+| `USDA_API_KEY` | you | Free key from [api.data.gov](https://api.data.gov/signup/); without it `GET /api/food/search` returns 503. Add it in the Render dashboard |
 | `SENTRY_DSN` | you | Optional |
 | `JAVA_OPTS` | optional | Overrides the Dockerfile default `-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError` |
 

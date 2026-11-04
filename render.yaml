@@ -74,6 +74,8 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+      - key: USDA_API_KEY
+        sync: false
 
   - type: web
     name: fuel-api
@@ -118,4 +120,6 @@ services:
       - key: APPLE_CLIENT_IDS
         sync: false
       - key: SENTRY_DSN
+        sync: false
+      - key: USDA_API_KEY
         sync: false
