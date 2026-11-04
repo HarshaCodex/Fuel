@@ -198,4 +198,39 @@ class FoodItemRepositoryCustomFoodTest {
         assertThat(list(a, 0, 20).getTotalElements()).isZero();
         assertThat(foodItemRepository.findWithServingSizesById(id)).isEmpty();
     }
+
+    @Test
+    @DisplayName("findLoggableById returns a shared food that has no owner")
+    void shouldLogSharedFood() {
+        UUID shared = insertFood("shared", "USDA", null, "2026-01-01T00:00:00Z", null);
+
+        assertThat(foodItemRepository.findLoggableById(shared, insertUser())).isPresent();
+    }
+
+    @Test
+    @DisplayName("findLoggableById returns the caller's own custom food")
+    void shouldLogOwnCustomFood() {
+        UUID owner = insertUser();
+        UUID food = insertFood("mine", "USER", owner, "2026-01-01T00:00:00Z", null);
+
+        assertThat(foodItemRepository.findLoggableById(food, owner)).isPresent();
+    }
+
+    @Test
+    @DisplayName("findLoggableById is empty for another user's custom food")
+    void shouldNotLogAnotherUsersCustomFood() {
+        UUID food = insertFood("theirs", "USER", insertUser(), "2026-01-01T00:00:00Z", null);
+
+        assertThat(foodItemRepository.findLoggableById(food, insertUser())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findLoggableById is empty for a soft-deleted food")
+    void shouldNotLogSoftDeletedFood() {
+        UUID owner = insertUser();
+        UUID food =
+                insertFood("gone", "USER", owner, "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z");
+
+        assertThat(foodItemRepository.findLoggableById(food, owner)).isEmpty();
+    }
 }
