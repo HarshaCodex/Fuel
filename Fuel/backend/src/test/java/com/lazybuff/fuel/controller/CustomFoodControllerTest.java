@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -17,6 +18,7 @@ import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodService;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -207,6 +209,22 @@ class CustomFoodControllerTest {
 
         mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("returns 400 quickly for a huge exponent instead of expanding it")
+    void shouldRejectHugeExponentWithoutExpandingIt() throws Exception {
+        String body = json("\"Dal\"", "null", "200", "\"g\"", "1e999999999", "9", "24", "5", "4");
+
+        assertTimeoutPreemptively(
+                Duration.ofSeconds(2),
+                () ->
+                        mockMvc.perform(
+                                        post(URL)
+                                                .contentType(MediaType.APPLICATION_JSON)
+                                                .content(body))
+                                .andExpect(status().isBadRequest()));
+        verifyNoInteractions(customFoodService);
     }
 
     @Test

@@ -23,6 +23,8 @@ import lombok.ToString;
 @Schema(description = "Custom food with nutrients for one serving")
 public class CustomFoodRequest {
 
+    private static final int MAX_EXPANDED_EXPONENT = 6;
+
     @Schema(description = "Food name", example = "Mom's Dal Tadka")
     @NotBlank
     @Size(max = 200)
@@ -139,6 +141,9 @@ public class CustomFoodRequest {
             return null;
         }
         BigDecimal stripped = value.stripTrailingZeros();
-        return stripped.scale() < 0 ? stripped.setScale(0) : stripped;
+        // Expanding a huge exponent (1e999999999) would exhaust memory; @Digits rejects it cheaply.
+        return stripped.scale() < 0 && stripped.scale() >= -MAX_EXPANDED_EXPONENT
+                ? stripped.setScale(0)
+                : stripped;
     }
 }
