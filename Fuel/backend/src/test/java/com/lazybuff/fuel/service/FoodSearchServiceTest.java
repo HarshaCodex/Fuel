@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -692,14 +693,30 @@ class FoodSearchServiceTest {
     }
 
     @Test
-    @DisplayName("does not take another rate-limit token for the OFF call")
-    void shouldNotRateLimitOffSeparately() {
+    @DisplayName("takes a rate-limit token for each uncached OFF call")
+    void shouldRateLimitOffCalls() {
         givenUsdaReturns(1, 1);
         when(offClient.search(anyString())).thenReturn(List.of());
 
         service.search(USER_ID, "granola", 0, 20);
 
-        verify(rateLimiterService, org.mockito.Mockito.times(1))
+        verify(rateLimiterService, org.mockito.Mockito.times(2))
+                .enforce(eq("food-search:" + USER_ID), eq(30), eq(Duration.ofMinutes(1)), any());
+    }
+
+    @Test
+    @DisplayName("returns USDA results without calling OFF when the OFF token is refused")
+    void shouldReturnUsdaWhenOffIsRateLimited() {
+        givenUsdaReturns(1, 1);
+        doNothing()
+                .doThrow(
+                        new RateLimitExceededException("Too many searches", Duration.ofSeconds(30)))
+                .when(rateLimiterService)
                 .enforce(any(), anyInt(), any(), any());
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        assertThat(data.getContent()).extracting(FoodSearchItem::source).containsExactly("USDA");
+        verifyNoInteractions(offClient);
     }
 }

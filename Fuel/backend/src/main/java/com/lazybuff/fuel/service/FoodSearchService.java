@@ -104,7 +104,7 @@ public class FoodSearchService {
         }
         int customCount = content.size();
         content.addAll(usda.items());
-        List<FoodSearchItem> off = offItems(query, page, usda);
+        List<FoodSearchItem> off = offItems(userId, query, page, usda);
         content.addAll(off);
 
         int totalPages = Math.max(usda.totalPages(), customCount + off.size() > 0 ? 1 : 0);
@@ -133,11 +133,7 @@ public class FoodSearchService {
         }
 
         // Only a miss costs a USDA call, so only a miss counts against the user's limit.
-        rateLimiterService.enforce(
-                RATE_LIMIT_KEY_PREFIX + userId,
-                config.getSearch().getRateLimit(),
-                config.getSearch().getRateLimitWindow(),
-                "Too many searches. Please try again later.");
+        enforceRateLimit(userId);
 
         UsdaPage fetched = usdaClient.search(query, page, size);
         List<FoodSearchItem> items = transactionTemplate.execute(status -> upsertAll(fetched));
@@ -150,7 +146,7 @@ public class FoodSearchService {
      * OFF products to append after USDA's. Only asked when USDA is exhausted on page 0 with few
      * results, so paging stays consistent. Failures are not cached and fall back to USDA alone.
      */
-    private List<FoodSearchItem> offItems(String query, int page, CachedPage usda) {
+    private List<FoodSearchItem> offItems(UUID userId, String query, int page, CachedPage usda) {
         if (page != 0
                 || usda.items().size() >= config.getSearch().getOffFallbackThreshold()
                 || usda.totalPages() > 1) {
@@ -161,6 +157,9 @@ public class FoodSearchService {
         if (cached == null) {
             List<OffFood> fetched;
             try {
+                // Failures are not cached, so every outbound OFF call spends a token; a limited
+                // user still gets the USDA results.
+                enforceRateLimit(userId);
                 fetched = offClient.search(query);
             } catch (FuelException exception) {
                 log.warn(
@@ -209,6 +208,14 @@ public class FoodSearchService {
 
     private static String nameAndBrand(String name, String brand) {
         return normalise(name) + "|" + normalise(brand == null ? "" : brand);
+    }
+
+    private void enforceRateLimit(UUID userId) {
+        rateLimiterService.enforce(
+                RATE_LIMIT_KEY_PREFIX + userId,
+                config.getSearch().getRateLimit(),
+                config.getSearch().getRateLimitWindow(),
+                "Too many searches. Please try again later.");
     }
 
     /**
