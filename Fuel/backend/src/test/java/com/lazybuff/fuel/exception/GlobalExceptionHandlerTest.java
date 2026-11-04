@@ -1,15 +1,18 @@
 package com.lazybuff.fuel.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.lazybuff.fuel.dto.ErrorResponse;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @DisplayName("GlobalExceptionHandler")
@@ -28,6 +31,19 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody().getStatus()).isEqualTo(404);
         assertThat(response.getBody().getMessage()).isEqualTo("Resource not found");
+    }
+
+    @Test
+    @DisplayName("returns 400 with a generic message for an unreadable request body")
+    void shouldReturnBadRequestForUnreadableBody() {
+        ResponseEntity<ErrorResponse> response =
+                handler.handleUnreadableBody(
+                        new HttpMessageNotReadableException(
+                                "Cannot deserialize secret detail", mock(HttpInputMessage.class)));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().getStatus()).isEqualTo(400);
+        assertThat(response.getBody().getMessage()).isEqualTo("Malformed request body");
     }
 
     @Test
