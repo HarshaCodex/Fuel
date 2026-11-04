@@ -2,6 +2,7 @@ package com.lazybuff.fuel.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.queryParam;
@@ -255,9 +256,51 @@ class OffClientTest {
                                 "\"8\"",
                                 "Max macro",
                                 "",
-                                "\"energy-kcal_100g\":1,\"fat_100g\":100")));
+                                "\"energy-kcal_100g\":1,\"fat_100g\":100"),
+                        product(
+                                "\"9\"",
+                                "Huge number",
+                                "",
+                                "\"energy-kcal_100g\":1,\"proteins_100g\":1e300"),
+                        product(
+                                "\"10\"",
+                                "Huge string",
+                                "",
+                                "\"energy-kcal_100g\":1,\"proteins_100g\":\"1e999999999\""),
+                        product(
+                                "\"11\"",
+                                "Huge kcal",
+                                "",
+                                "\"energy-kcal_100g\":\"1e999999999\"")));
 
-        assertThat(search()).extracting(OffFood::name).containsExactly("Max kcal", "Max macro");
+        assertTimeout(
+                Duration.ofSeconds(2),
+                () ->
+                        assertThat(search())
+                                .extracting(OffFood::name)
+                                .containsExactly("Max kcal", "Max macro"));
+    }
+
+    @Test
+    @DisplayName("fails fast with 502 when the JSON number is too large for the parser")
+    void shouldFailFastOnAbsurdExponent() {
+        respondWith(
+                products(
+                        product(
+                                "\"1\"",
+                                "Absurd",
+                                "",
+                                "\"energy-kcal_100g\":1,\"proteins_100g\":1e999999999")));
+
+        assertTimeout(
+                Duration.ofSeconds(2),
+                () ->
+                        assertThatThrownBy(this::search)
+                                .isInstanceOfSatisfying(
+                                        FuelException.class,
+                                        e ->
+                                                assertThat(e.getHttpStatus())
+                                                        .isEqualTo(HttpStatus.BAD_GATEWAY)));
     }
 
     @Test

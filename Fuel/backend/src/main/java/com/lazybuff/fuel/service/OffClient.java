@@ -154,10 +154,11 @@ public class OffClient {
         if (calories == null || calories.signum() < 0 || calories.compareTo(MAX_CALORIES) > 0) {
             return Optional.empty();
         }
-        BigDecimal protein = macro(nutriments.path("proteins_100g"));
-        BigDecimal carbs = macro(nutriments.path("carbohydrates_100g"));
-        BigDecimal fat = macro(nutriments.path("fat_100g"));
-        BigDecimal fiber = macro(nutriments.path("fiber_100g"));
+        // Range-check before scaling: setScale on a huge exponent (1e999999999) would stall or OOM.
+        BigDecimal protein = rawMacro(nutriments.path("proteins_100g"));
+        BigDecimal carbs = rawMacro(nutriments.path("carbohydrates_100g"));
+        BigDecimal fat = rawMacro(nutriments.path("fat_100g"));
+        BigDecimal fiber = rawMacro(nutriments.path("fiber_100g"));
         if (isOverLimit(protein) || isOverLimit(carbs) || isOverLimit(fat) || isOverLimit(fiber)) {
             return Optional.empty();
         }
@@ -168,10 +169,10 @@ public class OffClient {
                         UsdaClient.truncate(name, MAX_NAME),
                         brand(node.path("brands").asString("")),
                         calories.setScale(1, RoundingMode.HALF_UP),
-                        protein,
-                        carbs,
-                        fat,
-                        fiber));
+                        scale(protein),
+                        scale(carbs),
+                        scale(fat),
+                        scale(fiber)));
     }
 
     /** {@code brands} is comma separated; the first non-blank entry is the brand. */
@@ -204,13 +205,15 @@ public class OffClient {
         return null;
     }
 
-    /** Missing or negative nutrients count as zero. */
-    private static BigDecimal macro(JsonNode value) {
+    /** Missing or negative nutrients count as zero. Not scaled yet: see {@link #scale}. */
+    private static BigDecimal rawMacro(JsonNode value) {
         BigDecimal number = number(value);
-        if (number == null || number.signum() < 0) {
-            return BigDecimal.ZERO.setScale(2);
-        }
-        return number.setScale(2, RoundingMode.HALF_UP);
+        return number == null || number.signum() < 0 ? BigDecimal.ZERO : number;
+    }
+
+    /** Only for values already known to be within range. */
+    private static BigDecimal scale(BigDecimal macro) {
+        return macro.setScale(2, RoundingMode.HALF_UP);
     }
 
     private static FuelException unavailable(HttpStatus status) {
