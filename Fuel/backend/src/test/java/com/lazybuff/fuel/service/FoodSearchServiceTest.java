@@ -22,6 +22,7 @@ import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.RateLimitExceededException;
 import com.lazybuff.fuel.mapper.FoodSearchMapper;
 import com.lazybuff.fuel.repository.FoodItemRepository;
+import com.lazybuff.fuel.service.OffClient.OffFood;
 import com.lazybuff.fuel.service.UsdaClient.UsdaFood;
 import com.lazybuff.fuel.service.UsdaClient.UsdaPage;
 import com.lazybuff.fuel.util.FoodSource;
@@ -54,6 +55,7 @@ class FoodSearchServiceTest {
     private static final UUID USDA_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
     @Mock private UsdaClient usdaClient;
+    @Mock private OffClient offClient;
     @Mock private FoodItemRepository foodItemRepository;
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
@@ -71,9 +73,11 @@ class FoodSearchServiceTest {
         config.getSearch().setMaxCustomResults(10);
         config.getSearch().setRateLimit(30);
         config.getSearch().setRateLimitWindow(Duration.ofMinutes(1));
+        config.getSearch().setOffFallbackThreshold(5);
         service =
                 new FoodSearchService(
                         usdaClient,
+                        offClient,
                         foodItemRepository,
                         Mappers.getMapper(FoodSearchMapper.class),
                         redisTemplate,
@@ -365,5 +369,337 @@ class FoodSearchServiceTest {
                 BigDecimal.ONE,
                 BigDecimal.ONE,
                 BigDecimal.ONE);
+    }
+
+    // ---- Open Food Facts fallback ----
+
+    private static final UUID OFF_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
+
+    private static OffFood offFood(String code, String name, String brand) {
+        return new OffFood(
+                code,
+                code,
+                name,
+                brand,
+                new BigDecimal("250.0"),
+                new BigDecimal("5.00"),
+                new BigDecimal("30.00"),
+                new BigDecimal("10.00"),
+                new BigDecimal("2.00"));
+    }
+
+    private void givenUsdaReturns(int count, int totalPages) {
+        List<UsdaFood> foods = new java.util.ArrayList<>();
+        for (int i = 1; i <= count; i++) {
+            foods.add(usdaFood(i, "Usda food " + i));
+        }
+        when(usdaClient.search(anyString(), anyInt(), anyInt()))
+                .thenReturn(new UsdaPage(foods, count, totalPages));
+        org.mockito.Mockito.lenient()
+                .when(
+                        foodItemRepository.upsertUsdaFood(
+                                any(), any(), any(), any(), any(), any(), any(), any(), any(),
+                                any()))
+                .thenReturn(USDA_ID);
+    }
+
+    private void givenOffUpsertReturnsId() {
+        when(foodItemRepository.upsertOffFood(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(OFF_ID);
+    }
+
+    private static FoodSearchItem offItem(String name, String brand) {
+        return new FoodSearchItem(
+                OFF_ID,
+                name,
+                brand,
+                "OFF",
+                "123",
+                BigDecimal.valueOf(100),
+                "g",
+                BigDecimal.ONE,
+                BigDecimal.ONE,
+                BigDecimal.ONE,
+                BigDecimal.ONE,
+                BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("appends OFF products after USDA's when USDA has fewer than 5 results")
+    void shouldAppendOffAfterUsdaWhenFewUsdaResults() {
+        givenUsdaReturns(4, 1);
+        givenOffUpsertReturnsId();
+        when(offClient.search("granola"))
+                .thenReturn(List.of(offFood("111", "Granola bar", "Acme")));
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        assertThat(data.getContent()).hasSize(5);
+        assertThat(data.getContent())
+                .extracting(FoodSearchItem::source)
+                .containsExactly("USDA", "USDA", "USDA", "USDA", "OFF");
+        FoodSearchItem off = data.getContent().getLast();
+        assertThat(off.id()).isEqualTo(OFF_ID);
+        assertThat(off.name()).isEqualTo("Granola bar");
+        assertThat(off.sourceId()).isEqualTo("111");
+        assertThat(off.servingSize()).isEqualByComparingTo("100");
+        assertThat(off.servingUnit()).isEqualTo("g");
+    }
+
+    @Test
+    @DisplayName("does not call OFF when USDA returns 5 or more results")
+    void shouldNotCallOffWhenUsdaHasEnoughResults() {
+        givenUsdaReturns(5, 1);
+
+        service.search(USER_ID, "granola", 0, 20);
+
+        verifyNoInteractions(offClient);
+    }
+
+    @Test
+    @DisplayName("does not call OFF after page 0")
+    void shouldNotCallOffOnLaterPages() {
+        givenUsdaReturns(2, 1);
+
+        service.search(USER_ID, "granola", 1, 20);
+
+        verifyNoInteractions(offClient);
+    }
+
+    @Test
+    @DisplayName("does not call OFF when USDA has more pages even if this page is small")
+    void shouldNotCallOffWhenUsdaHasMorePages() {
+        givenUsdaReturns(3, 2);
+
+        service.search(USER_ID, "granola", 0, 3);
+
+        verifyNoInteractions(offClient);
+    }
+
+    @Test
+    @DisplayName("returns USDA results with nothing cached for OFF when OFF fails")
+    void shouldServeUsdaOnlyWhenOffFails() {
+        givenUsdaReturns(2, 1);
+        when(offClient.search(anyString()))
+                .thenThrow(new FuelException(org.springframework.http.HttpStatus.BAD_GATEWAY, "x"));
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        assertThat(data.getContent())
+                .hasSize(2)
+                .extracting(FoodSearchItem::source)
+                .containsOnly("USDA");
+        assertThat(data.getTotalElements()).isEqualTo(2);
+        verify(valueOperations, never())
+                .set(
+                        eq(FoodSearchService.offCacheKey("granola")),
+                        anyString(),
+                        any(Duration.class));
+        verify(foodItemRepository, never())
+                .upsertOffFood(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("does not swallow non-Fuel errors from OFF")
+    void shouldPropagateUnexpectedOffErrors() {
+        givenUsdaReturns(2, 1);
+        when(offClient.search(anyString())).thenThrow(new IllegalStateException("bug"));
+
+        assertThatThrownBy(() -> service.search(USER_ID, "granola", 0, 20))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("serves OFF from its cache without calling OFF or saving")
+    void shouldServeOffCacheHit() {
+        givenUsdaReturns(2, 1);
+        String json =
+                jsonMapper.writeValueAsString(
+                        new FoodSearchService.CachedOff(List.of(offItem("Cached bar", null))));
+        when(valueOperations.get(FoodSearchService.offCacheKey("granola"))).thenReturn(json);
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        assertThat(data.getContent()).extracting(FoodSearchItem::name).contains("Cached bar");
+        verifyNoInteractions(offClient);
+        verify(foodItemRepository, never())
+                .upsertOffFood(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("caches saved OFF products for the configured TTL under the OFF key")
+    void shouldCacheOffOnMiss() {
+        givenUsdaReturns(2, 1);
+        givenOffUpsertReturnsId();
+        when(offClient.search("Granola")).thenReturn(List.of(offFood("111", "Granola bar", null)));
+
+        service.search(USER_ID, "Granola", 0, 20);
+
+        ArgumentCaptor<String> json = ArgumentCaptor.forClass(String.class);
+        verify(valueOperations)
+                .set(
+                        eq(FoodSearchService.offCacheKey("granola")),
+                        json.capture(),
+                        eq(Duration.ofHours(24)));
+        assertThat(json.getValue()).contains(OFF_ID.toString());
+    }
+
+    @Test
+    @DisplayName(
+            "shares the OFF cache key across case and whitespace and keeps it apart from USDA's")
+    void shouldNormaliseOffCacheKey() {
+        assertThat(FoodSearchService.offCacheKey("Granola  Bar"))
+                .isEqualTo(FoodSearchService.offCacheKey(" granola bar"))
+                .startsWith("food:search:off:")
+                .isNotEqualTo(FoodSearchService.offCacheKey("granola"));
+        assertThat(FoodSearchService.offCacheKey("granola"))
+                .isNotEqualTo(FoodSearchService.cacheKey("granola", 0, 20));
+    }
+
+    @Test
+    @DisplayName("keeps the USDA cache key format unchanged")
+    void shouldKeepUsdaCacheKeyUnchanged() throws Exception {
+        String hash =
+                java.util.HexFormat.of()
+                        .formatHex(
+                                java.security.MessageDigest.getInstance("SHA-256")
+                                        .digest(
+                                                "chicken breast|0|20"
+                                                        .getBytes(
+                                                                java.nio.charset.StandardCharsets
+                                                                        .UTF_8)));
+
+        assertThat(FoodSearchService.cacheKey(" Chicken  Breast", 0, 20))
+                .isEqualTo("food:search:" + hash);
+    }
+
+    @Test
+    @DisplayName("still returns results when Redis fails during the OFF step")
+    void shouldFailOpenOnOffCacheErrors() {
+        givenUsdaReturns(1, 1);
+        givenOffUpsertReturnsId();
+        when(valueOperations.get(anyString())).thenThrow(new RedisConnectionFailureException("x"));
+        doThrow(new RedisConnectionFailureException("x"))
+                .when(valueOperations)
+                .set(anyString(), anyString(), any(Duration.class));
+        when(offClient.search(anyString()))
+                .thenReturn(List.of(offFood("111", "Granola bar", null)));
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        assertThat(data.getContent())
+                .extracting(FoodSearchItem::source)
+                .containsExactly("USDA", "OFF");
+    }
+
+    @Test
+    @DisplayName(
+            "drops an OFF product whose name and brand match a USDA item, ignoring case and spacing")
+    void shouldDropOffDuplicateOfUsdaItem() {
+        givenUsdaReturns(1, 1);
+        givenOffUpsertReturnsId();
+        when(offClient.search(anyString()))
+                .thenReturn(
+                        List.of(
+                                offFood("111", "  USDA   FOOD 1 ", ""),
+                                offFood("222", "Usda food 1", "Acme")));
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        assertThat(data.getContent())
+                .extracting(FoodSearchItem::source, FoodSearchItem::brand)
+                .containsExactly(
+                        org.assertj.core.api.Assertions.tuple("USDA", null),
+                        org.assertj.core.api.Assertions.tuple("OFF", "Acme"));
+        assertThat(data.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("counts OFF products in the totals")
+    void shouldIncludeOffInTotals() {
+        givenUsdaReturns(2, 1);
+        givenOffUpsertReturnsId();
+        when(offClient.search(anyString()))
+                .thenReturn(List.of(offFood("111", "A bar", null), offFood("222", "B bar", null)));
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        assertThat(data.getTotalElements()).isEqualTo(4);
+        assertThat(data.getTotalPages()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("returns OFF products after custom foods when USDA has no hits")
+    void shouldReturnCustomThenOffWhenUsdaEmpty() {
+        givenUsdaReturns(0, 0);
+        givenOffUpsertReturnsId();
+        when(foodItemRepository.searchCustomFoods(any(), any(), any()))
+                .thenReturn(List.of(customFood()));
+        when(offClient.search(anyString())).thenReturn(List.of(offFood("111", "A bar", null)));
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        assertThat(data.getContent())
+                .extracting(FoodSearchItem::source)
+                .containsExactly("USER", "OFF");
+        assertThat(data.getTotalElements()).isEqualTo(2);
+        assertThat(data.getTotalPages()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("returns no content and zero pages when USDA and OFF both find nothing")
+    void shouldReturnEmptyWhenOffReturnsNothing() {
+        givenUsdaReturns(0, 0);
+        when(offClient.search(anyString())).thenReturn(List.of());
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "zzzz", 0, 20).getData();
+
+        assertThat(data.getContent()).isEmpty();
+        assertThat(data.getTotalElements()).isZero();
+        assertThat(data.getTotalPages()).isZero();
+    }
+
+    @Test
+    @DisplayName("upserts OFF products in code order but returns them in OFF order")
+    void shouldUpsertOffInStableOrder() {
+        givenUsdaReturns(0, 0);
+        givenOffUpsertReturnsId();
+        when(offClient.search(anyString()))
+                .thenReturn(List.of(offFood("900", "Zeta", null), offFood("5", "Alpha", null)));
+
+        PageResponse<FoodSearchItem> data = service.search(USER_ID, "granola", 0, 20).getData();
+
+        ArgumentCaptor<String> sourceIds = ArgumentCaptor.forClass(String.class);
+        verify(foodItemRepository, org.mockito.Mockito.times(2))
+                .upsertOffFood(
+                        any(),
+                        any(),
+                        sourceIds.capture(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any(),
+                        any());
+        assertThat(sourceIds.getAllValues()).containsExactly("5", "900");
+        assertThat(data.getContent())
+                .extracting(FoodSearchItem::name)
+                .containsExactly("Zeta", "Alpha");
+    }
+
+    @Test
+    @DisplayName("does not take another rate-limit token for the OFF call")
+    void shouldNotRateLimitOffSeparately() {
+        givenUsdaReturns(1, 1);
+        when(offClient.search(anyString())).thenReturn(List.of());
+
+        service.search(USER_ID, "granola", 0, 20);
+
+        verify(rateLimiterService, org.mockito.Mockito.times(1))
+                .enforce(any(), anyInt(), any(), any());
     }
 }
