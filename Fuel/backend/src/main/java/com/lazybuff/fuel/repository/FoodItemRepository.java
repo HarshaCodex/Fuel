@@ -2,7 +2,9 @@ package com.lazybuff.fuel.repository;
 
 import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.util.FoodSource;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -67,4 +69,54 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
                     """,
             nativeQuery = true)
     int deleteCustomFoodsOfUnverifiedUsersCreatedBefore(@Param("cutoff") Instant cutoff);
+
+    /**
+     * Inserts a USDA food, or refreshes it when {@code (source, source_id)} already exists, in one
+     * atomic statement backed by the partial unique index {@code uq_food_source_id}.
+     *
+     * @return the internal id of the inserted or updated row
+     */
+    @Query(
+            value =
+                    """
+                    INSERT INTO food_items (name, brand, source, source_id, serving_size, serving_unit,
+                                            calories, protein, carbs, fat, fiber)
+                    VALUES (:name, :brand, 'USDA', :sourceId, :servingSize, :servingUnit,
+                            :calories, :protein, :carbs, :fat, :fiber)
+                    ON CONFLICT (source, source_id) WHERE source_id IS NOT NULL AND deleted_at IS NULL
+                    DO UPDATE SET name = EXCLUDED.name, brand = EXCLUDED.brand,
+                                  serving_size = EXCLUDED.serving_size,
+                                  serving_unit = EXCLUDED.serving_unit,
+                                  calories = EXCLUDED.calories, protein = EXCLUDED.protein,
+                                  carbs = EXCLUDED.carbs, fat = EXCLUDED.fat,
+                                  fiber = EXCLUDED.fiber, updated_at = NOW()
+                    RETURNING id
+                    """,
+            nativeQuery = true)
+    UUID upsertUsdaFood(
+            @Param("name") String name,
+            @Param("brand") String brand,
+            @Param("sourceId") String sourceId,
+            @Param("servingSize") BigDecimal servingSize,
+            @Param("servingUnit") String servingUnit,
+            @Param("calories") BigDecimal calories,
+            @Param("protein") BigDecimal protein,
+            @Param("carbs") BigDecimal carbs,
+            @Param("fat") BigDecimal fat,
+            @Param("fiber") BigDecimal fiber);
+
+    /**
+     * The caller's live custom foods whose name contains {@code escapedQuery}, case-insensitively.
+     * The caller must escape {@code \}, {@code %} and {@code _} in the query first.
+     */
+    @Query(
+            """
+            SELECT f FROM FoodItem f
+            WHERE f.source = com.lazybuff.fuel.util.FoodSource.USER
+              AND f.user.id = :userId
+              AND lower(f.name) LIKE lower(concat('%', :q, '%')) ESCAPE '\\'
+            ORDER BY f.name, f.id
+            """)
+    List<FoodItem> searchCustomFoods(
+            @Param("userId") UUID userId, @Param("q") String escapedQuery, Pageable pageable);
 }
