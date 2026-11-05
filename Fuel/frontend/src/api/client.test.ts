@@ -126,6 +126,15 @@ describe('api client', () => {
     expect(out.map((o) => o.status)).toEqual(['rejected', 'rejected']);
     expect(tokens.clear).toHaveBeenCalled();
     expect(onSessionExpired).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls.filter(([u]) => u.endsWith('/refresh'))).toHaveLength(1);
+  });
+
+  it.each([400, 403])('treats a %i from refresh as an expired session', async (status) => {
+    const { client, fetchImpl, tokens, onSessionExpired } = setup();
+    fetchImpl.mockImplementation(async (url) => json(url.endsWith('/refresh') ? status : 401, {}));
+    await expect(client.request('GET', '/api/x')).rejects.toBeInstanceOf(ApiError);
+    expect(tokens.clear).toHaveBeenCalledTimes(1);
+    expect(onSessionExpired).toHaveBeenCalledTimes(1);
   });
 
   it('keeps tokens when refresh hits a network error', async () => {
