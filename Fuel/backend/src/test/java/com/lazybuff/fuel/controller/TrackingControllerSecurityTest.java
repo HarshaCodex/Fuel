@@ -14,6 +14,7 @@ import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.logging.RequestIdFilter;
 import com.lazybuff.fuel.security.RestAccessDeniedHandler;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
+import com.lazybuff.fuel.service.DashboardService;
 import com.lazybuff.fuel.service.JwtService;
 import com.lazybuff.fuel.service.RateLimiterService;
 import com.lazybuff.fuel.service.StreakService;
@@ -50,6 +51,8 @@ class TrackingControllerSecurityTest {
     @MockitoBean private TrackingService trackingService;
 
     @MockitoBean private StreakService streakService;
+
+    @MockitoBean private DashboardService dashboardService;
 
     // WebConfig needs it to register rate-limit interceptors.
     @MockitoBean private RateLimiterService rateLimiterService;
@@ -102,5 +105,13 @@ class TrackingControllerSecurityTest {
         mockMvc.perform(get("/api/tracking/streak")).andExpect(status().isUnauthorized());
 
         verifyNoInteractions(streakService);
+    }
+
+    @Test
+    @DisplayName("GET /dashboard returns 401 without an access token")
+    void shouldReturnUnauthorizedOnDashboardWithoutToken() throws Exception {
+        mockMvc.perform(get("/api/tracking/dashboard")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(dashboardService);
     }
 }
