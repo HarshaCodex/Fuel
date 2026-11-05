@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -43,6 +44,22 @@ public interface TrackingEntryRepository extends JpaRepository<TrackingEntry, UU
                     + " group by e.logDate order by e.logDate desc")
     List<DailyTotals> findDailyTotals(
             @Param("userId") UUID userId, @Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /**
+     * The user's distinct foods, newest log first (ties: food id descending). Values come from the
+     * current food row. Soft-deleted entries and foods are already excluded by their entity
+     * filters.
+     */
+    @Query(
+            "select new com.lazybuff.fuel.repository.RecentFood(f.id, f.name, f.brand, f.source,"
+                    + " f.servingSize, f.servingUnit, f.calories, f.protein, f.carbs, f.fat,"
+                    + " max(e.loggedAt))"
+                    + " from TrackingEntry e join FoodItem f on f.id = e.foodId"
+                    + " where e.user.id = :userId"
+                    + " group by f.id, f.name, f.brand, f.source, f.servingSize, f.servingUnit,"
+                    + " f.calories, f.protein, f.carbs, f.fat"
+                    + " order by max(e.loggedAt) desc, f.id desc")
+    List<RecentFood> findRecentFoods(@Param("userId") UUID userId, Pageable pageable);
 
     /**
      * Deletes the tracking entries of accounts soft-deleted before {@code cutoff}. Run before

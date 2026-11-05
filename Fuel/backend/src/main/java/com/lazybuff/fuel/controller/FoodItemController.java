@@ -6,10 +6,12 @@ import com.lazybuff.fuel.dto.CustomFoodResponse;
 import com.lazybuff.fuel.dto.FoodItemDetail;
 import com.lazybuff.fuel.dto.FoodSearchItem;
 import com.lazybuff.fuel.dto.PageResponse;
+import com.lazybuff.fuel.dto.RecentFoodItem;
 import com.lazybuff.fuel.service.BarcodeService;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
+import com.lazybuff.fuel.service.RecentFoodService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,6 +20,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -49,6 +52,8 @@ public class FoodItemController {
     private final FoodSearchService foodSearchService;
 
     private final BarcodeService barcodeService;
+
+    private final RecentFoodService recentFoodService;
 
     @Operation(summary = "Search USDA foods and the caller's own custom foods by name")
     @ApiResponses({
@@ -111,6 +116,26 @@ public class FoodItemController {
             @PathVariable @Pattern(regexp = "\\d{8,14}") String code) {
 
         return ResponseEntity.ok(barcodeService.lookup(UUID.fromString(userId), code));
+    }
+
+    @Operation(summary = "List the foods the caller logged most recently, newest first")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Distinct foods by latest log time; empty when nothing is logged"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "limit is not a number from 1 to 30"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token")
+    })
+    @GetMapping(path = "/recent", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<List<RecentFoodItem>>> getRecentFoods(
+            @AuthenticationPrincipal String userId,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(30) int limit) {
+
+        return ResponseEntity.ok(recentFoodService.recent(UUID.fromString(userId), limit));
     }
 
     @Operation(summary = "Get a food item with its serving sizes")

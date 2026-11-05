@@ -17,6 +17,7 @@ import com.lazybuff.fuel.service.BarcodeService;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
+import com.lazybuff.fuel.service.RecentFoodService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -43,6 +44,8 @@ class FoodItemControllerTest {
 
     @Mock private FoodSearchService foodSearchService;
 
+    @Mock private RecentFoodService recentFoodService;
+
     @Mock private BarcodeService barcodeService;
 
     private MockMvc mockMvc;
@@ -55,7 +58,8 @@ class FoodItemControllerTest {
                                         foodService,
                                         customFoodService,
                                         foodSearchService,
-                                        barcodeService))
+                                        barcodeService,
+                                        recentFoodService))
                         .build();
     }
 
