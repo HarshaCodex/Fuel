@@ -1,10 +1,12 @@
 package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.DashboardResponse;
 import com.lazybuff.fuel.dto.StreakResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
 import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
+import com.lazybuff.fuel.service.DashboardService;
 import com.lazybuff.fuel.service.StreakService;
 import com.lazybuff.fuel.service.TrackingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +42,8 @@ public class TrackingController {
     private final TrackingService trackingService;
 
     private final StreakService streakService;
+
+    private final DashboardService dashboardService;
 
     @Operation(
             summary = "Log a food",
@@ -177,5 +181,33 @@ public class TrackingController {
             @AuthenticationPrincipal String userId) {
 
         return ResponseEntity.ok(streakService.get(UUID.fromString(userId)));
+    }
+
+    @Operation(
+            summary = "Day totals against goals, entries and streak",
+            description =
+                    "The date defaults to today in the user's profile timezone. Default goals apply"
+                            + " when none are saved. The streak is always as of today.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Dashboard; empty totals and entries when nothing is logged"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Malformed date"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "User deleted")
+    })
+    @GetMapping(path = "/dashboard", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<DashboardResponse>> dashboard(
+            @AuthenticationPrincipal String userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate date) {
+
+        return ResponseEntity.ok(dashboardService.get(UUID.fromString(userId), date));
     }
 }
