@@ -2,11 +2,13 @@ package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.DashboardResponse;
+import com.lazybuff.fuel.dto.HistoryDayResponse;
 import com.lazybuff.fuel.dto.StreakResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
 import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
 import com.lazybuff.fuel.service.DashboardService;
+import com.lazybuff.fuel.service.HistoryService;
 import com.lazybuff.fuel.service.StreakService;
 import com.lazybuff.fuel.service.TrackingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,6 +46,8 @@ public class TrackingController {
     private final StreakService streakService;
 
     private final DashboardService dashboardService;
+
+    private final HistoryService historyService;
 
     @Operation(
             summary = "Log a food",
@@ -209,5 +213,35 @@ public class TrackingController {
                     LocalDate date) {
 
         return ResponseEntity.ok(dashboardService.get(UUID.fromString(userId), date));
+    }
+
+    @Operation(
+            summary = "Daily totals over a date range",
+            description =
+                    "One row per day that has entries, newest first. Days without entries are"
+                            + " omitted. The range is at most 90 days inclusive. calorieGoal is the"
+                            + " user's current goal (or the default) on every row.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Daily totals, possibly empty"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description =
+                        "Missing or malformed from/to, to before from, or range over 90 days"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "User deleted")
+    })
+    @GetMapping(path = "/history", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<List<HistoryDayResponse>>> history(
+            @AuthenticationPrincipal String userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+
+        return ResponseEntity.ok(historyService.get(UUID.fromString(userId), from, to));
     }
 }

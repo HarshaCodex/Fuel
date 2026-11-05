@@ -2,6 +2,7 @@ package com.lazybuff.fuel.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.lazybuff.fuel.entity.TrackingEntry;
 import com.lazybuff.fuel.entity.User;
@@ -312,5 +313,143 @@ class TrackingEntryRepositoryTest {
 
         assertThat(trackingEntryRepository.findDistinctLogDates(userId, LocalDate.of(2026, 11, 5)))
                 .isEqualTo(List.of(LocalDate.of(2026, 11, 5)));
+    }
+
+    private void insertNutrients(
+            UUID userId, UUID foodId, String logDate, String nutrients, boolean deleted) {
+        // nutrients: calories, protein, carbs, fat, fiber as a SQL values fragment
+        jdbc.update(
+                "INSERT INTO tracking_entries (user_id, food_id, food_name, food_source,"
+                        + " serving_size, serving_unit, quantity, logged_at, log_date,"
+                        + " calories, protein, carbs, fat, fiber, deleted_at)"
+                        + " VALUES (?, ?, 'Rice', 'USDA', 100, 'g', 1, NOW(), ?::date, "
+                        + nutrients
+                        + ", CASE WHEN ? THEN NOW() END)",
+                userId,
+                foodId,
+                logDate,
+                deleted);
+    }
+
+    private List<DailyTotals> totals(UUID userId, String from, String to) {
+        return trackingEntryRepository.findDailyTotals(
+                userId, LocalDate.parse(from), LocalDate.parse(to));
+    }
+
+    @Test
+    @DisplayName("findDailyTotals sums each nutrient and counts entries per day")
+    void shouldSumNutrientsPerDay() {
+        UUID userId = insertUser(null);
+        UUID foodId = insertFood();
+        insertNutrients(userId, foodId, "2026-06-09", "0.1, 1.5, 10, 2.25, 1.0", false);
+        insertNutrients(userId, foodId, "2026-06-09", "0.2, 2.5, 20.5, 0.75, 2.0", false);
+        insertNutrients(userId, foodId, "2026-06-09", "300, 3, 30, 3, 3.5", false);
+
+        List<DailyTotals> result = totals(userId, "2026-06-09", "2026-06-09");
+
+        assertThat(result).hasSize(1);
+        DailyTotals day = result.get(0);
+        assertThat(day.logDate()).isEqualTo(LocalDate.of(2026, 6, 9));
+        assertThat(day.calories()).isEqualByComparingTo("300.3");
+        assertThat(day.protein()).isEqualByComparingTo("7");
+        assertThat(day.carbs()).isEqualByComparingTo("60.5");
+        assertThat(day.fat()).isEqualByComparingTo("6");
+        assertThat(day.fiber()).isEqualByComparingTo("6.5");
+        assertThat(day.entryCount()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("findDailyTotals keeps days separate and returns them newest first")
+    void shouldGroupByDayNewestFirst() {
+        UUID userId = insertUser(null);
+        UUID foodId = insertFood();
+        insertNutrients(userId, foodId, "2026-06-08", "100, 1, 1, 1, 1", false);
+        insertNutrients(userId, foodId, "2026-06-10", "200, 1, 1, 1, 1", false);
+        insertNutrients(userId, foodId, "2026-06-09", "300, 1, 1, 1, 1", false);
+        insertNutrients(userId, foodId, "2026-06-10", "50, 1, 1, 1, 1", false);
+
+        List<DailyTotals> result = totals(userId, "2026-06-01", "2026-06-30");
+
+        assertThat(result)
+                .extracting(DailyTotals::logDate)
+                .containsExactly(
+                        LocalDate.of(2026, 6, 10),
+                        LocalDate.of(2026, 6, 9),
+                        LocalDate.of(2026, 6, 8));
+        assertThat(result.get(0).calories()).isEqualByComparingTo("250");
+        assertThat(result.get(0).entryCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("findDailyTotals includes both bounds and excludes dates outside the range")
+    void shouldIncludeBothBoundsAndExcludeOutside() {
+        UUID userId = insertUser(null);
+        UUID foodId = insertFood();
+        insertEntryOn(userId, foodId, "2026-05-31", false);
+        insertEntryOn(userId, foodId, "2026-06-01", false);
+        insertEntryOn(userId, foodId, "2026-06-09", false);
+        insertEntryOn(userId, foodId, "2026-06-10", false);
+
+        assertThat(totals(userId, "2026-06-01", "2026-06-09"))
+                .extracting(DailyTotals::logDate)
+                .containsExactly(LocalDate.of(2026, 6, 9), LocalDate.of(2026, 6, 1));
+    }
+
+    @Test
+    @DisplayName("findDailyTotals excludes other users' entries")
+    void shouldExcludeOtherUsers() {
+        UUID owner = insertUser(null);
+        UUID other = insertUser(null);
+        UUID foodId = insertFood();
+        insertEntryOn(owner, foodId, "2026-06-09", false);
+        insertEntryOn(other, foodId, "2026-06-09", false);
+        insertEntryOn(other, foodId, "2026-06-09", false);
+        insertEntryOn(other, foodId, "2026-06-08", false);
+
+        List<DailyTotals> result = totals(owner, "2026-06-01", "2026-06-30");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).entryCount()).isEqualTo(1L);
+        assertThat(result.get(0).calories()).isEqualByComparingTo("130");
+    }
+
+    @Test
+    @DisplayName("findDailyTotals leaves out soft-deleted rows and days with only deleted rows")
+    void shouldExcludeSoftDeletedFromTotals() {
+        UUID userId = insertUser(null);
+        UUID foodId = insertFood();
+        insertEntryOn(userId, foodId, "2026-06-09", false);
+        insertEntryOn(userId, foodId, "2026-06-09", true);
+        insertEntryOn(userId, foodId, "2026-06-08", true);
+
+        List<DailyTotals> result = totals(userId, "2026-06-01", "2026-06-30");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).logDate()).isEqualTo(LocalDate.of(2026, 6, 9));
+        assertThat(result.get(0).entryCount()).isEqualTo(1L);
+        assertThat(result.get(0).calories()).isEqualByComparingTo("130");
+    }
+
+    @Test
+    @DisplayName("findDailyTotals returns an empty list when nothing falls in the range")
+    void shouldReturnEmptyWhenNoEntriesInRange() {
+        UUID userId = insertUser(null);
+        insertEntryOn(userId, insertFood(), "2026-07-01", false);
+
+        assertThat(totals(userId, "2026-06-01", "2026-06-30")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findDailyTotals keeps an entry on its stored log date across a year end")
+    void shouldKeepStoredLogDateAtYearBoundary() {
+        UUID userId = insertUser(null);
+        UUID foodId = insertFood();
+        insertEntryAt(userId, foodId, "2026-01-01T02:00:00Z", "2025-12-31");
+        insertEntryAt(userId, foodId, "2025-12-31T23:30:00Z", "2026-01-01");
+
+        assertThat(totals(userId, "2025-12-31", "2026-01-01"))
+                .extracting(DailyTotals::logDate, DailyTotals::entryCount)
+                .containsExactly(
+                        tuple(LocalDate.of(2026, 1, 1), 1L), tuple(LocalDate.of(2025, 12, 31), 1L));
     }
 }
