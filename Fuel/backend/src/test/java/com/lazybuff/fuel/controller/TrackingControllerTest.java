@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.DashboardResponse;
+import com.lazybuff.fuel.dto.HistoryDayResponse;
 import com.lazybuff.fuel.dto.StreakResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
@@ -22,6 +23,7 @@ import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.service.DashboardService;
+import com.lazybuff.fuel.service.HistoryService;
 import com.lazybuff.fuel.service.StreakService;
 import com.lazybuff.fuel.service.TrackingService;
 import java.math.BigDecimal;
@@ -64,6 +66,8 @@ class TrackingControllerTest {
 
     @Mock private DashboardService dashboardService;
 
+    @Mock private HistoryService historyService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -71,7 +75,10 @@ class TrackingControllerTest {
         mockMvc =
                 MockMvcBuilders.standaloneSetup(
                                 new TrackingController(
-                                        trackingService, streakService, dashboardService))
+                                        trackingService,
+                                        streakService,
+                                        dashboardService,
+                                        historyService))
                         .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .build();
@@ -432,5 +439,129 @@ class TrackingControllerTest {
                 .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "User not found"));
 
         mockMvc.perform(get("/api/tracking/dashboard")).andExpect(status().isNotFound());
+    }
+
+    private static ApiResponse<List<HistoryDayResponse>> history() {
+        return ApiResponse.<List<HistoryDayResponse>>builder()
+                .status(200)
+                .message("Success")
+                .data(
+                        List.of(
+                                new HistoryDayResponse(
+                                        LocalDate.of(2026, 6, 9),
+                                        new BigDecimal("1450.5"),
+                                        2200,
+                                        new BigDecimal("120.5"),
+                                        new BigDecimal("140.0"),
+                                        new BigDecimal("45.2"),
+                                        new BigDecimal("18.0"),
+                                        6),
+                                new HistoryDayResponse(
+                                        LocalDate.of(2026, 6, 8),
+                                        new BigDecimal("900"),
+                                        2200,
+                                        new BigDecimal("50"),
+                                        new BigDecimal("80"),
+                                        new BigDecimal("20"),
+                                        new BigDecimal("5"),
+                                        2)))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Test
+    @DisplayName("GET /history returns the rows in the contract shape")
+    void shouldReturnHistoryShape() throws Exception {
+        LocalDate from = LocalDate.of(2026, 6, 1);
+        LocalDate to = LocalDate.of(2026, 6, 9);
+        when(historyService.get(USER_ID, from, to)).thenReturn(history());
+
+        mockMvc.perform(
+                        get("/api/tracking/history")
+                                .param("from", "2026-06-01")
+                                .param("to", "2026-06-09"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Success"))
+                .andExpect(jsonPath("$.data[0].date").value("2026-06-09"))
+                .andExpect(jsonPath("$.data[0].calories").value(1450.5))
+                .andExpect(jsonPath("$.data[0].calorieGoal").value(2200))
+                .andExpect(jsonPath("$.data[0].protein").value(120.5))
+                .andExpect(jsonPath("$.data[0].carbs").value(140.0))
+                .andExpect(jsonPath("$.data[0].fat").value(45.2))
+                .andExpect(jsonPath("$.data[0].fiber").value(18.0))
+                .andExpect(jsonPath("$.data[0].entryCount").value(6))
+                .andExpect(jsonPath("$.data[1].date").value("2026-06-08"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-13-45", "abc", "09-06-2026"})
+    @DisplayName("GET /history returns 400 for an invalid from date")
+    void shouldRejectInvalidHistoryFrom(String from) throws Exception {
+        mockMvc.perform(get("/api/tracking/history").param("from", from).param("to", "2026-06-09"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(historyService);
+    }
+
+    @Test
+    @DisplayName("GET /history returns 400 for an invalid to date")
+    void shouldRejectInvalidHistoryTo() throws Exception {
+        mockMvc.perform(
+                        get("/api/tracking/history")
+                                .param("from", "2026-06-01")
+                                .param("to", "2026-13-45"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(historyService);
+    }
+
+    @Test
+    @DisplayName("GET /history returns 400 when from is missing")
+    void shouldRejectHistoryWithoutFrom() throws Exception {
+        mockMvc.perform(get("/api/tracking/history").param("to", "2026-06-09"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(historyService);
+    }
+
+    @Test
+    @DisplayName("GET /history returns 400 when to is missing")
+    void shouldRejectHistoryWithoutTo() throws Exception {
+        mockMvc.perform(get("/api/tracking/history").param("from", "2026-06-01"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(historyService);
+    }
+
+    @Test
+    @DisplayName("GET /history maps a range error from the service to 400")
+    void shouldMapHistoryRangeErrorToBadRequest() throws Exception {
+        LocalDate from = LocalDate.of(2026, 1, 1);
+        LocalDate to = LocalDate.of(2026, 6, 9);
+        when(historyService.get(USER_ID, from, to))
+                .thenThrow(
+                        new FuelException(
+                                HttpStatus.BAD_REQUEST, "Date range must not exceed 90 days"));
+
+        mockMvc.perform(
+                        get("/api/tracking/history")
+                                .param("from", "2026-01-01")
+                                .param("to", "2026-06-09"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("GET /history returns 404 when the user is deleted")
+    void shouldReturnNotFoundForHistoryOfDeletedUser() throws Exception {
+        LocalDate day = LocalDate.of(2026, 6, 9);
+        when(historyService.get(USER_ID, day, day))
+                .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "User not found"));
+
+        mockMvc.perform(
+                        get("/api/tracking/history")
+                                .param("from", "2026-06-09")
+                                .param("to", "2026-06-09"))
+                .andExpect(status().isNotFound());
     }
 }
