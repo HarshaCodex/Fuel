@@ -11,7 +11,17 @@ const isWeb = () => Platform.OS === 'web';
 
 export async function getTokens(): Promise<Tokens | null> {
   const raw = isWeb() ? memoryValue : await SecureStore.getItemAsync(KEY);
-  return raw ? (JSON.parse(raw) as Tokens) : null;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<Tokens> | null;
+    if (typeof parsed?.accessToken === 'string' && typeof parsed.refreshToken === 'string') {
+      return { accessToken: parsed.accessToken, refreshToken: parsed.refreshToken };
+    }
+  } catch {
+    // fall through: treat corrupt storage as signed out
+  }
+  await clearTokens();
+  return null;
 }
 
 export async function setTokens(tokens: Tokens): Promise<void> {
