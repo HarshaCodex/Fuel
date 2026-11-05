@@ -14,12 +14,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.DashboardResponse;
 import com.lazybuff.fuel.dto.StreakResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
 import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
+import com.lazybuff.fuel.service.DashboardService;
 import com.lazybuff.fuel.service.StreakService;
 import com.lazybuff.fuel.service.TrackingService;
 import java.math.BigDecimal;
@@ -60,13 +62,16 @@ class TrackingControllerTest {
 
     @Mock private StreakService streakService;
 
+    @Mock private DashboardService dashboardService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc =
                 MockMvcBuilders.standaloneSetup(
-                                new TrackingController(trackingService, streakService))
+                                new TrackingController(
+                                        trackingService, streakService, dashboardService))
                         .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .build();
@@ -355,5 +360,77 @@ class TrackingControllerTest {
                 .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "User not found"));
 
         mockMvc.perform(get("/api/tracking/streak")).andExpect(status().isNotFound());
+    }
+
+    private static ApiResponse<DashboardResponse> dashboard(LocalDate day) {
+        return ApiResponse.<DashboardResponse>builder()
+                .status(200)
+                .message("Success")
+                .data(
+                        new DashboardResponse(
+                                day,
+                                new DashboardResponse.Calories(
+                                        new BigDecimal("500.5"), 2000, new BigDecimal("1499.5")),
+                                new DashboardResponse.Macros(
+                                        new DashboardResponse.Macro(
+                                                new BigDecimal("30.1"), 150, "g"),
+                                        new DashboardResponse.Macro(
+                                                new BigDecimal("40.2"), 200, "g"),
+                                        new DashboardResponse.Macro(
+                                                new BigDecimal("10.3"), 65, "g")),
+                                List.of(),
+                                new StreakResponse(2, 5, day)))
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    @Test
+    @DisplayName("GET /dashboard returns the dashboard shape for the requested date")
+    void shouldReturnDashboardForRequestedDate() throws Exception {
+        LocalDate day = LocalDate.of(2026, 11, 4);
+        when(dashboardService.get(USER_ID, day)).thenReturn(dashboard(day));
+
+        mockMvc.perform(get("/api/tracking/dashboard").param("date", "2026-11-04"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Success"))
+                .andExpect(jsonPath("$.data.date").value("2026-11-04"))
+                .andExpect(jsonPath("$.data.calories.consumed").value(500.5))
+                .andExpect(jsonPath("$.data.calories.goal").value(2000))
+                .andExpect(jsonPath("$.data.calories.remaining").value(1499.5))
+                .andExpect(jsonPath("$.data.macros.protein.unit").value("g"))
+                .andExpect(jsonPath("$.data.macros.carbs.goal").value(200.0))
+                .andExpect(jsonPath("$.data.macros.fat.consumed").value(10.3))
+                .andExpect(jsonPath("$.data.entries").isEmpty())
+                .andExpect(jsonPath("$.data.streak.current").value(2))
+                .andExpect(jsonPath("$.data.streak.lastLoggedDate").value("2026-11-04"));
+    }
+
+    @Test
+    @DisplayName("GET /dashboard without a date passes null so the service uses the user's today")
+    void shouldPassNullDateWhenOmitted() throws Exception {
+        when(dashboardService.get(USER_ID, null)).thenReturn(dashboard(LocalDate.of(2026, 11, 5)));
+
+        mockMvc.perform(get("/api/tracking/dashboard")).andExpect(status().isOk());
+
+        verify(dashboardService).get(USER_ID, null);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-13-45", "abc", "05-11-2026"})
+    @DisplayName("GET /dashboard returns 400 for an invalid date")
+    void shouldRejectInvalidDashboardDate(String date) throws Exception {
+        mockMvc.perform(get("/api/tracking/dashboard").param("date", date))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(dashboardService);
+    }
+
+    @Test
+    @DisplayName("GET /dashboard returns 404 when the user is deleted")
+    void shouldReturnNotFoundForDashboardOfDeletedUser() throws Exception {
+        when(dashboardService.get(USER_ID, null))
+                .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "User not found"));
+
+        mockMvc.perform(get("/api/tracking/dashboard")).andExpect(status().isNotFound());
     }
 }
