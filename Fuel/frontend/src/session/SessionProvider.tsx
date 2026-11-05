@@ -1,14 +1,27 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { logout } from '@/api/auth';
-import { setSessionExpiredListener } from '@/api/client';
+import { ApiError } from '@/api/errors';
+import { logout, refresh } from '@/api/auth';
+import { apiClient, setSessionExpiredListener } from '@/api/client';
 import { clearTokens, getTokens, setTokens, type Tokens } from '@/lib/tokenStorage';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
 type Session = { status: Status; signIn: (tokens: Tokens) => Promise<void>; signOut: () => Promise<void> };
 
 const SessionContext = createContext<Session | null>(null);
+
+function revokeOnServer(t: Tokens) {
+  logout(t.refreshToken, t.accessToken).catch(async (e) => {
+    if (!(e instanceof ApiError) || e.status !== 401) return;
+    try {
+      const next = await refresh(t.refreshToken);
+      await logout(next.refreshToken, next.accessToken);
+    } catch {
+      // Best effort.
+    }
+  });
+}
 
 /** Exposes auth status; consumers render nothing while `loading` (router needs the layout mounted). */
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -39,12 +52,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    const t = await getTokens();
-    await clearTokens();
-    endLocally();
-    // Fire and forget so a slow network never keeps the user signed in. Logout needs the bearer,
-    // so it uses the captured access token and skips refresh (the refresh token is in the body).
-    if (t) logout(t.refreshToken, t.accessToken).catch(() => undefined);
+    apiClient.invalidate();
+    let t: Tokens | null = null;
+    try {
+      t = await getTokens();
+    } catch {
+      // Unreadable storage: still sign out locally below.
+    }
+    try {
+      await clearTokens();
+    } catch {
+      // Ignore; local state must still end.
+    } finally {
+      endLocally();
+    }
+    // Best effort and fire and forget, so a slow network never keeps the user signed in. Logout needs a
+    // bearer; if the access token expired (401), rotate once through the public refresh route and retry
+    // with the new pair. Nothing is written to storage.
+    if (t) revokeOnServer(t);
   }, [endLocally]);
 
   const value = useMemo(() => ({ status, signIn, signOut }), [status, signIn, signOut]);

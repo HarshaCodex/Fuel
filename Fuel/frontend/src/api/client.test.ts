@@ -171,7 +171,8 @@ describe('api client', () => {
     const { client, fetchImpl, tokens } = setup();
     fetchImpl.mockImplementation(async (url) => {
       if (url.endsWith('/refresh')) {
-        await tokens.clear(); // user signs out while the refresh is in flight
+        client.invalidate(); // user signs out while the refresh is in flight
+        await tokens.clear();
         return refreshOk.clone();
       }
       return json(401, {});

@@ -47,6 +47,8 @@ async function toApiError(res: Response): Promise<ApiError> {
 
 export function createApiClient({ baseUrl, tokens, fetchImpl, onSessionExpired }: Options) {
   let refreshing: Promise<string> | null = null;
+  // Bumped whenever the session ends, so a refresh already in flight cannot write tokens afterwards.
+  let generation = 0;
 
   async function send(method: string, path: string, body: unknown, accessToken: string | null): Promise<Response> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -63,6 +65,7 @@ export function createApiClient({ baseUrl, tokens, fetchImpl, onSessionExpired }
   }
 
   async function expire(): Promise<never> {
+    generation++;
     await tokens.clear();
     onSessionExpired();
     throw new ApiError(401, 'Session expired');
@@ -71,6 +74,7 @@ export function createApiClient({ baseUrl, tokens, fetchImpl, onSessionExpired }
   async function doRefresh(): Promise<string> {
     const current = await tokens.get();
     if (!current) return expire();
+    const started = generation;
     const res = await send('POST', REFRESH_PATH, { refreshToken: current.refreshToken }, null);
     if (!res.ok) {
       if (res.status === 400 || res.status === 401 || res.status === 403) return expire();
@@ -79,9 +83,12 @@ export function createApiClient({ baseUrl, tokens, fetchImpl, onSessionExpired }
     const next = ((await parseJson(res)) as Envelope<Tokens> | null)?.data;
     if (!next?.accessToken || !next.refreshToken) return expire();
     // A sign-out or expiry during the round trip must not be undone by writing fresh tokens.
-    const now = await tokens.get();
-    if (now?.refreshToken !== current.refreshToken) throw new ApiError(401, 'Session ended');
+    if (generation !== started) throw new ApiError(401, 'Session ended');
     await tokens.set({ accessToken: next.accessToken, refreshToken: next.refreshToken });
+    if (generation !== started) {
+      await tokens.clear();
+      throw new ApiError(401, 'Session ended');
+    }
     return next.accessToken;
   }
 
@@ -117,7 +124,7 @@ export function createApiClient({ baseUrl, tokens, fetchImpl, onSessionExpired }
     return (parsed?.data ?? null) as T;
   }
 
-  return { request };
+  return { request, invalidate: () => void generation++ };
 }
 
 let sessionExpiredListener: (() => void) | null = null;

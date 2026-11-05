@@ -93,6 +93,37 @@ describe('SessionProvider', () => {
     expect(JSON.parse(init.body)).toEqual({ refreshToken: 'r' });
   });
 
+  it('signOut retries logout once with a rotated pair when the access token has expired', async () => {
+    mocked.getTokens.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
+    fetchMock
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+      .mockResolvedValueOnce(new Response('{"data":{"accessToken":"a2","refreshToken":"r2"}}', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{"data":null}', { status: 200 }));
+    await mount();
+    await screen.findByText('signedIn');
+    await act(() => latest.session!.signOut());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const [, refreshInit] = fetchMock.mock.calls[1];
+    expect(String(fetchMock.mock.calls[1][0])).toBe('http://api.test/api/auth/refresh');
+    expect(refreshInit.headers.Authorization).toBeUndefined();
+    expect(JSON.parse(refreshInit.body)).toEqual({ refreshToken: 'r' });
+    const [url, init] = fetchMock.mock.calls[2];
+    expect(String(url)).toBe('http://api.test/api/auth/logout');
+    expect(init.headers.Authorization).toBe('Bearer a2');
+    expect(JSON.parse(init.body)).toEqual({ refreshToken: 'r2' });
+    expect(mocked.setTokens).not.toHaveBeenCalled();
+  });
+
+  it('signOut still ends the session when storage throws', async () => {
+    mocked.getTokens.mockResolvedValueOnce({ accessToken: 'a', refreshToken: 'r' });
+    await mount();
+    await screen.findByText('signedIn');
+    mocked.getTokens.mockRejectedValue(new Error('keychain'));
+    mocked.clearTokens.mockRejectedValue(new Error('keychain'));
+    await act(() => latest.session!.signOut());
+    expect(screen.getByText('signedOut')).toBeTruthy();
+  });
+
   it('session expiry signs out locally without calling logout', async () => {
     mocked.getTokens.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
     fetchMock.mockImplementation(async () => new Response('{}', { status: 401 }));
