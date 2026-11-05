@@ -14,11 +14,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.StreakResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
 import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
+import com.lazybuff.fuel.service.StreakService;
 import com.lazybuff.fuel.service.TrackingService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -56,12 +58,15 @@ class TrackingControllerTest {
 
     @Mock private TrackingService trackingService;
 
+    @Mock private StreakService streakService;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         mockMvc =
-                MockMvcBuilders.standaloneSetup(new TrackingController(trackingService))
+                MockMvcBuilders.standaloneSetup(
+                                new TrackingController(trackingService, streakService))
                         .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .build();
@@ -321,5 +326,34 @@ class TrackingControllerTest {
 
         mockMvc.perform(put(URL + "/" + id).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /streak returns the streak for the token's user")
+    void shouldReturnStreakForAuthenticatedUser() throws Exception {
+        when(streakService.get(USER_ID))
+                .thenReturn(
+                        ApiResponse.<StreakResponse>builder()
+                                .status(200)
+                                .message("Success")
+                                .data(new StreakResponse(3, 7, LocalDate.of(2026, 11, 4)))
+                                .timestamp(LocalDateTime.now())
+                                .build());
+
+        mockMvc.perform(get("/api/tracking/streak"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Success"))
+                .andExpect(jsonPath("$.data.current").value(3))
+                .andExpect(jsonPath("$.data.longest").value(7))
+                .andExpect(jsonPath("$.data.lastLoggedDate").value("2026-11-04"));
+    }
+
+    @Test
+    @DisplayName("GET /streak returns 404 when the user is deleted")
+    void shouldReturnNotFoundForStreakOfDeletedUser() throws Exception {
+        when(streakService.get(USER_ID))
+                .thenThrow(new FuelException(HttpStatus.NOT_FOUND, "User not found"));
+
+        mockMvc.perform(get("/api/tracking/streak")).andExpect(status().isNotFound());
     }
 }

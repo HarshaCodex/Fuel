@@ -1,9 +1,11 @@
 package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.StreakResponse;
 import com.lazybuff.fuel.dto.TrackingEntryRequest;
 import com.lazybuff.fuel.dto.TrackingEntryResponse;
 import com.lazybuff.fuel.dto.TrackingEntryUpdateRequest;
+import com.lazybuff.fuel.service.StreakService;
 import com.lazybuff.fuel.service.TrackingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -36,6 +38,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class TrackingController {
 
     private final TrackingService trackingService;
+
+    private final StreakService streakService;
 
     @Operation(
             summary = "Log a food",
@@ -150,5 +154,28 @@ public class TrackingController {
             @Valid @RequestBody TrackingEntryUpdateRequest request) {
 
         return ResponseEntity.ok(trackingService.update(UUID.fromString(userId), id, request));
+    }
+
+    @Operation(
+            summary = "Current and longest logging streak",
+            description =
+                    "Consecutive days with at least one entry, in the user's profile timezone."
+                            + " Today not being logged yet does not break the current streak.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Streak, with lastLoggedDate null when nothing is logged"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "User deleted")
+    })
+    @GetMapping(path = "/streak", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<StreakResponse>> streak(
+            @AuthenticationPrincipal String userId) {
+
+        return ResponseEntity.ok(streakService.get(UUID.fromString(userId)));
     }
 }
