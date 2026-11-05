@@ -39,14 +39,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    try {
-      const t = await getTokens();
-      if (t) await logout(t.refreshToken);
-    } catch {
-      // Best effort: the server session may already be gone or we may be offline.
-    }
+    const t = await getTokens();
     await clearTokens();
     endLocally();
+    // Fire and forget so a slow network never keeps the user signed in. Logout needs the bearer,
+    // so it uses the captured access token and skips refresh (the refresh token is in the body).
+    if (t) logout(t.refreshToken, t.accessToken).catch(() => undefined);
   }, [endLocally]);
 
   const value = useMemo(() => ({ status, signIn, signOut }), [status, signIn, signOut]);

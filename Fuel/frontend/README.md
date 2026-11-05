@@ -30,7 +30,7 @@ cp .env.example .env
 | `npm run lint` | ESLint (`eslint-config-expo`) |
 | `npm test` | Jest (`jest-expo`) with Testing Library |
 | `npm run check` | Typecheck, lint and tests |
-| `npm run screenshots` | Export the web build and write `dashboard.png`, `history.png`, `profile.png` to `screenshots/`. Run `npx playwright install chromium` once first. |
+| `npm run screenshots` | Export the web build and write `sign-in.png` (tab screens are behind sign-in) to `screenshots/`. Run `npx playwright install chromium` once first. |
 
 ## Folder layout
 

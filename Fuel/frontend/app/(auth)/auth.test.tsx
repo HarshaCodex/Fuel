@@ -7,6 +7,7 @@ import TabsLayout from '../(tabs)/_layout';
 import History from '../(tabs)/history';
 import Today from '../(tabs)/index';
 import Profile from '../(tabs)/profile';
+import NotFound from '../+not-found';
 import AuthLayout from './_layout';
 import SignIn from './sign-in';
 
@@ -15,6 +16,7 @@ const mocked = jest.mocked(storage);
 
 const routes = {
   _layout: RootLayout,
+  '+not-found': NotFound,
   '(auth)/_layout': AuthLayout,
   '(auth)/sign-in': SignIn,
   '(tabs)/_layout': TabsLayout,
@@ -29,6 +31,12 @@ describe('root navigator', () => {
     await renderRouter(routes, { initialUrl: '/sign-in' });
     expect(await screen.findByText('Sign in')).toBeTruthy();
     expect(screen.queryByText('History')).toBeNull();
+  });
+
+  it('lands on sign-in when signed out and opened at /', async () => {
+    mocked.getTokens.mockResolvedValue(null);
+    await renderRouter(routes, { initialUrl: '/' });
+    expect(await screen.findByText('Sign in')).toBeTruthy();
   });
 
   it('shows the tabs when signed in', async () => {

@@ -21,5 +21,6 @@ export const login = (email: string, password: string) =>
 export const refresh = (refreshToken: string) =>
   apiClient.request<AuthTokens>('POST', '/api/auth/refresh', { body: { refreshToken } });
 
-export const logout = (refreshToken: string) =>
-  apiClient.request<null>('POST', '/api/auth/logout', { body: { refreshToken } });
+/** Logout is an authenticated route; the caller passes the access token it captured before clearing local state. */
+export const logout = (refreshToken: string, accessToken: string) =>
+  apiClient.request<null>('POST', '/api/auth/logout', { body: { refreshToken }, bearer: accessToken });

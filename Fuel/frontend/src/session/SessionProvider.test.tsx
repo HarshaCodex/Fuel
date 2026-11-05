@@ -72,6 +72,27 @@ describe('SessionProvider', () => {
     expect(screen.getByText('signedOut')).toBeTruthy();
   });
 
+  it('signOut does not wait for a hanging logout request', async () => {
+    mocked.getTokens.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
+    fetchMock.mockReturnValue(new Promise(() => undefined));
+    await mount();
+    await screen.findByText('signedIn');
+    await act(() => latest.session!.signOut());
+    expect(screen.getByText('signedOut')).toBeTruthy();
+  });
+
+  it('signOut sends logout with the captured bearer and refresh token body', async () => {
+    mocked.getTokens.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
+    fetchMock.mockResolvedValue(new Response('{"data":null}', { status: 200 }));
+    await mount();
+    await screen.findByText('signedIn');
+    await act(() => latest.session!.signOut());
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe('http://api.test/api/auth/logout');
+    expect(init.headers.Authorization).toBe('Bearer a');
+    expect(JSON.parse(init.body)).toEqual({ refreshToken: 'r' });
+  });
+
   it('session expiry signs out locally without calling logout', async () => {
     mocked.getTokens.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
     fetchMock.mockImplementation(async () => new Response('{}', { status: 401 }));

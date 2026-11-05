@@ -166,4 +166,33 @@ describe('api client', () => {
     spies.forEach((s) => expect(s).not.toHaveBeenCalled());
     spies.forEach((s) => s.mockRestore());
   });
+
+  it('does not write refreshed tokens if the session ended during the refresh', async () => {
+    const { client, fetchImpl, tokens } = setup();
+    fetchImpl.mockImplementation(async (url) => {
+      if (url.endsWith('/refresh')) {
+        await tokens.clear(); // user signs out while the refresh is in flight
+        return refreshOk.clone();
+      }
+      return json(401, {});
+    });
+    await expect(client.request('GET', '/api/x')).rejects.toBeInstanceOf(ApiError);
+    expect(tokens.set).not.toHaveBeenCalled();
+  });
+
+  it('rejects a 2xx without a JSON envelope but accepts 204', async () => {
+    const { client, fetchImpl } = setup();
+    fetchImpl.mockResolvedValueOnce(new Response('<html>', { status: 200, statusText: 'OK' }));
+    await expect(client.request('GET', '/api/x')).rejects.toMatchObject({ status: 200 });
+    fetchImpl.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    expect(await client.request('DELETE', '/api/x')).toBeNull();
+  });
+
+  it('uses an explicit bearer without refreshing on 401', async () => {
+    const { client, fetchImpl } = setup();
+    fetchImpl.mockResolvedValue(json(401, {}));
+    await expect(client.request('POST', '/api/auth/logout', { bearer: 'cap' })).rejects.toMatchObject({ status: 401 });
+    expect(auth(fetchImpl.mock.calls[0][1])).toBe('Bearer cap');
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });
