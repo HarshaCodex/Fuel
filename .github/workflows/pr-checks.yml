@@ -111,3 +111,27 @@ jobs:
           name: owasp-report
           path: Fuel/backend/target/dependency-check-report.html
           retention-days: 30
+
+  # ── 5. Frontend (typecheck, lint, tests) ───────────────────────────────────
+  # Independent of the backend jobs; runs on every PR and push like they do (#126).
+  frontend:
+    name: Frontend Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Fuel/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      # react-native 0.88 requires Node ^22.13 || ^24.3 || >=26; 22 is the oldest supported LTS line.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Fuel/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck, lint and test
+        run: npm run check
