@@ -33,6 +33,13 @@ describe('tokenStorage', () => {
       expect(await getTokens()).toEqual(tokens);
     });
 
+    it.each(['{not json', 'null', '{"accessToken":1}'])('treats corrupt value %s as signed out and clears it', async (bad) => {
+      await SecureStore.setItemAsync('fuel.tokens', bad);
+      expect(await getTokens()).toBeNull();
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('fuel.tokens');
+      expect(await getTokens()).toBeNull();
+    });
+
     it('clears stored tokens', async () => {
       await setTokens(tokens);
       await clearTokens();

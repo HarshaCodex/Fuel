@@ -10,9 +10,8 @@ const API = 'http://mock.fuel.test';
 const DIST = 'dist';
 const OUT = 'screenshots';
 const SHOTS = [
-  { path: '/', title: 'Today', file: 'dashboard.png' },
-  { path: '/history', title: 'History', file: 'history.png' },
-  { path: '/profile', title: 'Profile', file: 'profile.png' },
+  // Tab screens sit behind sign-in; add them back once the sign-in screen can log in via a mocked /api/auth/login.
+  { path: '/', title: 'Sign in', file: 'sign-in.png' },
 ];
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.ttf': 'font/ttf' };
 

@@ -32,4 +32,11 @@ describe('project setup', () => {
       expect(read('README.md')).toContain(cmd);
     },
   );
+
+  it('keeps tokens out of AsyncStorage', () => {
+    expect(read('package.json')).not.toContain('async-storage');
+    expect(read('src/lib/tokenStorage.ts')).toContain('expo-secure-store');
+    expect(read('src/session/SessionProvider.tsx')).not.toMatch(/AsyncStorage|localStorage/);
+    expect(read('src/api/client.ts')).not.toMatch(/AsyncStorage|localStorage/);
+  });
 });

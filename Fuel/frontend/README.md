@@ -30,7 +30,7 @@ cp .env.example .env
 | `npm run lint` | ESLint (`eslint-config-expo`) |
 | `npm test` | Jest (`jest-expo`) with Testing Library |
 | `npm run check` | Typecheck, lint and tests |
-| `npm run screenshots` | Export the web build and write `dashboard.png`, `history.png`, `profile.png` to `screenshots/`. Run `npx playwright install chromium` once first. |
+| `npm run screenshots` | Export the web build and write `sign-in.png` (tab screens are behind sign-in) to `screenshots/`. Run `npx playwright install chromium` once first. |
 
 ## Folder layout
 
@@ -52,6 +52,12 @@ Use tokens from `@/theme` only. Never write color, size or spacing literals in c
 - Local state: Zustand is chosen but not installed until something needs it.
 - Tokens: `expo-secure-store` behind `src/lib/tokenStorage.ts` (in-memory on web, never localStorage).
 - Tests and lint: `jest-expo`, `@testing-library/react-native`, ESLint 9 flat config.
+
+## API client and session
+`src/api/client.ts` sends the bearer token on every call except `/api/auth/*`, unwraps the `{ data }` envelope and throws typed
+`ApiError` / `NetworkError`. A 401 triggers one shared token refresh and a single retry; if the refresh is rejected the session
+ends and the app returns to the `(auth)` stack. A network failure during refresh keeps the user signed in. Tokens live only in
+secure storage (memory on web). Read auth state with `useSession()` from `src/session/SessionProvider.tsx`.
 
 ## Testing limits
 
