@@ -36,8 +36,8 @@ cp .env.example .env
 
 - `app/` Expo Router routes. `(tabs)/` holds the bottom tabs.
 - `src/theme/` design tokens (colors, type, space, radius, shadow, motion, sizing) from `docs/design/ui.md`.
-- `src/components/` shared components.
-- `src/lib/` helpers such as `tokenStorage.ts`.
+- `src/components/` shared components (`Button`, `TextField`, `Banner`, `FormScreen`).
+- `src/lib/` helpers: `tokenStorage.ts`, `validation.ts` (form rules), `authErrors.ts` (API error kinds).
 - `src/config.ts` reads the API base URL.
 - `scripts/` screenshot script and its mocked API fixtures.
 
