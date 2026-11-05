@@ -32,6 +32,19 @@ public interface TrackingEntryRepository extends JpaRepository<TrackingEntry, UU
             @Param("userId") UUID userId, @Param("today") LocalDate today);
 
     /**
+     * Per-day sums for {@code from} to {@code to} (both inclusive), newest first, in one grouped
+     * query. Days without entries produce no row; soft-deleted entries are already excluded.
+     */
+    @Query(
+            "select new com.lazybuff.fuel.repository.DailyTotals(e.logDate, sum(e.calories),"
+                    + " sum(e.protein), sum(e.carbs), sum(e.fat), sum(e.fiber), count(e))"
+                    + " from TrackingEntry e where e.user.id = :userId"
+                    + " and e.logDate between :from and :to"
+                    + " group by e.logDate order by e.logDate desc")
+    List<DailyTotals> findDailyTotals(
+            @Param("userId") UUID userId, @Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /**
      * Deletes the tracking entries of accounts soft-deleted before {@code cutoff}. Run before
      * purging their custom foods: the entries reference those foods through a plain foreign key.
      *
