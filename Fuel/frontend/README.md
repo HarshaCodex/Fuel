@@ -1,0 +1,58 @@
+# Fuel mobile app
+
+Expo (React Native, TypeScript) app for Fuel. This is the scaffold: three placeholder tabs (Today, History, Profile), design tokens, and a secure token store. No real screens or API calls yet.
+
+## Prerequisites
+
+Node 22, npm, and the Expo Go app on a phone (iOS or Android).
+
+## Setup
+
+```sh
+npm install
+cp .env.example .env
+```
+
+## Environment variables
+
+| Variable | Example | Notes |
+| --- | --- | --- |
+| `EXPO_PUBLIC_API_BASE_URL` | `http://localhost:8080` | Backend base URL. Every `EXPO_PUBLIC_` variable is bundled into the app and is public. Never put secrets here. On a physical phone use your computer's LAN address, not `localhost`. |
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `npm start` | Start the Expo dev server (scan the QR code with Expo Go) |
+| `npm run ios` / `npm run android` | Start and open on a simulator or emulator |
+| `npm run web` | Start the web build |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint (`eslint-config-expo`) |
+| `npm test` | Jest (`jest-expo`) with Testing Library |
+| `npm run check` | Typecheck, lint and tests |
+| `npm run screenshots` | Export the web build and write `dashboard.png`, `history.png`, `profile.png` to `screenshots/`. Run `npx playwright install chromium` once first. |
+
+## Folder layout
+
+- `app/` Expo Router routes. `(tabs)/` holds the bottom tabs.
+- `src/theme/` design tokens (colors, type, space, radius, shadow, motion, sizing) from `docs/design/ui.md`.
+- `src/components/` shared components.
+- `src/lib/` helpers such as `tokenStorage.ts`.
+- `src/config.ts` reads the API base URL.
+- `scripts/` screenshot script and its mocked API fixtures.
+
+## Theme rule
+
+Use tokens from `@/theme` only. Never write color, size or spacing literals in components.
+
+## Stack decisions
+
+- Navigation: Expo Router (file-based).
+- Server state: TanStack Query v5.
+- Local state: Zustand is chosen but not installed until something needs it.
+- Tokens: `expo-secure-store` behind `src/lib/tokenStorage.ts` (in-memory on web, never localStorage).
+- Tests and lint: `jest-expo`, `@testing-library/react-native`, ESLint 9 flat config.
+
+## Testing limits
+
+Jest and the web screenshots check logic, layout and colors only. They are not native. Check safe areas, gestures, back behavior and SecureStore on a device with Expo Go.
