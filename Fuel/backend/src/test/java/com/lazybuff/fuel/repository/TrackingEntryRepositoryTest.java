@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -77,6 +78,19 @@ class TrackingEntryRepositoryTest {
                 userId,
                 foodId,
                 meal);
+    }
+
+    private void insertEntryOn(UUID userId, UUID foodId, String logDate, boolean deleted) {
+        jdbc.update(
+                "INSERT INTO tracking_entries (user_id, food_id, food_name, food_source,"
+                        + " serving_size, serving_unit, quantity, meal_label, logged_at, log_date,"
+                        + " calories, protein, carbs, fat, deleted_at)"
+                        + " VALUES (?, ?, 'Rice', 'USDA', 100, 'g', 1, 'lunch', NOW(),"
+                        + " ?::date, 130, 2.7, 28, 0.3, CASE WHEN ? THEN NOW() END)",
+                userId,
+                foodId,
+                logDate,
+                deleted);
     }
 
     private int countEntries(UUID userId) {
@@ -244,5 +258,59 @@ class TrackingEntryRepositoryTest {
                                 .findByUserIdAndLogDateOrderByLoggedAtAscCreatedAtAsc(
                                         owner, LocalDate.of(2026, 6, 9)))
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("findDistinctLogDates returns each date once, newest first")
+    void shouldReturnDistinctDatesDescending() {
+        UUID userId = insertUser(null);
+        UUID foodId = insertFood();
+        insertEntryOn(userId, foodId, "2026-11-01", false);
+        insertEntryOn(userId, foodId, "2026-11-03", false);
+        insertEntryOn(userId, foodId, "2026-11-03", false);
+        insertEntryOn(userId, foodId, "2026-11-02", false);
+
+        assertThat(trackingEntryRepository.findDistinctLogDates(userId, LocalDate.of(2026, 11, 5)))
+                .containsExactly(
+                        LocalDate.of(2026, 11, 3),
+                        LocalDate.of(2026, 11, 2),
+                        LocalDate.of(2026, 11, 1));
+    }
+
+    @Test
+    @DisplayName("findDistinctLogDates excludes other users")
+    void shouldExcludeOtherUsersDates() {
+        UUID userId = insertUser(null);
+        UUID otherId = insertUser(null);
+        UUID foodId = insertFood();
+        insertEntryOn(userId, foodId, "2026-11-03", false);
+        insertEntryOn(otherId, foodId, "2026-11-04", false);
+
+        assertThat(trackingEntryRepository.findDistinctLogDates(userId, LocalDate.of(2026, 11, 5)))
+                .isEqualTo(List.of(LocalDate.of(2026, 11, 3)));
+    }
+
+    @Test
+    @DisplayName("findDistinctLogDates excludes soft-deleted entries")
+    void shouldExcludeSoftDeletedDates() {
+        UUID userId = insertUser(null);
+        UUID foodId = insertFood();
+        insertEntryOn(userId, foodId, "2026-11-03", false);
+        insertEntryOn(userId, foodId, "2026-11-04", true);
+
+        assertThat(trackingEntryRepository.findDistinctLogDates(userId, LocalDate.of(2026, 11, 5)))
+                .isEqualTo(List.of(LocalDate.of(2026, 11, 3)));
+    }
+
+    @Test
+    @DisplayName("findDistinctLogDates excludes dates after today")
+    void shouldExcludeFutureDates() {
+        UUID userId = insertUser(null);
+        UUID foodId = insertFood();
+        insertEntryOn(userId, foodId, "2026-11-05", false);
+        insertEntryOn(userId, foodId, "2026-11-06", false);
+
+        assertThat(trackingEntryRepository.findDistinctLogDates(userId, LocalDate.of(2026, 11, 5)))
+                .isEqualTo(List.of(LocalDate.of(2026, 11, 5)));
     }
 }

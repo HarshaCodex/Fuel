@@ -17,7 +17,6 @@ import com.lazybuff.fuel.util.ServingUnit;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -318,13 +317,7 @@ public class TrackingService {
     }
 
     private ZoneId zoneOf(User user, UUID userId) {
-        try {
-            return ZoneId.of(user.getTimezone());
-        } catch (DateTimeException exception) {
-            // Registration does not validate IANA ids; the timezone itself is not logged.
-            log.warn("User:{} has an invalid timezone, using UTC", userId);
-            return ZoneOffset.UTC;
-        }
+        return UserZones.of(user, userId);
     }
 
     private LocalDate logDate(User user, UUID userId, OffsetDateTime loggedAt) {

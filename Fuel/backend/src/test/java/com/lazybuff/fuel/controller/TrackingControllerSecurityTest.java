@@ -16,6 +16,7 @@ import com.lazybuff.fuel.security.RestAccessDeniedHandler;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
 import com.lazybuff.fuel.service.JwtService;
 import com.lazybuff.fuel.service.RateLimiterService;
+import com.lazybuff.fuel.service.StreakService;
 import com.lazybuff.fuel.service.TrackingService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,8 @@ class TrackingControllerSecurityTest {
     @MockitoBean private JwtService jwtService;
 
     @MockitoBean private TrackingService trackingService;
+
+    @MockitoBean private StreakService streakService;
 
     // WebConfig needs it to register rate-limit interceptors.
     @MockitoBean private RateLimiterService rateLimiterService;
@@ -91,5 +94,13 @@ class TrackingControllerSecurityTest {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(trackingService);
+    }
+
+    @Test
+    @DisplayName("GET /streak returns 401 without an access token")
+    void shouldReturnUnauthorizedOnStreakWithoutToken() throws Exception {
+        mockMvc.perform(get("/api/tracking/streak")).andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(streakService);
     }
 }

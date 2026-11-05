@@ -22,6 +22,16 @@ public interface TrackingEntryRepository extends JpaRepository<TrackingEntry, UU
             UUID userId, LocalDate logDate);
 
     /**
+     * Distinct diary dates up to {@code today}, newest first. Soft-deleted entries are already
+     * excluded. Only dates are loaded, never entries, so long histories stay cheap.
+     */
+    @Query(
+            "select distinct e.logDate from TrackingEntry e where e.user.id = :userId"
+                    + " and e.logDate <= :today order by e.logDate desc")
+    List<LocalDate> findDistinctLogDates(
+            @Param("userId") UUID userId, @Param("today") LocalDate today);
+
+    /**
      * Deletes the tracking entries of accounts soft-deleted before {@code cutoff}. Run before
      * purging their custom foods: the entries reference those foods through a plain foreign key.
      *
