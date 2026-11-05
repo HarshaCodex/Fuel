@@ -22,6 +22,7 @@ import com.lazybuff.fuel.dto.CustomFoodResponse;
 import com.lazybuff.fuel.dto.FoodItemDetail;
 import com.lazybuff.fuel.dto.FoodSearchItem;
 import com.lazybuff.fuel.dto.PageResponse;
+import com.lazybuff.fuel.dto.RecentFoodItem;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.logging.RequestIdFilter;
@@ -33,6 +34,7 @@ import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
 import com.lazybuff.fuel.service.JwtService;
 import com.lazybuff.fuel.service.RateLimiterService;
+import com.lazybuff.fuel.service.RecentFoodService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import java.time.LocalDateTime;
@@ -79,6 +81,8 @@ class CustomFoodControllerSecurityTest {
     @MockitoBean private FoodService foodService;
 
     @MockitoBean private FoodSearchService foodSearchService;
+
+    @MockitoBean private RecentFoodService recentFoodService;
 
     @MockitoBean private BarcodeService barcodeService;
 
@@ -397,6 +401,52 @@ class CustomFoodControllerSecurityTest {
                 .andExpect(status().isOk());
 
         verify(foodSearchService).search(USER_ID, "chicken", 0, 20);
+    }
+
+    @Test
+    @DisplayName("returns 401 for recent foods without an access token")
+    void shouldReturnUnauthorizedWhenListingRecentWithoutToken() throws Exception {
+        mockMvc.perform(get("/api/food/recent"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+
+        verifyNoInteractions(recentFoodService);
+    }
+
+    @Test
+    @DisplayName("lists recent foods for the token's user with the default limit")
+    void shouldListRecentFoodsForCaller() throws Exception {
+        givenValidToken();
+        when(recentFoodService.recent(USER_ID, 10))
+                .thenReturn(
+                        ApiResponse.<List<RecentFoodItem>>builder()
+                                .status(200)
+                                .message("Success")
+                                .data(List.of())
+                                .timestamp(LocalDateTime.now())
+                                .build());
+
+        mockMvc.perform(get("/api/food/recent").header("Authorization", "Bearer good"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray());
+
+        verify(recentFoodService).recent(USER_ID, 10);
+        verifyNoInteractions(foodService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "31", "-1", "abc"})
+    @DisplayName("returns 400 for an invalid recent foods limit")
+    void shouldRejectInvalidRecentLimit(String limit) throws Exception {
+        givenValidToken();
+
+        mockMvc.perform(
+                        get("/api/food/recent")
+                                .param("limit", limit)
+                                .header("Authorization", "Bearer good"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(recentFoodService);
     }
 
     private static final String BARCODE_URL = "/api/food/barcode/";
