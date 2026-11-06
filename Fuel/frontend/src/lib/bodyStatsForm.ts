@@ -52,7 +52,7 @@ export const emptyBodyStatsForm = (units: Units = 'metric'): BodyStatsForm => ({
 });
 
 /** Parses plain decimals (comma or dot). Returns null for blank, signs, exponents and junk. */
-function parseNumber(text: string): number | null {
+export function parseNumber(text: string): number | null {
   const t = text.trim().replace(',', '.');
   if (!/^(\d+(\.\d+)?|\.\d+)$/.test(t)) return null;
   return Number(t);
