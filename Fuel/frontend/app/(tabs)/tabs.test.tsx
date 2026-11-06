@@ -3,7 +3,6 @@ import { renderRouter, screen, within } from 'expo-router/testing-library';
 import TabsLayout from './_layout';
 import History from './history';
 import Today from './index';
-import Profile from './profile';
 
 describe('tab bar', () => {
   it('shows exactly Today, History, Profile in order with Today selected', async () => {
@@ -11,7 +10,7 @@ describe('tab bar', () => {
       '(tabs)/_layout': TabsLayout,
       '(tabs)/index': Today,
       '(tabs)/history': History,
-      '(tabs)/profile': Profile,
+      '(tabs)/profile': () => null,
     });
     const tabs = await screen.findAllByRole('button');
     expect(tabs).toHaveLength(3);
