@@ -30,11 +30,11 @@ cp .env.example .env
 | `npm run lint` | ESLint (`eslint-config-expo`) |
 | `npm test` | Jest (`jest-expo`) with Testing Library |
 | `npm run check` | Typecheck, lint and tests |
-| `npm run screenshots` | Export the web build and write `sign-in.png` (tab screens are behind sign-in; Register and Forgot password are not captured yet) to `screenshots/`. Run `npx playwright install chromium` once first. |
+| `npm run screenshots` | Export the web build and write `sign-in.png` (tab screens are behind sign-in; the auth screens after Sign in are not captured yet) to `screenshots/`. Run `npx playwright install chromium` once first. |
 
 ## Folder layout
 
-- `app/` Expo Router routes. `(tabs)/` holds the bottom tabs.
+- `app/` Expo Router routes. `(tabs)/` holds the bottom tabs; `(auth)/` holds sign-in, register, verify-email, forgot-password and reset-password.
 - `src/theme/` design tokens (colors, type, space, radius, shadow, motion, sizing) from `docs/design/ui.md`.
 - `src/components/` shared components (`Button`, `TextField`, `Banner`, `FormScreen`, `PasswordRules`).
 - `src/lib/` helpers: `tokenStorage.ts`, `validation.ts` (form rules), `passwordRules.ts` (new-password rules), `authErrors.ts` (API error kinds, 429 text), `pendingEmail.ts` (in-memory email between auth screens), `useCooldown.ts` (resend countdown).
