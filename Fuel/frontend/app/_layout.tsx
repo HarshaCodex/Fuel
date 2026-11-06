@@ -2,21 +2,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 
+import { FirstRunGate } from '@/session/FirstRunGate';
 import { SessionProvider, useSession } from '@/session/SessionProvider';
 
 function RootStack() {
   const { status } = useSession();
   if (status === 'loading') return null;
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={status === 'signedIn'}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="onboarding" />
-      </Stack.Protected>
-      <Stack.Protected guard={status === 'signedOut'}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={status === 'signedIn'}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="onboarding" />
+        </Stack.Protected>
+        <Stack.Protected guard={status === 'signedOut'}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+      </Stack>
+      {status === 'signedIn' ? <FirstRunGate /> : null}
+    </>
   );
 }
 

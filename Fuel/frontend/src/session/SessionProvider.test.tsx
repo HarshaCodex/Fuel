@@ -134,4 +134,15 @@ describe('SessionProvider', () => {
     expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith('/logout'))).toBe(false);
     expect(qc.getQueryData(['meals'])).toBeUndefined();
   });
+
+  it('clears the onboarding skip flag on sign-out and on expiry, even if clearing fails', async () => {
+    mocked.getTokens.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
+    mocked.clearOnboardingSkipped.mockRejectedValue(new Error('keychain'));
+    fetchMock.mockImplementation(async () => new Response('{}', { status: 401 }));
+    await mount();
+    await screen.findByText('signedIn');
+    await act(() => latest.session!.signOut());
+    expect(mocked.clearOnboardingSkipped).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('signedOut')).toBeTruthy();
+  });
 });

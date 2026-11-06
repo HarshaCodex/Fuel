@@ -40,3 +40,29 @@ export async function clearTokens(): Promise<void> {
   }
   await SecureStore.deleteItemAsync(KEY);
 }
+
+// "Set up later" choice from first-run onboarding. Not a secret, but kept in the same store so one
+// sign-out path clears it, and so nothing health-related touches AsyncStorage.
+const SKIP_KEY = 'fuel.onboardingSkipped';
+let memorySkipped = false;
+
+export async function getOnboardingSkipped(): Promise<boolean> {
+  if (isWeb()) return memorySkipped;
+  return (await SecureStore.getItemAsync(SKIP_KEY)) === '1';
+}
+
+export async function setOnboardingSkipped(): Promise<void> {
+  if (isWeb()) {
+    memorySkipped = true;
+    return;
+  }
+  await SecureStore.setItemAsync(SKIP_KEY, '1');
+}
+
+export async function clearOnboardingSkipped(): Promise<void> {
+  if (isWeb()) {
+    memorySkipped = false;
+    return;
+  }
+  await SecureStore.deleteItemAsync(SKIP_KEY);
+}
