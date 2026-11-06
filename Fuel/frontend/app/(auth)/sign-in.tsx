@@ -7,7 +7,7 @@ import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { FormScreen } from '@/components/FormScreen';
 import { TextField } from '@/components/TextField';
-import { classifyAuthError } from '@/lib/authErrors';
+import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
 import { validateEmail, validateLoginPassword } from '@/lib/validation';
 import { useSession } from '@/session/SessionProvider';
 import { space, type, useTheme } from '@/theme';
@@ -15,15 +15,8 @@ import { space, type, useTheme } from '@/theme';
 const CREDENTIALS_ERROR = 'Email or password is incorrect';
 const GENERIC_ERROR = "Couldn't sign in. Try again.";
 const OFFLINE_ERROR = "You're offline. Check your connection and try again.";
-const SECONDS_PER_MINUTE = 60;
 
 type Failure = { kind: 'offline' | 'rateLimited' | 'generic'; message: string } | { kind: 'credentials' };
-
-function rateLimitMessage(retryAfter?: number) {
-  if (!retryAfter || retryAfter <= 0) return 'Too many tries. Try again in a few minutes';
-  const minutes = Math.ceil(retryAfter / SECONDS_PER_MINUTE);
-  return `Too many tries. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
-}
 
 export default function SignInScreen() {
   const { colors } = useTheme();

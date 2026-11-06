@@ -12,3 +12,12 @@ export function classifyAuthError(e: unknown): { kind: AuthErrorKind; retryAfter
   }
   return { kind: 'generic' };
 }
+
+const SECONDS_PER_MINUTE = 60;
+
+/** User-facing text for a 429; `retryAfter` is in seconds. */
+export function rateLimitMessage(retryAfter?: number) {
+  if (!retryAfter || retryAfter <= 0) return 'Too many tries. Try again in a few minutes';
+  const minutes = Math.ceil(retryAfter / SECONDS_PER_MINUTE);
+  return `Too many tries. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+}
