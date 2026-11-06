@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from 'rea
 import Svg, { Circle } from 'react-native-svg';
 
 import { ringModel } from '@/lib/dashboardView';
-import { motion, numeric, space, type, useTheme } from '@/theme';
+import { motion, numeric, radius, space, type, useTheme } from '@/theme';
 
 type Props = { consumed: number; goal: number; loading?: boolean };
 
@@ -23,11 +23,14 @@ export function CalorieRing({ consumed, goal, loading }: Props) {
 
   useEffect(() => {
     let alive = true;
-    AccessibilityInfo.isReduceMotionEnabled?.()
+    // If the setting cannot be read, fall back to animating.
+    AccessibilityInfo.isReduceMotionEnabled()
       .then((on) => alive && setReduceMotion(on))
-      .catch(() => undefined);
+      .catch(() => alive && setReduceMotion(false));
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
     return () => {
       alive = false;
+      sub.remove();
     };
   }, []);
 
@@ -47,6 +50,8 @@ export function CalorieRing({ consumed, goal, loading }: Props) {
   }, [target, reduceMotion, progress]);
 
   const offset = progress.interpolate({ inputRange: [0, 1], outputRange: [C, 0] });
+  // A round cap draws a dot even for a zero-length dash, so hide the arc at 0.
+  const opacity = progress.interpolate({ inputRange: [0, 0.001], outputRange: [0, 1], extrapolate: 'clamp' });
   const arc = m.over ? colors.caution : colors.accent;
 
   return (
@@ -62,6 +67,7 @@ export function CalorieRing({ consumed, goal, loading }: Props) {
             stroke={arc}
             strokeWidth={STROKE}
             strokeLinecap="round"
+            strokeOpacity={opacity}
             fill="none"
             strokeDasharray={C}
             strokeDashoffset={offset}
@@ -120,5 +126,5 @@ const styles = StyleSheet.create({
   },
   eaten: { marginTop: space.md, textAlign: 'center' },
   skeletons: { alignItems: 'center', gap: space.sm },
-  bone: { borderRadius: 8 },
+  bone: { borderRadius: radius.sm },
 });

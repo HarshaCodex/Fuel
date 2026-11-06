@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo, processColor } from 'react-native';
 
 import { CalorieRing } from './CalorieRing';
@@ -47,5 +47,37 @@ describe('CalorieRing', () => {
     expect(screen.getByTestId('ring-skeleton')).toBeTruthy();
     expect(screen.queryByText('kcal left')).toBeNull();
     expect(screen.getByLabelText('Loading calories')).toBeTruthy();
+  });
+});
+
+const C = 2 * Math.PI * ((200 - 14) / 2);
+const arc = () => screen.getByTestId('ring-arc').props;
+// The renderer reports a dashoffset of 0 as null.
+const offsetOf = () => (arc().strokeDashoffset as number | null) ?? 0;
+
+describe('CalorieRing arc', () => {
+  beforeEach(() => jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true));
+
+  it.each([
+    ['empty day', 0, 2200, false, C, 0],
+    ['loading', 500, 2200, true, C, 0],
+    ['exactly at goal', 2200, 2200, false, 0, 1],
+    ['over goal', 2520, 2200, false, 0, 1],
+    ['normal day', 1450, 2200, false, C * (1 - 1450 / 2200), 1],
+  ])('draws the right arc for %s', async (_n, consumed, goal, loading, offset, opacity) => {
+    await render(<CalorieRing consumed={consumed} goal={goal} loading={loading} />);
+    expect(offsetOf()).toBeCloseTo(offset, 3);
+    expect(arc().strokeOpacity).toBe(opacity);
+  });
+
+  it('animates to the target when Reduce Motion is off', async () => {
+    jest.useFakeTimers();
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    await render(<CalorieRing consumed={2200} goal={2200} />);
+    await act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(offsetOf()).toBeCloseTo(0, 3);
+    jest.useRealTimers();
   });
 });

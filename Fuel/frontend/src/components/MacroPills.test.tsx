@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react-native';
 import { PixelRatio } from 'react-native';
 
+import { lightColors } from '@/theme';
+
 import { MacroPills } from './MacroPills';
 
 const base = {
@@ -29,7 +31,7 @@ describe('MacroPills', () => {
   it('caps the bar and uses caution text when over goal', async () => {
     await render(<MacroPills {...base} fat={{ consumed: 90, goal: 70 }} />);
     expect(screen.getByTestId('bar-fat')).toHaveStyle({ width: '100%' });
-    expect(screen.getByText('90')).toHaveStyle({ color: '#92400E' });
+    expect(screen.getByText('90')).toHaveStyle({ color: lightColors.caution });
   });
 
   it('keeps the bar empty when the goal is 0', async () => {
