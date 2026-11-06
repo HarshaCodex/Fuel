@@ -18,6 +18,9 @@ cp .env.example .env
 | Variable | Example | Notes |
 | --- | --- | --- |
 | `EXPO_PUBLIC_API_BASE_URL` | `http://localhost:8080` | Backend base URL. Every `EXPO_PUBLIC_` variable is bundled into the app and is public. Never put secrets here. On a physical phone use your computer's LAN address, not `localhost`. |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | (empty) | Google web OAuth client ID. Required for Google sign-in; it is the ID token audience on both platforms and must be in the backend `GOOGLE_CLIENT_IDS`. Public identifier, not a secret. |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | (empty) | Google iOS OAuth client ID. |
+| `GOOGLE_IOS_URL_SCHEME` | (empty) | Reversed iOS client ID (`com.googleusercontent.apps.<id>`). Build time only, read by `app.config.ts`. Google sign-in needs a development build, not Expo Go. See `Fuel/docs/OAUTH_SETUP.md`. |
 
 ## Commands
 

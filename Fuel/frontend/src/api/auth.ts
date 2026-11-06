@@ -43,3 +43,15 @@ export const forgotPassword = (email: string) =>
 
 export const resetPassword = (email: string, resetCode: string, newPassword: string) =>
   apiClient.request<null>('POST', '/api/auth/reset-password', { body: { email, resetCode, newPassword } });
+
+export const oauthGoogle = (idToken: string) =>
+  apiClient.request<UserData>('POST', '/api/auth/oauth/google', { body: { idToken } });
+
+export type AppleOAuthInput = {
+  identityToken: string;
+  authorizationCode?: string;
+  fullName?: { givenName?: string; familyName?: string };
+};
+
+export const oauthApple = (input: AppleOAuthInput) =>
+  apiClient.request<UserData>('POST', '/api/auth/oauth/apple', { body: input });

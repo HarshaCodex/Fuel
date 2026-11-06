@@ -12,6 +12,11 @@ import AuthLayout from './_layout';
 import SignIn from './sign-in';
 
 jest.mock('@/lib/tokenStorage');
+jest.mock('@/auth/oauthProviders', () => ({
+  signInWithGoogle: jest.fn(),
+  signInWithApple: jest.fn(),
+  isAppleSignInAvailable: jest.fn().mockResolvedValue(false),
+}));
 const mocked = jest.mocked(storage);
 
 const routes = {
