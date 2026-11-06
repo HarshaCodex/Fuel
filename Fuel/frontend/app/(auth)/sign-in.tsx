@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type ComponentRef } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -8,12 +8,14 @@ import { Button } from '@/components/Button';
 import { FormScreen } from '@/components/FormScreen';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
+import { clearPendingEmail, getPendingEmail } from '@/lib/pendingEmail';
 import { validateEmail, validateLoginPassword } from '@/lib/validation';
 import { useSession } from '@/session/SessionProvider';
 import { space, type, useTheme } from '@/theme';
 
 const CREDENTIALS_ERROR = 'Email or password is incorrect';
 const GENERIC_ERROR = "Couldn't sign in. Try again.";
+const RESET_DONE = 'Password updated. Sign in with your new password.';
 const OFFLINE_ERROR = "You're offline. Check your connection and try again.";
 
 type Failure = { kind: 'offline' | 'rateLimited' | 'generic'; message: string } | { kind: 'credentials' };
@@ -22,7 +24,13 @@ export default function SignInScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { signIn } = useSession();
-  const [email, setEmail] = useState('');
+  const { reset } = useLocalSearchParams<{ reset?: string }>();
+  // Prefill once from the register/reset flows, then forget it.
+  const [email, setEmail] = useState(() => {
+    const pending = getPendingEmail() ?? '';
+    clearPendingEmail();
+    return pending;
+  });
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -77,6 +85,7 @@ export default function SignInScreen() {
           Track what you eat, simply.
         </Text>
       </View>
+      {reset === '1' ? <Banner variant="info" message={RESET_DONE} /> : null}
       {failure?.kind === 'offline' ? (
         <Banner variant="caution" message={failure.message} action={{ label: 'Retry', onPress: onSubmit }} />
       ) : null}

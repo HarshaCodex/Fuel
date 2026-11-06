@@ -9,11 +9,10 @@ import { FormScreen } from '@/components/FormScreen';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
 import { clearPendingEmail, getPendingEmail } from '@/lib/pendingEmail';
-import { formatCooldown, useCooldown } from '@/lib/useCooldown';
+import { formatCooldown, RESEND_COOLDOWN_SECONDS, useCooldown } from '@/lib/useCooldown';
 import { useSession } from '@/session/SessionProvider';
 import { space, type, useTheme } from '@/theme';
 
-export const RESEND_COOLDOWN_SECONDS = 45;
 const CODE_MAX = 10;
 const CODE_LETTER_SPACING = 4;
 const CODE_REQUIRED = 'Enter the code.';
