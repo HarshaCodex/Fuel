@@ -3,13 +3,18 @@ import * as RN from 'react-native';
 
 import { login } from '@/api/auth';
 import { ApiError, NetworkError } from '@/api/errors';
+import { clearPendingEmail, getPendingEmail, setPendingEmail } from '@/lib/pendingEmail';
 import { darkColors } from '@/theme';
 
 import SignIn from './sign-in';
 
 const mockPush = jest.fn();
 const mockSignIn = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+let mockParams: Record<string, string> = {};
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+  useLocalSearchParams: () => mockParams,
+}));
 jest.mock('@/api/auth');
 jest.mock('@/lib/tokenStorage');
 jest.mock('@/session/SessionProvider', () => ({ useSession: () => ({ signIn: mockSignIn }) }));
@@ -28,11 +33,32 @@ const submit = () => fireEvent.press(screen.getByRole('button', { name: 'Sign in
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
+  clearPendingEmail();
   mockSignIn.mockResolvedValue(undefined);
 });
 
 describe('SignIn', () => {
   afterEach(() => jest.restoreAllMocks());
+
+  it('prefills the email from the pending email and clears it', async () => {
+    setPendingEmail(EMAIL);
+    await render(<SignIn />);
+    expect(screen.getByLabelText('Email').props.value).toBe(EMAIL);
+    expect(getPendingEmail()).toBeNull();
+  });
+
+  it('starts empty without a pending email and shows no banner', async () => {
+    await render(<SignIn />);
+    expect(screen.getByLabelText('Email').props.value).toBe('');
+    expect(screen.queryByText('Password updated. Sign in with your new password.')).toBeNull();
+  });
+
+  it('shows the password updated banner after a reset', async () => {
+    mockParams = { reset: '1' };
+    await render(<SignIn />);
+    expect(screen.getByText('Password updated. Sign in with your new password.')).toBeTruthy();
+  });
 
   it('signs in with trimmed email and hands tokens to the session', async () => {
     mockLogin.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' } as never);

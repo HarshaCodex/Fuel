@@ -3,6 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 const MS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
 
+/** Client-only wait before another code can be requested. */
+export const RESEND_COOLDOWN_SECONDS = 45;
+
 /** `m:ss`, e.g. 45 -> "0:45". */
 export function formatCooldown(seconds: number): string {
   const s = Math.max(0, Math.ceil(seconds));
