@@ -8,10 +8,18 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
   icon: './assets/icon.png',
-  ios: { bundleIdentifier: 'com.harshacodex.fuel', supportsTablet: false },
+  ios: { bundleIdentifier: 'com.harshacodex.fuel', supportsTablet: false, usesAppleSignIn: true },
   android: { package: 'com.harshacodex.fuel' },
   web: { bundler: 'metro', output: 'single', favicon: './assets/favicon.png' },
-  plugins: ['expo-router', 'expo-secure-store'],
+  plugins: [
+    'expo-router',
+    'expo-secure-store',
+    'expo-apple-authentication',
+    // Needs the reversed iOS client ID at build time; skipped when unset so web, CI and screenshots still build.
+    ...(process.env.GOOGLE_IOS_URL_SCHEME
+      ? [['@react-native-google-signin/google-signin', { iosUrlScheme: process.env.GOOGLE_IOS_URL_SCHEME }] as [string, object]]
+      : []),
+  ],
 };
 
 export default config;

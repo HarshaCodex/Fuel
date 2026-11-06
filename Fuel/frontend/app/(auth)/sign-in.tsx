@@ -1,11 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { login } from '@/api/auth';
+import { login, oauthApple, oauthGoogle } from '@/api/auth';
+import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/auth/oauthProviders';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { FormScreen } from '@/components/FormScreen';
+import { OAuthButtons } from '@/components/OAuthButtons';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
 import { clearPendingEmail, getPendingEmail } from '@/lib/pendingEmail';
@@ -39,6 +41,59 @@ export default function SignInScreen() {
   const emailRef = useRef<ComponentRef<typeof TextInput>>(null);
   const passwordRef = useRef<ComponentRef<typeof TextInput>>(null);
   const inFlight = useRef(false);
+  const lastAction = useRef<'password' | 'google' | 'apple'>('password');
+  const [showApple, setShowApple] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void isAppleSignInAvailable().then((ok) => {
+      if (active) setShowApple(ok);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function showError(e: unknown, credentialsOnAuthFailure: boolean) {
+    const { kind, retryAfter } = classifyAuthError(e);
+    if (kind === 'offline') setFailure({ kind: 'offline', message: OFFLINE_ERROR });
+    else if (kind === 'rateLimited') setFailure({ kind: 'rateLimited', message: rateLimitMessage(retryAfter) });
+    // 403 (unverified email) deliberately looks the same as a wrong password.
+    else if (credentialsOnAuthFailure && (kind === 'unauthorized' || kind === 'forbidden')) setFailure({ kind: 'credentials' });
+    else setFailure({ kind: 'generic', message: GENERIC_ERROR });
+    setLoading(false);
+  }
+
+  async function oauth(provider: 'google' | 'apple') {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    lastAction.current = provider;
+    setFailure(null);
+    setLoading(true);
+    try {
+      let data;
+      if (provider === 'google') {
+        const result = await signInWithGoogle();
+        if (!result) {
+          setLoading(false);
+          return;
+        }
+        data = await oauthGoogle(result.idToken);
+      } else {
+        const result = await signInWithApple();
+        if (!result) {
+          setLoading(false);
+          return;
+        }
+        data = await oauthApple(result);
+      }
+      await signIn({ accessToken: data.accessToken, refreshToken: data.refreshToken });
+    } catch (e) {
+      showError(e, false);
+    } finally {
+      inFlight.current = false;
+    }
+  }
 
   async function submit() {
     if (inFlight.current) return;
@@ -51,6 +106,7 @@ export default function SignInScreen() {
       return;
     }
     inFlight.current = true;
+    lastAction.current = 'password';
     setFailure(null);
     setLoading(true);
     try {
@@ -58,13 +114,7 @@ export default function SignInScreen() {
       await signIn({ accessToken: data.accessToken, refreshToken: data.refreshToken });
       // The protected stack swaps to the tabs; this screen unmounts, so nothing more to set.
     } catch (e) {
-      const { kind, retryAfter } = classifyAuthError(e);
-      if (kind === 'offline') setFailure({ kind: 'offline', message: OFFLINE_ERROR });
-      else if (kind === 'rateLimited') setFailure({ kind: 'rateLimited', message: rateLimitMessage(retryAfter) });
-      // 403 (unverified email) deliberately looks the same as a wrong password.
-      else if (kind === 'unauthorized' || kind === 'forbidden') setFailure({ kind: 'credentials' });
-      else setFailure({ kind: 'generic', message: GENERIC_ERROR });
-      setLoading(false);
+      showError(e, true);
     } finally {
       inFlight.current = false;
     }
@@ -73,6 +123,16 @@ export default function SignInScreen() {
   // Handlers return void so the press is not tied to the request's lifetime.
   const onSubmit = () => {
     void submit();
+  };
+  const onGoogle = () => {
+    void oauth('google');
+  };
+  const onApple = () => {
+    void oauth('apple');
+  };
+  const onRetry = () => {
+    if (lastAction.current === 'password') onSubmit();
+    else void oauth(lastAction.current);
   };
 
   return (
@@ -87,7 +147,7 @@ export default function SignInScreen() {
       </View>
       {reset === '1' ? <Banner variant="info" message={RESET_DONE} /> : null}
       {failure?.kind === 'offline' ? (
-        <Banner variant="caution" message={failure.message} action={{ label: 'Retry', onPress: onSubmit }} />
+        <Banner variant="caution" message={failure.message} action={{ label: 'Retry', onPress: onRetry }} />
       ) : null}
       {failure?.kind === 'rateLimited' || failure?.kind === 'generic' ? (
         <Banner variant="danger" message={failure.message} />
@@ -129,6 +189,7 @@ export default function SignInScreen() {
         onSubmitEditing={onSubmit}
       />
       <Button label="Sign in" loading={loading} onPress={onSubmit} />
+      <OAuthButtons disabled={loading} showApple={showApple} onGoogle={onGoogle} onApple={onApple} />
       <View style={styles.links}>
         <Button variant="text" size="md" label="Forgot password?" onPress={() => router.push('/forgot-password')} />
         <Button variant="text" size="md" label="Create an account" onPress={() => router.push('/register')} />

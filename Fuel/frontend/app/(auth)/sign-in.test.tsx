@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as RN from 'react-native';
 
-import { login } from '@/api/auth';
+import { login, oauthApple, oauthGoogle } from '@/api/auth';
+import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/auth/oauthProviders';
 import { ApiError, NetworkError } from '@/api/errors';
 import { clearPendingEmail, getPendingEmail, setPendingEmail } from '@/lib/pendingEmail';
 import { darkColors } from '@/theme';
@@ -16,10 +17,21 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/api/auth');
+jest.mock('@/auth/oauthProviders', () => ({
+  signInWithGoogle: jest.fn(),
+  signInWithApple: jest.fn(),
+  isAppleSignInAvailable: jest.fn().mockResolvedValue(false),
+}));
 jest.mock('@/lib/tokenStorage');
 jest.mock('@/session/SessionProvider', () => ({ useSession: () => ({ signIn: mockSignIn }) }));
 
 const mockLogin = jest.mocked(login);
+const mockGoogleFlow = jest.mocked(signInWithGoogle);
+const mockAppleFlow = jest.mocked(signInWithApple);
+const mockOauthGoogle = jest.mocked(oauthGoogle);
+const mockOauthApple = jest.mocked(oauthApple);
+const mockAppleAvailable = jest.mocked(isAppleSignInAvailable);
+const TOKENS = { accessToken: 'a', refreshToken: 'r' } as never;
 const EMAIL = 'user@example.com';
 const PASSWORD = 'secret-pass';
 
@@ -36,6 +48,7 @@ beforeEach(() => {
   mockParams = {};
   clearPendingEmail();
   mockSignIn.mockResolvedValue(undefined);
+  mockAppleAvailable.mockResolvedValue(true);
 });
 
 describe('SignIn', () => {
@@ -220,5 +233,103 @@ describe('SignIn', () => {
     expect(screen.getByText('Enter your password.')).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText('Password'), 'x');
     expect(screen.queryByText('Enter your password.')).toBeNull();
+  });
+});
+
+describe('SignIn with providers', () => {
+  afterEach(() => jest.restoreAllMocks());
+  const google = () => screen.getByRole('button', { name: 'Continue with Google' });
+  const apple = () => screen.getByRole('button', { name: 'Continue with Apple' });
+
+  it('signs in with Google and passes the tokens to the session', async () => {
+    mockGoogleFlow.mockResolvedValue({ idToken: 'gid' });
+    mockOauthGoogle.mockResolvedValue(TOKENS);
+    await render(<SignIn />);
+    await fireEvent.press(google());
+    await waitFor(() => expect(mockSignIn).toHaveBeenCalledWith({ accessToken: 'a', refreshToken: 'r' }));
+    expect(mockOauthGoogle).toHaveBeenCalledTimes(1);
+    expect(mockOauthGoogle).toHaveBeenCalledWith('gid');
+  });
+
+  it('signs in with Apple and forwards the credential', async () => {
+    const cred = { identityToken: 'aid', fullName: { givenName: 'A' } };
+    mockAppleFlow.mockResolvedValue(cred);
+    mockOauthApple.mockResolvedValue(TOKENS);
+    await render(<SignIn />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Continue with Apple' }));
+    await waitFor(() => expect(mockSignIn).toHaveBeenCalled());
+    expect(mockOauthApple).toHaveBeenCalledWith(cred);
+  });
+
+  it('is silent when the user cancels', async () => {
+    mockGoogleFlow.mockResolvedValue(null);
+    await render(<SignIn />);
+    await fireEvent.press(google());
+    await waitFor(() => expect(mockGoogleFlow).toHaveBeenCalled());
+    expect(mockOauthGoogle).not.toHaveBeenCalled();
+    expect(screen.queryByText("Couldn't sign in. Try again.")).toBeNull();
+    await waitFor(() => expect(google().props.accessibilityState.disabled).toBe(false));
+  });
+
+  it('shows the generic message when the provider throws', async () => {
+    mockGoogleFlow.mockRejectedValue(new Error('boom'));
+    await render(<SignIn />);
+    await fireEvent.press(google());
+    expect(await screen.findByText("Couldn't sign in. Try again.")).toBeTruthy();
+    expect(google().props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('shows the generic message for a missing client ID', async () => {
+    mockGoogleFlow.mockRejectedValue(new Error('EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is not set'));
+    await render(<SignIn />);
+    await fireEvent.press(google());
+    expect(await screen.findByText("Couldn't sign in. Try again.")).toBeTruthy();
+    expect(screen.queryByText(/CLIENT_ID/)).toBeNull();
+  });
+
+  it.each([401, 409, 500])('shows the generic message for API %i', async (status) => {
+    mockGoogleFlow.mockResolvedValue({ idToken: 'gid' });
+    mockOauthGoogle.mockRejectedValue(new ApiError(status, 'x'));
+    await render(<SignIn />);
+    await fireEvent.press(google());
+    expect(await screen.findByText("Couldn't sign in. Try again.")).toBeTruthy();
+    expect(screen.queryByText('Email or password is incorrect')).toBeNull();
+  });
+
+  it('shows the offline banner and retry re-runs the provider flow', async () => {
+    mockGoogleFlow.mockResolvedValue({ idToken: 'gid' });
+    mockOauthGoogle.mockRejectedValueOnce(new NetworkError());
+    await render(<SignIn />);
+    await fireEvent.press(google());
+    expect(await screen.findByText("You're offline. Check your connection and try again.")).toBeTruthy();
+    mockOauthGoogle.mockResolvedValueOnce(TOKENS);
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(mockSignIn).toHaveBeenCalled());
+    expect(mockLogin).not.toHaveBeenCalled();
+    expect(mockOauthGoogle).toHaveBeenCalledTimes(2);
+  });
+
+  it('posts once on double tap and disables both buttons mid-flow', async () => {
+    let resolve!: (v: { idToken: string } | null) => void;
+    mockGoogleFlow.mockReturnValue(new Promise((r) => (resolve = r)));
+    await render(<SignIn />);
+    await screen.findByRole('button', { name: 'Continue with Apple' });
+    await fireEvent.press(google());
+    await fireEvent.press(google());
+    expect(mockGoogleFlow).toHaveBeenCalledTimes(1);
+    expect(google().props.accessibilityState.disabled).toBe(true);
+    expect(apple().props.accessibilityState.disabled).toBe(true);
+    expect(screen.getByLabelText('Email').props.editable).toBe(false);
+    await fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
+    expect(mockLogin).not.toHaveBeenCalled();
+    await act(async () => resolve(null));
+  });
+
+  it('hides the Apple button when Apple sign-in is unavailable', async () => {
+    mockAppleAvailable.mockResolvedValue(false);
+    await render(<SignIn />);
+    await waitFor(() => expect(mockAppleAvailable).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Continue with Apple' })).toBeNull();
+    expect(google()).toBeTruthy();
   });
 });

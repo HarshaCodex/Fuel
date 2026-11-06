@@ -1,4 +1,4 @@
-import { forgotPassword, login, refresh, register, resendVerification, resetPassword, verifyEmail } from './auth';
+import { forgotPassword, login, oauthApple, oauthGoogle, refresh, register, resendVerification, resetPassword, verifyEmail } from './auth';
 
 const fetchMock = jest.fn();
 
@@ -41,5 +41,25 @@ describe('auth api', () => {
     expect(init.headers.Authorization).toBeUndefined();
     expect(JSON.parse(init.body)).toEqual(body);
     expect(result).toEqual({ accessToken: 'a' });
+  });
+
+  it('oauthGoogle posts the ID token without a bearer', async () => {
+    await oauthGoogle('gid');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/auth/oauth/google');
+    expect(init.headers.Authorization).toBeUndefined();
+    expect(JSON.parse(init.body)).toEqual({ idToken: 'gid' });
+  });
+
+  it('oauthApple posts the credential and omits fullName when absent', async () => {
+    await oauthApple({ identityToken: 'aid' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/auth/oauth/apple');
+    expect(JSON.parse(init.body)).toEqual({ identityToken: 'aid' });
+  });
+
+  it('oauthApple includes fullName when given', async () => {
+    await oauthApple({ identityToken: 'aid', fullName: { givenName: 'A', familyName: 'B' } });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).fullName).toEqual({ givenName: 'A', familyName: 'B' });
   });
 });
