@@ -31,7 +31,7 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, Props>(funct
           {
             backgroundColor: editable ? colors.surface : colors.surfaceMuted,
             borderColor,
-            borderWidth: focused ? 2 : 1.5,
+            borderWidth: focused ? sizing.borderFocus : sizing.border,
           },
           focused && (scheme === 'dark' ? null : shadow.sm),
         ]}

@@ -16,7 +16,8 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', loadi
   const { colors } = useTheme();
   const inactive = disabled || loading;
   const height = Math.max(size === 'lg' ? sizing.buttonLg : sizing.buttonMd, sizing.touchMin);
-  const labelColor = variant === 'primary' ? colors.onAccent : colors.accentText;
+  const labelColor = inactive && !loading ? colors.textTertiary : variant === 'primary' ? colors.onAccent : colors.accentText;
+  const dimmed = disabled && !loading;
 
   return (
     <Pressable
@@ -29,14 +30,15 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', loadi
       style={({ pressed }) => [
         styles.base,
         { minHeight: height },
-        variant === 'primary' && { backgroundColor: pressed ? colors.accentPressed : colors.accent },
+        variant === 'primary' && {
+          backgroundColor: dimmed ? colors.surfaceMuted : pressed ? colors.accentPressed : colors.accent,
+        },
         variant === 'secondary' && {
           backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
-          borderColor: colors.borderStrong,
-          borderWidth: 1.5,
+          borderColor: dimmed ? colors.border : colors.accent,
+          borderWidth: sizing.border,
         },
         variant === 'text' && { backgroundColor: pressed ? colors.surfaceMuted : 'transparent' },
-        disabled && !loading && { opacity: 0.5 },
       ]}
     >
       {/* The label stays in layout (hidden while loading) so the button width never changes. */}

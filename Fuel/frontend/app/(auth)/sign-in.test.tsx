@@ -3,6 +3,7 @@ import * as RN from 'react-native';
 
 import { login } from '@/api/auth';
 import { ApiError, NetworkError } from '@/api/errors';
+import { darkColors } from '@/theme';
 
 import SignIn from './sign-in';
 
@@ -21,6 +22,8 @@ async function fill(email = EMAIL, password = PASSWORD) {
   await fireEvent.changeText(screen.getByLabelText('Email'), email);
   await fireEvent.changeText(screen.getByLabelText('Password'), password);
 }
+// The jest TextInput mock is a class; mock.contexts holds the input instance each focus() ran on.
+const focusSpy = () => jest.spyOn(RN.TextInput.prototype, 'focus');
 const submit = () => fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
 
 beforeEach(() => {
@@ -29,6 +32,8 @@ beforeEach(() => {
 });
 
 describe('SignIn', () => {
+  afterEach(() => jest.restoreAllMocks());
+
   it('signs in with trimmed email and hands tokens to the session', async () => {
     mockLogin.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' } as never);
     await render(<SignIn />);
@@ -96,8 +101,9 @@ describe('SignIn', () => {
     mockLogin.mockReturnValue(new Promise((r) => (resolve = r)));
     await render(<SignIn />);
     await fill();
-    await submit();
-    await submit();
+    // Submit via the keyboard twice: this bypasses the disabled button, so only the in-flight guard stops it.
+    await fireEvent(screen.getByLabelText('Password'), 'submitEditing');
+    await fireEvent(screen.getByLabelText('Password'), 'submitEditing');
     expect(mockLogin).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText('Email').props.editable).toBe(false);
     expect(screen.getByLabelText('Password').props.editable).toBe(false);
@@ -108,7 +114,9 @@ describe('SignIn', () => {
     mockLogin.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' } as never);
     await render(<SignIn />);
     await fill();
+    const focus = focusSpy();
     await fireEvent(screen.getByLabelText('Email'), 'submitEditing');
+    expect(focus).toHaveBeenCalledTimes(1);
     expect(mockLogin).not.toHaveBeenCalled();
     await fireEvent(screen.getByLabelText('Password'), 'submitEditing');
     await waitFor(() => expect(mockLogin).toHaveBeenCalled());
@@ -154,6 +162,47 @@ describe('SignIn', () => {
   it('renders in the dark scheme', async () => {
     jest.spyOn(RN, 'useColorScheme').mockReturnValue('dark');
     await render(<SignIn />);
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toHaveStyle({ backgroundColor: darkColors.accent });
+  });
+
+  it('focuses the first invalid field after a failed submit', async () => {
+    await render(<SignIn />);
+    const focus = focusSpy();
+    // Return on Email focuses Password, which gives us a reference for "the Password input".
+    await fireEvent(screen.getByLabelText('Email'), 'submitEditing');
+    const passwordInput = focus.mock.contexts[0];
+    focus.mockClear();
+
+    await fill(EMAIL, '');
+    await submit();
+    expect(focus).toHaveBeenCalledTimes(1);
+    expect(focus.mock.contexts[0]).toBe(passwordInput);
+
+    await fill('', '');
+    await submit();
+    expect(focus).toHaveBeenCalledTimes(2);
+    expect(focus.mock.contexts[1]).not.toBe(passwordInput);
+  });
+
+  it('clears the password error once a password is typed', async () => {
+    await render(<SignIn />);
+    await fill(EMAIL, '');
+    await submit();
+    expect(screen.getByText('Enter your password.')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'x');
+    expect(screen.queryByText('Enter your password.')).toBeNull();
+  });
+
+  it('does not update state after unmount', async () => {
+    const error = jest.spyOn(console, 'error').mockImplementation();
+    let reject!: (e: unknown) => void;
+    mockLogin.mockReturnValue(new Promise((_, r) => (reject = r)));
+    const view = await render(<SignIn />);
+    await fill();
+    await submit();
+    await view.unmount();
+    await act(async () => reject(new ApiError(500, 'x')));
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
   });
 });

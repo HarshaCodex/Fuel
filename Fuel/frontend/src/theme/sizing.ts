@@ -7,4 +7,6 @@ export const sizing = {
   icon: 24,
   fab: 56,
   tabBar: 56,
+  border: 1.5,
+  borderFocus: 2,
 } as const;

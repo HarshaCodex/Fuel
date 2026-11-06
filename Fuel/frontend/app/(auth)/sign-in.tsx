@@ -121,7 +121,11 @@ export default function SignInScreen() {
         label="Password"
         secure
         value={password}
-        onChangeText={setPassword}
+        onChangeText={(v) => {
+          setPassword(v);
+          if (passwordError) setPasswordError(validateLoginPassword(v));
+        }}
+        onBlur={() => password && setPasswordError(validateLoginPassword(password))}
         error={passwordError ?? (failure?.kind === 'credentials' ? CREDENTIALS_ERROR : null)}
         editable={!loading}
         autoCapitalize="none"

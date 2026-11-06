@@ -1,6 +1,6 @@
 # Fuel mobile app
 
-Expo (React Native, TypeScript) app for Fuel. This is the scaffold: three placeholder tabs (Today, History, Profile), design tokens, and a secure token store. No real screens or API calls yet.
+Expo (React Native, TypeScript) app for Fuel. This is the scaffold: three placeholder tabs (Today, History, Profile), design tokens, and a secure token store. The Sign in screen and the auth API calls are in; Register and Forgot password are still placeholders.
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ cp .env.example .env
 | `npm run lint` | ESLint (`eslint-config-expo`) |
 | `npm test` | Jest (`jest-expo`) with Testing Library |
 | `npm run check` | Typecheck, lint and tests |
-| `npm run screenshots` | Export the web build and write `sign-in.png` (tab screens are behind sign-in) to `screenshots/`. Run `npx playwright install chromium` once first. |
+| `npm run screenshots` | Export the web build and write `sign-in.png` (tab screens are behind sign-in; Register and Forgot password are not captured yet) to `screenshots/`. Run `npx playwright install chromium` once first. |
 
 ## Folder layout
 
