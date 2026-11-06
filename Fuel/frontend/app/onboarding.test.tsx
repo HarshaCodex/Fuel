@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { putBodyStats, recalculateGoals } from '@/api/user';
@@ -94,6 +94,54 @@ describe('Onboarding', () => {
     mockPut.mockRejectedValueOnce(new ApiError(400, 'bad', [{ field: 'age', message: 'Age is not allowed' }]));
     await toStep3();
     await waitFor(() => expect(screen.getByText('Age is not allowed')).toBeTruthy());
+    expect(screen.getByLabelText('Age').props.value).toBe('30');
+  });
+
+  it('disables the goal controls while a calculation is running', async () => {
+    let release: (g: typeof GOALS) => void = () => undefined;
+    mockRecalc.mockReturnValueOnce(new Promise((r) => (release = r)));
+    await toStep3();
+    expect(screen.getByRole('radio', { name: 'Lose' }).props.accessibilityState).toMatchObject({ disabled: true });
+    await act(async () => release(GOALS));
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Lose' }).props.accessibilityState.disabled).toBe(false));
+  });
+
+  it('saves again when stats were edited while an earlier save was in flight', async () => {
+    let release: (v: never) => void = () => undefined;
+    mockPut.mockReturnValueOnce(new Promise((r) => (release = r)));
+    await toStep3();
+    await press('Back');
+    await radio(/Active\./);
+    await act(async () => release({} as never));
+    await press('Next');
+    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(2));
+    expect(mockPut).toHaveBeenLastCalledWith(expect.objectContaining({ activityLevel: 'ACTIVE' }));
+  });
+
+  it('clears the not-accepted banner once the user moves on', async () => {
+    mockPut.mockRejectedValueOnce(new ApiError(400, 'bad', [{ field: 'unknownField', message: 'x' }]));
+    await toStep3();
+    await waitFor(() => expect(screen.getByText(/not accepted/)).toBeTruthy());
+    await press('Next');
+    expect(screen.queryByText(/not accepted/)).toBeNull();
+  });
+
+  it('sends feet and pounds after switching to imperial and keeps answers on Back', async () => {
+    await renderScreen();
+    await fireEvent.changeText(screen.getByLabelText('Age'), '30');
+    await radio('Male');
+    await fireEvent.changeText(screen.getByLabelText('Height (cm)'), '180');
+    await fireEvent.changeText(screen.getByLabelText('Weight (kg)'), '80');
+    await radio('Imperial');
+    expect(screen.getByLabelText('Weight (lbs)').props.value).toBe('176.4');
+    await press('Next');
+    await radio(/Moderately active/);
+    await press('Next');
+    await waitFor(() => expect(mockPut).toHaveBeenCalledWith(expect.objectContaining({ heightUnit: 'ft', weightUnit: 'lbs' })));
+    await radio('Gain');
+    await waitFor(() => expect(screen.getByText('500 kcal above your maintenance')).toBeTruthy());
+    await press('Back');
+    await press('Back');
     expect(screen.getByLabelText('Age').props.value).toBe('30');
   });
 

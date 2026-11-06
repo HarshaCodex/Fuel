@@ -7,10 +7,11 @@ type Props<T extends string> = {
   options: readonly { value: T; label: string }[];
   value: T | null;
   onChange: (value: T) => void;
+  disabled?: boolean;
 };
 
 /** Two to three exclusive choices in one row. Each segment is a radio for screen readers. */
-export function SegmentedControl<T extends string>({ label, options, value, onChange }: Props<T>) {
+export function SegmentedControl<T extends string>({ label, options, value, onChange, disabled = false }: Props<T>) {
   const { colors } = useTheme();
   return (
     <View style={styles.root}>
@@ -25,7 +26,8 @@ export function SegmentedControl<T extends string>({ label, options, value, onCh
               key={o.value}
               accessibilityRole="radio"
               accessibilityLabel={o.label}
-              accessibilityState={{ selected }}
+              accessibilityState={{ selected, disabled }}
+              disabled={disabled}
               onPress={() => onChange(o.value)}
               style={[styles.segment, selected && { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: sizing.border }]}
             >

@@ -87,6 +87,7 @@ export default function OnboardingScreen() {
     const found = Object.fromEntries(relevant.filter((k) => all[k]).map((k) => [k, all[k]]));
     setErrors(found);
     if (Object.keys(found).length > 0) return;
+    setBanner(null);
     if (step === 0) setStep(1);
     else {
       setStep(2);
@@ -96,12 +97,14 @@ export default function OnboardingScreen() {
 
   async function calculate(g: GoalType, d: number) {
     const id = ++requestId.current;
+    setBanner(null);
     setCalc({ status: 'loading' });
     try {
       const { input } = validateBodyStats(form);
       if (!saved.current && input) {
         await putBodyStats(input);
-        saved.current = true;
+        // A newer request or an edit since this one started means the saved copy may be stale.
+        if (id === requestId.current) saved.current = true;
       }
       const goals = await recalculateGoals(g === 'MAINTAIN' ? { goal: g } : { goal: g, deficit: d });
       if (id === requestId.current) setCalc({ status: 'ok', goals });
@@ -174,7 +177,11 @@ export default function OnboardingScreen() {
             label="Units"
             options={UNIT_OPTIONS}
             value={form.units}
-            onChange={(u: Units) => u !== form.units && setForm(convertUnits(form, u))}
+            onChange={(u: Units) => {
+              if (u === form.units) return;
+              saved.current = false;
+              setForm(convertUnits(form, u));
+            }}
           />
           {imperial ? (
             <View style={styles.pair}>
@@ -219,7 +226,7 @@ export default function OnboardingScreen() {
 
       {step === 2 ? (
         <>
-          <SegmentedControl label="Goal" options={GOALS} value={goal} onChange={pickGoal} />
+          <SegmentedControl label="Goal" options={GOALS} value={goal} onChange={pickGoal} disabled={calc.status === 'loading'} />
           {goal !== 'MAINTAIN' ? (
             <Stepper
               label="Daily calorie change"
@@ -228,6 +235,7 @@ export default function OnboardingScreen() {
               max={DEFICIT.max}
               step={DEFICIT.step}
               onChange={pickDeficit}
+              disabled={calc.status === 'loading'}
               format={(v) => `${v} kcal ${goal === 'LOSE' ? 'below' : 'above'} your maintenance`}
             />
           ) : null}

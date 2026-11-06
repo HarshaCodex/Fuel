@@ -11,24 +11,28 @@ type Props = {
   step: number;
   onChange: (value: number) => void;
   /** Text shown between the buttons; defaults to the number. */
+  disabled?: boolean;
   format?: (value: number) => string;
 };
 
 /** Minus / value / plus control that clamps to [min, max]. */
-export function Stepper({ label, value, min, max, step, onChange, format = String }: Props) {
+export function Stepper({ label, value, min, max, step, onChange, disabled = false, format = String }: Props) {
   const { colors } = useTheme();
-  const button = (name: 'remove' | 'add', text: string, next: number, disabled: boolean) => (
+  const button = (name: 'remove' | 'add', text: string, next: number, atLimit: boolean) => {
+    const off = atLimit || disabled;
+    return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${text} ${label}`}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: off }}
+      disabled={off}
       onPress={() => onChange(next)}
-      style={[styles.button, { borderColor: disabled ? colors.border : colors.accent }]}
+      style={[styles.button, { borderColor: off ? colors.border : colors.accent }]}
     >
-      <Ionicons name={name} size={sizing.icon} color={disabled ? colors.textTertiary : colors.accentText} />
+      <Ionicons name={name} size={sizing.icon} color={off ? colors.textTertiary : colors.accentText} />
     </Pressable>
   );
+  };
   return (
     <View style={styles.root}>
       <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
