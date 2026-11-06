@@ -1,7 +1,14 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import { clearTokens, getTokens, setTokens } from './tokenStorage';
+import {
+  clearOnboardingSkipped,
+  clearTokens,
+  getOnboardingSkipped,
+  getTokens,
+  setOnboardingSkipped,
+  setTokens,
+} from './tokenStorage';
 
 jest.mock('expo-secure-store', () => {
   const store = new Map<string, string>();
@@ -64,5 +71,27 @@ describe('tokenStorage', () => {
       expect(local.setItem).not.toHaveBeenCalled();
       expect(local.getItem).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('onboarding skip flag', () => {
+  it.each(['ios', 'web'] as const)('defaults false, sets and clears on %s', async (os) => {
+    Platform.OS = os;
+    await clearOnboardingSkipped();
+    expect(await getOnboardingSkipped()).toBe(false);
+    await setOnboardingSkipped();
+    expect(await getOnboardingSkipped()).toBe(true);
+    await clearOnboardingSkipped();
+    expect(await getOnboardingSkipped()).toBe(false);
+  });
+
+  it('uses SecureStore on native and never on web', async () => {
+    Platform.OS = 'web';
+    jest.clearAllMocks();
+    await setOnboardingSkipped();
+    expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
+    Platform.OS = 'ios';
+    await setOnboardingSkipped();
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('fuel.onboardingSkipped', '1');
   });
 });

@@ -29,6 +29,7 @@ import {
   type Units,
 } from '@/lib/bodyStatsForm';
 import { mapFieldErrors } from '@/lib/fieldErrors';
+import { setOnboardingSkipped } from '@/lib/tokenStorage';
 import { radius, sizing, space, type, useTheme } from '@/theme';
 
 const OFFLINE = "You're offline. Check your connection and try again.";
@@ -138,6 +139,15 @@ export default function OnboardingScreen() {
     router.replace('/');
   }
 
+  async function skip() {
+    try {
+      await setOnboardingSkipped();
+    } catch {
+      // Not persisted: the prompt may show again next launch, which is acceptable.
+    }
+    router.replace('/');
+  }
+
   function back() {
     requestId.current++; // drop any in-flight calculation
     setBanner(null);
@@ -203,7 +213,7 @@ export default function OnboardingScreen() {
             error={errors.weight}
           />
           <Button label="Next" onPress={next} />
-          <Button variant="text" label="Set up later" onPress={() => router.replace('/')} />
+          <Button variant="text" label="Set up later" onPress={() => void skip()} />
         </>
       ) : null}
 

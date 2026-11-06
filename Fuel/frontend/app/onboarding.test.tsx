@@ -4,7 +4,11 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { ApiError, NetworkError } from '@/api/errors';
 import { putBodyStats, recalculateGoals } from '@/api/user';
 
+import { setOnboardingSkipped } from '@/lib/tokenStorage';
+
 import Onboarding from './onboarding';
+
+jest.mock('@/lib/tokenStorage');
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace }) }));
@@ -148,7 +152,15 @@ describe('Onboarding', () => {
   it('sets up later without calling the API', async () => {
     await renderScreen();
     await press('Set up later');
-    expect(mockReplace).toHaveBeenCalledWith('/');
+    expect(setOnboardingSkipped).toHaveBeenCalled();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
     expect(mockPut).not.toHaveBeenCalled();
+  });
+
+  it('still leaves when the skip flag cannot be stored', async () => {
+    jest.mocked(setOnboardingSkipped).mockRejectedValueOnce(new Error('keychain'));
+    await renderScreen();
+    await press('Set up later');
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 });

@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { ApiError } from '@/api/errors';
 import { logout, refresh } from '@/api/auth';
 import { apiClient, setSessionExpiredListener } from '@/api/client';
-import { clearTokens, getTokens, setTokens, type Tokens } from '@/lib/tokenStorage';
+import { clearOnboardingSkipped, clearTokens, getTokens, setTokens, type Tokens } from '@/lib/tokenStorage';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
 type Session = { status: Status; signIn: (tokens: Tokens) => Promise<void>; signOut: () => Promise<void> };
@@ -31,6 +31,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const endLocally = useCallback(() => {
     setStatus('signedOut');
     queryClient.clear();
+    // Best effort: a stale flag only means the next account on this device skips the prompt once.
+    Promise.resolve(clearOnboardingSkipped()).catch(() => undefined);
   }, [queryClient]);
 
   useEffect(() => {
