@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { login } from '@/api/auth';
@@ -38,14 +38,6 @@ export default function SignInScreen() {
   const emailRef = useRef<ComponentRef<typeof TextInput>>(null);
   const passwordRef = useRef<ComponentRef<typeof TextInput>>(null);
   const inFlight = useRef(false);
-  const mounted = useRef(true);
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
 
   async function submit() {
     if (inFlight.current) return;
@@ -65,7 +57,6 @@ export default function SignInScreen() {
       await signIn({ accessToken: data.accessToken, refreshToken: data.refreshToken });
       // The protected stack swaps to the tabs; this screen unmounts, so nothing more to set.
     } catch (e) {
-      if (!mounted.current) return;
       const { kind, retryAfter } = classifyAuthError(e);
       if (kind === 'offline') setFailure({ kind: 'offline', message: OFFLINE_ERROR });
       else if (kind === 'rateLimited') setFailure({ kind: 'rateLimited', message: rateLimitMessage(retryAfter) });

@@ -16,8 +16,8 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', loadi
   const { colors } = useTheme();
   const inactive = disabled || loading;
   const height = Math.max(size === 'lg' ? sizing.buttonLg : sizing.buttonMd, sizing.touchMin);
-  const labelColor = inactive && !loading ? colors.textTertiary : variant === 'primary' ? colors.onAccent : colors.accentText;
   const dimmed = disabled && !loading;
+  const labelColor = dimmed ? colors.textTertiary : variant === 'primary' ? colors.onAccent : colors.accentText;
 
   return (
     <Pressable
