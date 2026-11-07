@@ -3,10 +3,14 @@ import {
   dateTitle,
   formatGrams,
   formatKcal,
+  formatTime,
   isFutureDate,
   isoDate,
+  groupByMeal,
+  macroLine,
   macroModel,
   ringModel,
+  sourceLabel,
 } from './dashboardView';
 
 describe('ringModel', () => {
@@ -105,5 +109,41 @@ describe('dates', () => {
     expect(dateTitle('2026-11-03', '2026-11-03')).toBe('Today');
     expect(dateTitle('2026-11-02', '2026-11-03')).toBe('Yesterday');
     expect(dateTitle('2026-11-03', '2026-11-05')).toBe('Tue, Nov 3');
+  });
+});
+
+describe('formatTime', () => {
+  it('formats local time on a 12-hour clock with a plain space', () => {
+    expect(formatTime(new Date(2026, 10, 3, 12, 30).toISOString())).toBe('12:30 PM');
+    expect(formatTime(new Date(2026, 10, 3, 0, 5).toISOString())).toBe('12:05 AM');
+    expect(formatTime(new Date(2026, 10, 3, 9, 7).toISOString())).toBe('9:07 AM');
+    expect(formatTime(new Date(2026, 10, 3, 23, 59).toISOString())).toBe('11:59 PM');
+  });
+});
+
+describe('macroLine and sourceLabel', () => {
+  it('formats grams and names sources', () => {
+    expect(macroLine(46, 0, 5.04)).toBe('P 46 - C 0 - F 5');
+    expect(sourceLabel('USDA')).toBe('USDA Verified');
+    expect(sourceLabel('OFF')).toBe('Manufacturer Label');
+    expect(sourceLabel('USER')).toBe('You Entered');
+  });
+});
+
+describe('groupByMeal', () => {
+  const e = (id: string, mealLabel: string | null) => ({ id, mealLabel });
+  it('orders groups, drops empty ones and keeps entry order', () => {
+    const groups = groupByMeal([e('1', 'snack'), e('2', 'breakfast'), e('3', 'snack')]);
+    expect(groups.map((g) => g.key)).toEqual(['breakfast', 'snack']);
+    expect(groups.map((g) => g.title)).toEqual(['Breakfast', 'Snack']);
+    expect(groups[1].entries.map((x) => x.id)).toEqual(['1', '3']);
+  });
+  it('matches case-insensitively after trim and sends unknown, empty and null to Other', () => {
+    const groups = groupByMeal([e('1', ' LUNCH '), e('2', null), e('3', ''), e('4', 'brunch'), e('5', 'other')]);
+    expect(groups.map((g) => g.title)).toEqual(['Lunch', 'Other']);
+    expect(groups[1].entries.map((x) => x.id)).toEqual(['2', '3', '4', '5']);
+  });
+  it('returns nothing for no entries', () => {
+    expect(groupByMeal([])).toEqual([]);
   });
 });

@@ -1,3 +1,5 @@
+import type { FoodSource } from '@/api/tracking';
+
 export type MacroName = 'Protein' | 'Carbs' | 'Fat';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -88,4 +90,41 @@ export function dateTitle(iso: string, todayIso: string): string {
   if (iso === addDays(todayIso, -1)) return 'Yesterday';
   const d = parse(iso);
   return `${DAYS[d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
+
+/** Local time as "12:30 PM". Manual on purpose: newer ICU inserts U+202F before AM/PM. */
+export function formatTime(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getHours() % 12 || 12}:${pad(d.getMinutes())} ${d.getHours() < 12 ? 'AM' : 'PM'}`;
+}
+
+export const macroLine = (protein: number, carbs: number, fat: number): string =>
+  `P ${formatGrams(protein)} - C ${formatGrams(carbs)} - F ${formatGrams(fat)}`;
+
+const SOURCE_LABELS: Record<FoodSource, string> = {
+  USDA: 'USDA Verified',
+  OFF: 'Manufacturer Label',
+  USER: 'You Entered',
+};
+export const sourceLabel = (source: FoodSource): string => SOURCE_LABELS[source];
+
+export type MealKey = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+const MEALS: readonly { key: MealKey; title: string }[] = [
+  { key: 'breakfast', title: 'Breakfast' },
+  { key: 'lunch', title: 'Lunch' },
+  { key: 'dinner', title: 'Dinner' },
+  { key: 'snack', title: 'Snack' },
+  { key: 'other', title: 'Other' },
+];
+export type MealGroup<T> = { key: MealKey; title: string; entries: T[] };
+
+/** Fixed meal order; empty groups are dropped and unknown labels go to Other. */
+export function groupByMeal<T extends { mealLabel: string | null }>(entries: T[]): MealGroup<T>[] {
+  const groups: MealGroup<T>[] = MEALS.map((m) => ({ ...m, entries: [] }));
+  const other = groups[groups.length - 1];
+  for (const e of entries) {
+    const label = (e.mealLabel ?? '').trim().toLowerCase();
+    (groups.find((g) => g.key === label) ?? other).entries.push(e);
+  }
+  return groups.filter((g) => g.entries.length > 0);
 }
