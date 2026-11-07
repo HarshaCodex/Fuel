@@ -1,11 +1,11 @@
-import { Fragment } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Fragment } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-import type { DashboardEntry } from "@/api/tracking";
-import { groupByMeal } from "@/lib/dashboardView";
-import { radius, space, type, useTheme } from "@/theme";
+import type { DashboardEntry } from '@/api/tracking';
+import { groupByMeal } from '@/lib/dashboardView';
+import { radius, space, type, useTheme } from '@/theme';
 
-import { MealRow } from "./MealRow";
+import { MealRow } from './MealRow';
 
 /** Entries grouped by meal, one card per group. Renders nothing when empty. */
 export function MealList({ entries }: { entries: DashboardEntry[] }) {
@@ -16,25 +16,14 @@ export function MealList({ entries }: { entries: DashboardEntry[] }) {
     <View style={styles.list}>
       {groups.map((g) => (
         <View key={g.key} style={styles.group}>
-          <Text
-            style={[type.caption, { color: colors.textSecondary }]}
-            accessibilityRole="header"
-          >
+          <Text style={[type.caption, { color: colors.textSecondary }]} accessibilityRole="header">
             {g.title}
           </Text>
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {g.entries.map((e, i) => (
               <Fragment key={e.id}>
                 {i > 0 && (
-                  <View
-                    testID="meal-divider"
-                    style={[styles.divider, { backgroundColor: colors.border }]}
-                  />
+                  <View testID="meal-divider" style={[styles.divider, { backgroundColor: colors.border }]} />
                 )}
                 <MealRow
                   name={e.foodName}
@@ -58,6 +47,6 @@ export function MealList({ entries }: { entries: DashboardEntry[] }) {
 const styles = StyleSheet.create({
   list: { gap: space.lg },
   group: { gap: space.sm },
-  card: { borderRadius: radius.lg, borderWidth: 1, overflow: "hidden" },
+  card: { borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
   divider: { height: StyleSheet.hairlineWidth, marginLeft: space.lg },
 });

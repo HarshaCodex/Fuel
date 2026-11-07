@@ -1,31 +1,18 @@
-export type MacroName = "Protein" | "Carbs" | "Fat";
+import type { FoodSource } from '@/api/tracking';
 
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export type MacroName = 'Protein' | 'Carbs' | 'Fat';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function formatKcal(n: number): string {
-  return Math.round(n).toLocaleString("en-US");
+  return Math.round(n).toLocaleString('en-US');
 }
 
 /** One decimal at most; ".0" is dropped. */
 export function formatGrams(n: number): string {
   const r = Math.round(n * 10) / 10;
-  return (Object.is(r, -0) ? 0 : r).toLocaleString("en-US", {
-    maximumFractionDigits: 1,
-  });
+  return (Object.is(r, -0) ? 0 : r).toLocaleString('en-US', { maximumFractionDigits: 1 });
 }
 
 export type RingModel = {
@@ -38,31 +25,19 @@ export type RingModel = {
   label: string;
 };
 
-export function ringModel({
-  consumed,
-  goal,
-}: {
-  consumed: number;
-  goal: number;
-}): RingModel {
+export function ringModel({ consumed, goal }: { consumed: number; goal: number }): RingModel {
   const overBy = Math.round(consumed - goal);
   const over = overBy > 0;
-  const fraction = over
-    ? 1
-    : goal > 0
-      ? Math.min(Math.max(consumed / goal, 0), 1)
-      : 0;
+  const fraction = over ? 1 : goal > 0 ? Math.min(Math.max(consumed / goal, 0), 1) : 0;
   const eaten = `${formatKcal(consumed)} of ${formatKcal(goal)} eaten`;
-  const centre = over
-    ? formatKcal(overBy)
-    : formatKcal(Math.max(goal - consumed, 0));
+  const centre = over ? formatKcal(overBy) : formatKcal(Math.max(goal - consumed, 0));
   return {
     fraction,
     over,
     centre,
-    caption: over ? "kcal over" : "kcal left",
+    caption: over ? 'kcal over' : 'kcal left',
     eaten,
-    label: `${centre} calories ${over ? "over" : "remaining"}. ${eaten}.`,
+    label: `${centre} calories ${over ? 'over' : 'remaining'}. ${eaten}.`,
   };
 }
 
@@ -75,10 +50,7 @@ export type MacroModel = {
   label: string;
 };
 
-export function macroModel(
-  name: MacroName,
-  { consumed, goal }: { consumed: number; goal: number },
-): MacroModel {
+export function macroModel(name: MacroName, { consumed, goal }: { consumed: number; goal: number }): MacroModel {
   const value = formatGrams(consumed);
   const goalText = formatGrams(goal);
   return {
@@ -91,7 +63,7 @@ export function macroModel(
   };
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
+const pad = (n: number) => String(n).padStart(2, '0');
 
 /** Local calendar date as YYYY-MM-DD. */
 export function isoDate(d: Date): string {
@@ -99,7 +71,7 @@ export function isoDate(d: Date): string {
 }
 
 const parse = (iso: string) => {
-  const [y, m, d] = iso.split("-").map(Number);
+  const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 };
 
@@ -111,12 +83,11 @@ export function addDays(iso: string, n: number): string {
 }
 
 /** ISO dates compare correctly as strings. */
-export const isFutureDate = (iso: string, todayIso: string): boolean =>
-  iso > todayIso;
+export const isFutureDate = (iso: string, todayIso: string): boolean => iso > todayIso;
 
 export function dateTitle(iso: string, todayIso: string): string {
-  if (iso === todayIso) return "Today";
-  if (iso === addDays(todayIso, -1)) return "Yesterday";
+  if (iso === todayIso) return 'Today';
+  if (iso === addDays(todayIso, -1)) return 'Yesterday';
   const d = parse(iso);
   return `${DAYS[d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
@@ -124,42 +95,36 @@ export function dateTitle(iso: string, todayIso: string): string {
 /** Local time as "12:30 PM". Manual on purpose: newer ICU inserts U+202F before AM/PM. */
 export function formatTime(iso: string): string {
   const d = new Date(iso);
-  return `${d.getHours() % 12 || 12}:${pad(d.getMinutes())} ${d.getHours() < 12 ? "AM" : "PM"}`;
+  return `${d.getHours() % 12 || 12}:${pad(d.getMinutes())} ${d.getHours() < 12 ? 'AM' : 'PM'}`;
 }
 
-export const macroLine = (
-  protein: number,
-  carbs: number,
-  fat: number,
-): string =>
+export const macroLine = (protein: number, carbs: number, fat: number): string =>
   `P ${formatGrams(protein)} - C ${formatGrams(carbs)} - F ${formatGrams(fat)}`;
 
-const SOURCE_LABELS = {
-  USDA: "USDA Verified",
-  OFF: "Manufacturer Label",
-  USER: "You Entered",
-} as const;
-export const sourceLabel = (source: keyof typeof SOURCE_LABELS): string =>
-  SOURCE_LABELS[source];
+const SOURCE_LABELS: Record<FoodSource, string> = {
+  USDA: 'USDA Verified',
+  OFF: 'Manufacturer Label',
+  USER: 'You Entered',
+};
+export const sourceLabel = (source: FoodSource): string => SOURCE_LABELS[source];
 
-const MEAL_TITLES = ["Breakfast", "Lunch", "Dinner", "Snack", "Other"] as const;
-export type MealGroup<T> = { key: string; title: string; entries: T[] };
+export type MealKey = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other';
+const MEALS: readonly { key: MealKey; title: string }[] = [
+  { key: 'breakfast', title: 'Breakfast' },
+  { key: 'lunch', title: 'Lunch' },
+  { key: 'dinner', title: 'Dinner' },
+  { key: 'snack', title: 'Snack' },
+  { key: 'other', title: 'Other' },
+];
+export type MealGroup<T> = { key: MealKey; title: string; entries: T[] };
 
 /** Fixed meal order; empty groups are dropped and unknown labels go to Other. */
-export function groupByMeal<T extends { mealLabel: string | null }>(
-  entries: T[],
-): MealGroup<T>[] {
-  const buckets = new Map<string, T[]>(MEAL_TITLES.map((t) => [t, []]));
+export function groupByMeal<T extends { mealLabel: string | null }>(entries: T[]): MealGroup<T>[] {
+  const groups: MealGroup<T>[] = MEALS.map((m) => ({ ...m, entries: [] }));
+  const other = groups[groups.length - 1];
   for (const e of entries) {
-    const label = (e.mealLabel ?? "").trim().toLowerCase();
-    const title =
-      MEAL_TITLES.find((t) => t.toLowerCase() === label && t !== "Other") ??
-      "Other";
-    buckets.get(title)!.push(e);
+    const label = (e.mealLabel ?? '').trim().toLowerCase();
+    (groups.find((g) => g.key === label) ?? other).entries.push(e);
   }
-  return MEAL_TITLES.filter((t) => buckets.get(t)!.length > 0).map((t) => ({
-    key: t.toLowerCase(),
-    title: t,
-    entries: buckets.get(t)!,
-  }));
+  return groups.filter((g) => g.entries.length > 0);
 }

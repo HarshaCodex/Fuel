@@ -1,15 +1,10 @@
-import { PixelRatio, StyleSheet, Text, View } from "react-native";
+import { PixelRatio, StyleSheet, Text, View } from 'react-native';
 
-import type { FoodSource } from "@/api/tracking";
-import {
-  formatKcal,
-  formatTime,
-  macroLine,
-  sourceLabel,
-} from "@/lib/dashboardView";
-import { numeric, sizing, space, type, useTheme } from "@/theme";
+import type { FoodSource } from '@/api/tracking';
+import { formatKcal, formatTime, macroLine, sourceLabel } from '@/lib/dashboardView';
+import { numeric, sizing, space, type, useTheme } from '@/theme';
 
-import { TrustBadge } from "./TrustBadge";
+import { TrustBadge } from './TrustBadge';
 
 type Props = {
   name: string;
@@ -23,32 +18,13 @@ type Props = {
 };
 
 /** Read-only row: actions (#135) and tap to detail come later. */
-export function MealRow({
-  name,
-  source,
-  loggedAt,
-  calories,
-  protein,
-  carbs,
-  fat,
-  mealLabel,
-}: Props) {
+export function MealRow({ name, source, loggedAt, calories, protein, carbs, fat, mealLabel }: Props) {
   const { colors } = useTheme();
   const time = formatTime(loggedAt);
-  const parts = [
-    name,
-    mealLabel,
-    `${formatKcal(calories)} calories`,
-    sourceLabel(source),
-    time,
-  ];
-  const label = parts.filter(Boolean).join(", ");
+  const parts = [name, mealLabel, `${formatKcal(calories)} calories`, sourceLabel(source), time];
+  const label = parts.filter(Boolean).join(', ');
   return (
-    <View
-      accessible
-      accessibilityLabel={label}
-      style={[styles.row, { backgroundColor: colors.surface }]}
-    >
+    <View accessible accessibilityLabel={label} style={[styles.row, { backgroundColor: colors.surface }]}>
       <View style={styles.left}>
         <Text
           style={[type.headline, { color: colors.text }]}
@@ -57,33 +33,21 @@ export function MealRow({
         >
           {name}
         </Text>
-        <Text
-          style={[type.callout, numeric, { color: colors.textSecondary }]}
-          maxFontSizeMultiplier={2}
-        >
+        <Text style={[type.callout, numeric, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
           {macroLine(protein, carbs, fat)}
         </Text>
         <View style={styles.meta}>
           <TrustBadge source={source} />
-          <Text
-            style={[type.caption, numeric, { color: colors.textSecondary }]}
-            maxFontSizeMultiplier={2}
-          >
+          <Text style={[type.caption, numeric, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
             {time}
           </Text>
         </View>
       </View>
       <View style={styles.right}>
-        <Text
-          style={[type.headline, numeric, { color: colors.text }]}
-          maxFontSizeMultiplier={2}
-        >
+        <Text style={[type.headline, numeric, { color: colors.text }]} maxFontSizeMultiplier={2}>
           {formatKcal(calories)}
         </Text>
-        <Text
-          style={[type.caption, { color: colors.textSecondary }]}
-          maxFontSizeMultiplier={2}
-        >
+        <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
           kcal
         </Text>
       </View>
@@ -94,18 +58,18 @@ export function MealRow({
 const styles = StyleSheet.create({
   row: {
     minHeight: sizing.row,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: space.md,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
   },
   left: { flex: 1, gap: space.xs },
   meta: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: space.sm,
-    flexWrap: "wrap",
+    flexWrap: 'wrap',
   },
-  right: { alignItems: "flex-end" },
+  right: { alignItems: 'flex-end' },
 });
