@@ -25,6 +25,7 @@ export default function MyFoodsScreen() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const busy = useRef(false);
+  const [dialogName, setDialogName] = useState('food');
 
   const list = useInfiniteQuery({
     queryKey: foodKeys.custom,
@@ -119,6 +120,7 @@ export default function MyFoodsScreen() {
             onPress={() => openFood(item)}
             onDelete={() => {
               setDeleteError(null);
+              setDialogName(item.name);
               setPendingDelete(item);
             }}
           />
@@ -173,7 +175,7 @@ export default function MyFoodsScreen() {
       <View style={styles.flex}>{body}</View>
       <ConfirmDialog
         visible={pendingDelete !== null}
-        title={`Delete ${pendingDelete?.name ?? 'food'}?`}
+        title={`Delete ${dialogName}?`}
         message="It will be removed from My Foods. Meals you already logged keep their entries."
         confirmLabel="Delete"
         danger

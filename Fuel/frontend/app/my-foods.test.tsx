@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { deleteCustomFood, foodKeys, getCustomFoodPage, type Food, type FoodPage } from '@/api/food';
@@ -129,14 +129,60 @@ describe('My Foods', () => {
     expect(screen.getByText('Oat bowl')).toBeTruthy();
   });
 
-  it('deletes after confirming and shows the empty state for the last row', async () => {
-    mockPage.mockResolvedValueOnce(page([food('a', 'Oat bowl')])).mockResolvedValue(page([]));
+  it('removes the row from the cache without waiting for the refetch', async () => {
+    mockPage.mockResolvedValueOnce(page([food('a', 'Oat bowl'), food('b', 'Rice')])).mockReturnValue(new Promise(() => {}));
+    mockDelete.mockResolvedValue(null);
+    await renderScreen();
+    await openDelete('Oat bowl');
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(screen.queryByText('Oat bowl')).toBeNull());
+    expect(screen.getByText('Rice')).toBeTruthy();
+    expect(mockDelete).toHaveBeenCalledWith('a');
+    expect(client.getQueryData(foodKeys.detail('a'))).toBeUndefined();
+  });
+
+  it('shows the empty state after deleting the last row, whatever the refetch does', async () => {
+    mockPage.mockResolvedValueOnce(page([food('a', 'Oat bowl')])).mockReturnValue(new Promise(() => {}));
     mockDelete.mockResolvedValue(null);
     await renderScreen();
     await openDelete('Oat bowl');
     await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
     expect(await screen.findByText('Foods you create show up here')).toBeTruthy();
-    expect(mockDelete).toHaveBeenCalledWith('a');
+  });
+
+  it('ignores a second confirm tap while deleting', async () => {
+    mockPage.mockResolvedValue(page([food('a', 'Oat bowl')]));
+    mockDelete.mockReturnValue(new Promise(() => {}));
+    await renderScreen();
+    await openDelete('Oat bowl');
+    const confirm = screen.getByRole('button', { name: 'Delete' });
+    await fireEvent.press(confirm);
+    await fireEvent.press(confirm);
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an offline banner when a refresh fails but data is loaded', async () => {
+    mockPage.mockResolvedValueOnce(page([food('a', 'Oat bowl')])).mockRejectedValue(new NetworkError());
+    await renderScreen();
+    await screen.findByText('Oat bowl');
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: foodKeys.custom });
+    });
+    expect(await screen.findByText("You're offline. Showing what was loaded.")).toBeTruthy();
+    expect(screen.getByText('Oat bowl')).toBeTruthy();
+  });
+
+  it('retries loading the next page after a failure', async () => {
+    mockPage
+      .mockResolvedValueOnce(page([food('a', 'Oat bowl')], 0, 2))
+      .mockRejectedValueOnce(new ApiError(500, 'boom'))
+      .mockResolvedValue(page([food('b', 'Rice')], 1, 2));
+    await renderScreen();
+    await screen.findByText('Oat bowl');
+    await fireEvent(screen.getByTestId('my-foods-list'), 'endReached');
+    expect(await screen.findByText("Couldn't load more")).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Rice')).toBeTruthy();
   });
 
   it('keeps the row and shows a banner when delete fails', async () => {
