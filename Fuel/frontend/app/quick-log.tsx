@@ -89,8 +89,8 @@ export default function QuickLogScreen() {
               Recent
             </Text>
             <View style={[styles.list, { borderColor: colors.border }]}>
-              {recents.data.map((food) => (
-                <FoodRow key={food.id} food={food} onPress={() => openFood(food)} />
+              {recents.data.map((food, i) => (
+                <FoodRow key={food.id} food={food} divider={i < recents.data.length - 1} onPress={() => openFood(food)} />
               ))}
             </View>
           </View>
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     borderWidth: sizing.border,
   },
   methodText: { flex: 1 },
-  recents: { gap: space.sm, marginTop: space.md },
+  recents: { gap: space.md, marginTop: space.md },
   list: { borderRadius: radius.md, borderWidth: sizing.border, overflow: 'hidden' },
   skeleton: { gap: space.sm, marginTop: space.md },
   skeletonRow: { height: sizing.row, borderRadius: radius.md },

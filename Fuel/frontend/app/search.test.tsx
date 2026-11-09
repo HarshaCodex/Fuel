@@ -172,7 +172,7 @@ describe('Search screen', () => {
     await renderScreen();
     await type('chicken');
     await settle(301);
-    await fireEvent.press(screen.getByRole('button', { name: 'Clear' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
     expect(screen.getByText('Type at least 2 characters to search foods.')).toBeTruthy();
     expect(screen.queryByText('Chicken')).toBeNull();
   });

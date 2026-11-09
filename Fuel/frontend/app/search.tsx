@@ -97,7 +97,7 @@ export default function SearchScreen() {
         data={foods}
         keyExtractor={(f) => f.id}
         keyboardShouldPersistTaps="handled"
-        renderItem={({ item }) => <FoodRow food={item} onPress={() => openFood(item)} />}
+        renderItem={({ item, index }) => <FoodRow food={item} divider={index < foods.length - 1} onPress={() => openFood(item)} />}
         onEndReached={() => {
           if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage({ cancelRefetch: false });
         }}
@@ -134,10 +134,14 @@ export default function SearchScreen() {
           autoCorrect={false}
           placeholder="Chicken, oats, banana"
           maxLength={100}
+          trailing={
+            text.length > 0 ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setText('')} style={styles.clear}>
+                <Ionicons name="close-circle" size={sizing.icon} color={colors.textSecondary} />
+              </Pressable>
+            ) : null
+          }
         />
-        {text.length > 0 ? (
-          <Button variant="text" size="md" label="Clear" onPress={() => setText('')} />
-        ) : null}
       </View>
       <View style={styles.flex}>{body}</View>
     </View>
@@ -148,9 +152,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: { padding: space.lg, gap: space.sm },
   back: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
+  clear: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
   more: { padding: space.md, alignItems: 'center', gap: space.xs },
   hint: { paddingHorizontal: space.lg },
-  list: { marginHorizontal: space.lg, borderRadius: radius.md, borderWidth: sizing.border },
+  list: { flexGrow: 0, marginHorizontal: space.lg, borderRadius: radius.md, borderWidth: sizing.border },
   skeleton: { paddingHorizontal: space.lg, gap: space.sm },
   skeletonRow: { height: sizing.row, borderRadius: radius.md },
   empty: { padding: space.lg, gap: space.md },

@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
     minHeight: sizing.touchMin,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: space.md,
     borderRadius: radius.sm,
     borderWidth: sizing.border,
     borderColor: 'transparent',
