@@ -63,7 +63,7 @@ async function main() {
     // Edit entry sheet from the row menu: untouched, then with an invalid amount for the error style.
     await page.getByRole('button', { name: 'More actions for Chicken salad' }).click();
     await page.getByRole('button', { name: 'Edit Chicken salad' }).click();
-    await page.getByRole('button', { name: 'Save', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).waitFor();
     await page.waitForTimeout(500);
     await page.screenshot({ path: join(OUT, 'edit-entry.png') });
     await page.getByLabel('Amount', { exact: true }).fill('0');
@@ -71,7 +71,7 @@ async function main() {
     await page.waitForTimeout(300);
     await page.screenshot({ path: join(OUT, 'edit-entry-error.png') });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await page.getByRole('button', { name: 'Save', exact: true }).waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'Save changes', exact: true }).waitFor({ state: 'detached' });
     // My Foods: empty first, then with foods, then the editor prefilled from a food.
     customEmpty = true;
     await page.getByRole('tab', { name: 'Profile' }).click();

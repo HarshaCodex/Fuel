@@ -9,6 +9,9 @@ import { addDays, isoDate } from '@/lib/dashboardView';
 import Today from './index';
 
 // Gestures cannot run in Jest, so Swipeable is replaced by a pass-through.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   /* eslint-disable @typescript-eslint/no-require-imports */
   const { forwardRef, useImperativeHandle } = require('react');
@@ -249,7 +252,7 @@ describe('Today screen', () => {
       await doubleIt();
       // The refresh after saving is held back so the optimistic estimate stays visible.
       mockGet.mockReturnValue(new Promise(() => {}));
-      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
       expect(mockUpdate).toHaveBeenCalledWith('e1', { quantity: 2 });
       expect(screen.queryByText('Edit Greek yogurt')).toBeNull();
       expect(await screen.findByLabelText('600 calories remaining. 1,600 of 2,200 eaten.')).toBeTruthy();
@@ -257,7 +260,7 @@ describe('Today screen', () => {
 
     it('refreshes from the server after saving', async () => {
       await doubleIt();
-      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
       await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
     });
 
@@ -270,7 +273,7 @@ describe('Today screen', () => {
       await doubleIt();
       mockUpdate.mockRejectedValue(error);
       mockGet.mockReturnValue(new Promise(() => {}));
-      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
       expect(await screen.findByText(message)).toBeTruthy();
       expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
     });
@@ -293,7 +296,7 @@ describe('Today screen', () => {
       await screen.findByText('Edit Greek yogurt');
       await fireEvent.press(screen.getByText('Dinner'));
       mockGet.mockReturnValue(new Promise(() => {}));
-      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
       expect(mockUpdate).toHaveBeenCalledWith('e1', { mealLabel: 'dinner' });
       expect(await screen.findByText('Dinner')).toBeTruthy();
       expect(screen.queryByText('Breakfast')).toBeNull();
@@ -309,7 +312,7 @@ describe('Today screen', () => {
       await screen.findByText('Edit Greek yogurt');
       await fireEvent.press(screen.getByText('Dinner'));
       mockGet.mockReturnValue(new Promise(() => {}));
-      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
       expect(await screen.findByText("You're offline. Greek yogurt wasn't changed.")).toBeTruthy();
       expect(screen.getByText('Breakfast')).toBeTruthy();
     });
@@ -320,8 +323,8 @@ describe('Today screen', () => {
       await screen.findByText('Greek yogurt');
       await edit('Greek yogurt');
       await screen.findByText('Edit Greek yogurt');
-      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
       expect(mockUpdate).not.toHaveBeenCalled();
     });
 
@@ -338,7 +341,7 @@ describe('Today screen', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Increase Quantity' }));
       await fireEvent.press(screen.getByRole('button', { name: 'Increase Quantity' }));
       mockGet.mockReturnValue(new Promise(() => {}));
-      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
       expect(await screen.findByLabelText('600 calories remaining. 1,600 of 2,200 eaten.')).toBeTruthy();
       expect(mockGet).toHaveBeenLastCalledWith(yesterday);
     });

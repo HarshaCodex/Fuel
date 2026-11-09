@@ -6,6 +6,9 @@ import { getEntries, type CreatedEntry, type DashboardEntry } from '@/api/tracki
 
 import { EditEntrySheet } from './EditEntrySheet';
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock('react-native/Libraries/Modal/Modal', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { View } = require('react-native');
@@ -33,7 +36,7 @@ async function setup(entry: DashboardEntry | null = row, date?: string) {
   );
   return { ...props, view };
 }
-const save = () => screen.getByRole('button', { name: 'Save' });
+const save = () => screen.getByRole('button', { name: 'Save changes' });
 
 beforeEach(() => {
   jest.clearAllMocks();

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NetworkError } from '@/api/errors';
 import { getEntries, trackingKeys, type CreatedEntry, type DashboardEntry, type MealLabel, type UpdateEntryBody } from '@/api/tracking';
@@ -63,7 +64,7 @@ function Form({ current, onClose, onSave }: { current: CreatedEntry; onClose: ()
         <SegmentedControl label="Meal" options={MEAL_OPTIONS} value={meal} onChange={setMeal} />
       </ScrollView>
       <View style={styles.footer}>
-        <Button label="Save" onPress={() => onSave(current, body)} disabled={!changed || amount === null} />
+        <Button label="Save changes" onPress={() => onSave(current, body)} disabled={!changed || amount === null} />
         <Button label="Cancel" variant="text" onPress={onClose} />
       </View>
     </>
@@ -73,6 +74,7 @@ function Form({ current, onClose, onSave }: { current: CreatedEntry; onClose: ()
 /** Bottom sheet to change the amount, quantity and meal of a logged entry. Loads the full entry when it opens. */
 export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Props) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   // Cached rows from an earlier open are untrusted until the refetch lands, so the form never prefills
   // from them. Focus/reconnect refetches are off so a refetch cannot remount the form mid-edit.
   const list = useQuery({
@@ -117,7 +119,19 @@ export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Prop
     <Modal visible={entry !== null} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable accessibilityLabel="Close edit" onPress={onClose} style={[styles.scrim, { backgroundColor: colors.scrim }]} />
-        <View accessibilityViewIsModal style={[styles.sheet, shadow.lg, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          accessibilityViewIsModal
+          style={[
+            styles.sheet,
+            shadow.lg,
+            { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: Math.max(insets.bottom, space.lg) },
+          ]}
+        >
+          <View
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={[styles.grabber, { backgroundColor: colors.borderStrong }]}
+          />
           {body}
         </View>
       </KeyboardAvoidingView>
@@ -128,8 +142,9 @@ export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Prop
 const styles = StyleSheet.create({
   flex: { flex: 1, justifyContent: 'flex-end' },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  sheet: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, borderWidth: sizing.border, maxHeight: '90%', paddingBottom: space.lg },
-  content: { padding: space.lg, gap: space.lg },
+  sheet: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: sizing.border, maxHeight: '90%' },
+  grabber: { width: 36, height: 4, borderRadius: radius.full, alignSelf: 'center', marginTop: space.sm, marginBottom: space.xs },
+  content: { padding: space.lg, paddingTop: space.md, gap: space.lg },
   footer: { paddingHorizontal: space.lg, gap: space.sm },
   loading: { padding: space.xxxl, alignItems: 'center' },
 });
