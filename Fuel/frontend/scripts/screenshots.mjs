@@ -58,6 +58,18 @@ async function main() {
       await page.getByText(shot.title, { exact: true }).first().waitFor();
       await page.screenshot({ path: join(OUT, shot.file) });
     }
+    // Quick Log flow: menu, search, then the portion confirm for the first result.
+    await page.getByRole('button', { name: 'Log food', exact: true }).click();
+    await page.getByText('Search foods', { exact: true }).first().waitFor();
+    await page.getByText('Chicken breast').first().waitFor();
+    await page.screenshot({ path: join(OUT, 'quick-log.png') });
+    await page.getByRole('button', { name: 'Search foods', exact: true }).click();
+    await page.getByLabel('Search foods', { exact: true }).fill('chicken');
+    await page.getByRole('button', { name: /^Chicken thigh/ }).waitFor();
+    await page.screenshot({ path: join(OUT, 'search.png') });
+    await page.getByRole('button', { name: /^Chicken breast/ }).click();
+    await page.getByRole('button', { name: /^Log \d+ kcal$/ }).waitFor();
+    await page.screenshot({ path: join(OUT, 'food-detail.png') });
     if (unmocked.length) throw new Error(`Unmocked API calls: ${unmocked.join(', ')}`);
   } finally {
     await browser.close();

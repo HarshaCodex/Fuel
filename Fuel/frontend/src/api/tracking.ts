@@ -30,3 +30,17 @@ export const trackingKeys = {
 /** Omit `date` for today; the server resolves it in the user's timezone. */
 export const getDashboard = (date?: string): Promise<Dashboard> =>
   apiClient.request<Dashboard>('GET', '/api/tracking/dashboard' + (date ? '?date=' + date : ''));
+
+export type MealLabel = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+export type CreateEntryBody = {
+  foodId: string;
+  servingSize: number;
+  servingUnit: string; // must equal the food's own unit
+  quantity: number;
+  mealLabel?: MealLabel;
+};
+export type CreatedEntry = DashboardEntry & { foodId: string; servingSize: number; servingUnit: string; quantity: number };
+
+/** `loggedAt` is omitted so the server uses now. */
+export const createEntry = (body: CreateEntryBody): Promise<CreatedEntry> =>
+  apiClient.request<CreatedEntry>('POST', '/api/tracking/entries', { body });

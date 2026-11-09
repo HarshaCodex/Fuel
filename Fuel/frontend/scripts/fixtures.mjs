@@ -31,4 +31,15 @@ export const fixtures = {
     ],
     streak: { current: 5, longest: 9 },
   }),
+  '/api/food/recent': ok([
+    { id: 'f1', name: 'Chicken breast', brand: null, source: 'USDA', servingSize: 100, servingUnit: 'g', calories: 165, protein: 31, carbs: 0, fat: 3.6, lastLoggedAt: at(12, 30) },
+    { id: 'f2', name: 'Greek yogurt', brand: 'Fage', source: 'OFF', servingSize: 170, servingUnit: 'g', calories: 100, protein: 18, carbs: 6, fat: 0, lastLoggedAt: at(8, 0) },
+  ]),
+  '/api/food/search': ok({
+    content: [
+      { id: 'f1', name: 'Chicken breast', brand: null, source: 'USDA', servingSize: 100, servingUnit: 'g', calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+      { id: 'f3', name: 'Chicken thigh', brand: 'Fresh Farm', source: 'OFF', servingSize: 100, servingUnit: 'g', calories: 209, protein: 26, carbs: 0, fat: 11 },
+    ],
+    page: 0, size: 20, totalElements: 2, totalPages: 1,
+  }),
 };

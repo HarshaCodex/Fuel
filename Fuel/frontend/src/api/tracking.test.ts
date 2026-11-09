@@ -1,5 +1,5 @@
 import { ApiError } from './errors';
-import { getDashboard, trackingKeys } from './tracking';
+import { createEntry, getDashboard, trackingKeys } from './tracking';
 
 const fetchMock = jest.fn();
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
@@ -32,5 +32,16 @@ describe('tracking api', () => {
   it('keys hold only the date', () => {
     expect(trackingKeys.dashboard()).toEqual(['tracking', 'dashboard', 'today']);
     expect(trackingKeys.dashboard('2026-11-03')).toEqual(['tracking', 'dashboard', '2026-11-03']);
+  });
+});
+
+describe('createEntry', () => {
+  it('POSTs the body without loggedAt', async () => {
+    const body = { foodId: 'f1', servingSize: 150, servingUnit: 'g', quantity: 1, mealLabel: 'lunch' as const };
+    await createEntry(body);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/tracking/entries');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual(body);
   });
 });
