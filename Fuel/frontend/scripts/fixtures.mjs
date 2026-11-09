@@ -42,4 +42,17 @@ export const fixtures = {
     ],
     page: 0, size: 20, totalElements: 2, totalPages: 1,
   }),
+  '/api/food/custom': ok({
+    content: [
+      { id: 'c1', name: 'Overnight oats', brand: 'Homemade', source: 'USER', servingSize: 250, servingUnit: 'g', calories: 320, protein: 14, carbs: 48, fat: 8 },
+      { id: 'c2', name: 'Protein bar', brand: null, source: 'USER', servingSize: 60, servingUnit: 'g', calories: 230, protein: 20, carbs: 22, fat: 7 },
+    ],
+    page: 0, size: 20, totalElements: 2, totalPages: 1,
+  }),
 };
+
+// The editor refetches the food it was seeded with.
+fixtures['/api/food/c1'] = ok(fixtures['/api/food/custom'].data.content[0]);
+
+/** Same endpoint with no foods, for the My Foods empty state. */
+export const emptyCustomFoods = ok({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 });

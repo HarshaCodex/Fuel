@@ -2,26 +2,54 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
-import { createCustomFood, foodKeys, type Food } from '@/api/food';
+import { createCustomFood, foodKeys, getFood, updateCustomFood, type Food } from '@/api/food';
 import { createEntry, trackingKeys } from '@/api/tracking';
 
 import ManualEntry from './manual-entry';
 
 const mockDismissAll = jest.fn();
 const mockBack = jest.fn();
-let mockParams: { mode?: string } = {};
+let mockBackWhilePrevented: boolean[] = [];
+let mockPrevent = false;
+let mockBlocked: ((o: { data: { action: unknown }; repeat: () => void }) => void) | undefined;
+const mockRepeat = jest.fn();
+let mockParams: { mode?: string; id?: string } = {};
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ dismissAll: mockDismissAll, back: mockBack }),
+  useRouter: () => ({
+    dismissAll: mockDismissAll,
+    back: (...a: unknown[]) => {
+      mockBackWhilePrevented.push(mockPrevent);
+      return mockBack(...a);
+    },
+  }),
   useLocalSearchParams: () => mockParams,
+  usePreventRemove: (prevent: boolean, cb: typeof mockBlocked) => {
+    mockPrevent = prevent;
+    mockBlocked = cb;
+  },
 }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),
 }));
-jest.mock('@/api/food', () => ({ ...jest.requireActual('@/api/food'), createCustomFood: jest.fn() }));
+jest.mock('@/api/food', () => ({
+  ...jest.requireActual('@/api/food'),
+  createCustomFood: jest.fn(),
+  updateCustomFood: jest.fn(),
+  getFood: jest.fn(),
+}));
 jest.mock('@/api/tracking', () => ({ ...jest.requireActual('@/api/tracking'), createEntry: jest.fn() }));
 
 const mockCreate = jest.mocked(createCustomFood);
 const mockEntry = jest.mocked(createEntry);
+const mockUpdate = jest.mocked(updateCustomFood);
+const mockGetFood = jest.mocked(getFood);
+
+/** What the navigator does on Android back or iOS swipe-back: when prevention is on it calls the hook back. */
+const leave = () => {
+  if (!mockPrevent) return false;
+  mockBlocked?.({ data: { action: { type: 'GO_BACK' } }, repeat: mockRepeat });
+  return true;
+};
 
 const saved: Food = {
   id: 'c1', name: 'Oats', brand: null, source: 'USER', servingSize: 40, servingUnit: 'g', calories: 150, protein: 5, carbs: 27, fat: 3,
@@ -49,6 +77,7 @@ const press = async (name: string) => fireEvent.press(screen.getByRole('button',
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockBackWhilePrevented = [];
   mockParams = {};
   jest.spyOn(Date.prototype, 'getHours').mockReturnValue(9);
   mockCreate.mockResolvedValue(saved);
@@ -76,6 +105,8 @@ describe('Manual entry screen', () => {
     await fillValid();
     await press('Save to My Foods only');
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    // Going back while still protected would raise the discard dialog for a food that was just saved.
+    expect(mockBackWhilePrevented).toEqual([false]);
     expect(mockEntry).not.toHaveBeenCalled();
     expect(mockDismissAll).not.toHaveBeenCalled();
   });
@@ -88,6 +119,7 @@ describe('Manual entry screen', () => {
     await fillValid();
     await press('Save food');
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockBackWhilePrevented).toEqual([false]);
     expect(mockEntry).not.toHaveBeenCalled();
   });
 
@@ -215,17 +247,31 @@ describe('Manual entry screen', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
-  it('asks before discarding a dirty form', async () => {
+  it('lets a clean form leave without asking', async () => {
+    await renderScreen();
+    expect(mockPrevent).toBe(false);
+  });
+
+  it('asks before discarding a dirty form, however the user leaves', async () => {
     await renderScreen();
     await type('Name', 'Oats');
-    await press('Back');
+    expect(mockPrevent).toBe(true);
+    await act(async () => leave());
     expect(screen.getByText('Discard this food?')).toBeTruthy();
-    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockRepeat).not.toHaveBeenCalled();
     await press('Keep editing');
     expect(screen.queryByText('Discard this food?')).toBeNull();
-    await press('Back');
+    await act(async () => leave());
     await press('Discard');
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockRepeat).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not ask once the food is saved', async () => {
+    await renderScreen();
+    await fillValid();
+    await press('Save to My Foods only');
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockPrevent).toBe(false);
   });
 
   it('hints when macros do not match calories', async () => {
@@ -246,5 +292,74 @@ describe('Manual entry screen', () => {
     await press('Log food');
     await waitFor(() => expect(mockCreate).toHaveBeenCalled());
     expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ brand: 'Quaker', fiber: 4, servingUnit: 'cup' }));
+  });
+});
+
+describe('Manual entry screen, edit mode', () => {
+  beforeEach(() => {
+    mockParams = { id: 'c1' };
+    mockUpdate.mockResolvedValue({ ...saved, name: 'Oats 2' });
+  });
+
+  it('prefills from the cache, saves the full body and goes back', async () => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(foodKeys.detail('c1'), { ...saved, brand: 'Quaker', fiber: 4 });
+    mockGetFood.mockResolvedValue(saved);
+    await render(
+      <QueryClientProvider client={client}>
+        <ManualEntry />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('Edit food')).toBeTruthy();
+    expect(screen.getByLabelText('Name').props.value).toBe('Oats');
+    expect(screen.getByLabelText('Brand (optional)').props.value).toBe('Quaker');
+    expect(screen.queryByRole('button', { name: 'Log food' })).toBeNull();
+    // A clean prefilled form does not ask before leaving.
+    expect(mockPrevent).toBe(false);
+    await type('Name', 'Oats 2');
+    await press('Save changes');
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockBackWhilePrevented).toEqual([false]);
+    expect(mockUpdate).toHaveBeenCalledWith('c1', {
+      name: 'Oats 2', brand: 'Quaker', servingSize: 40, servingUnit: 'g', calories: 150, protein: 5, carbs: 27, fat: 3, fiber: 4,
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect((client.getQueryData(foodKeys.detail('c1')) as Food).name).toBe('Oats 2');
+    expect(mockPrevent).toBe(false);
+  });
+
+  it('fetches the food when it is not cached', async () => {
+    mockGetFood.mockResolvedValue(saved);
+    await renderScreen();
+    expect(await screen.findByDisplayValue('Oats')).toBeTruthy();
+    expect(mockGetFood).toHaveBeenCalledWith('c1');
+  });
+
+  it('says so when the food to edit is gone', async () => {
+    mockGetFood.mockRejectedValue(new ApiError(404, 'gone'));
+    await renderScreen();
+    expect(await screen.findByText('This food no longer exists')).toBeTruthy();
+  });
+
+  it('shows a banner without Retry when saving hits a 404', async () => {
+    mockGetFood.mockResolvedValue(saved);
+    mockUpdate.mockRejectedValue(new ApiError(404, 'gone'));
+    await renderScreen();
+    await screen.findByDisplayValue('Oats');
+    await type('Name', 'Oats 2');
+    await press('Save changes');
+    expect(await screen.findByText('This food no longer exists.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('puts API field errors next to their fields when saving', async () => {
+    mockGetFood.mockResolvedValue(saved);
+    mockUpdate.mockRejectedValue(new ApiError(400, 'bad', [{ field: 'name', message: 'Name is taken' }]));
+    await renderScreen();
+    await screen.findByDisplayValue('Oats');
+    await type('Name', 'Oats 2');
+    await press('Save changes');
+    expect(await screen.findByText('Name is taken')).toBeTruthy();
   });
 });

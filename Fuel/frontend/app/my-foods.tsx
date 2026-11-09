@@ -47,6 +47,11 @@ export default function MyFoodsScreen() {
     router.push({ pathname: '/food-detail', params: { id: food.id } });
   };
 
+  const editFood = (food: Food) => {
+    queryClient.setQueryData(foodKeys.detail(food.id), food);
+    router.push({ pathname: '/manual-entry', params: { id: food.id } });
+  };
+
   const removeFromCache = (id: string) => {
     queryClient.setQueryData<InfiniteData<FoodPage, number>>(foodKeys.custom, (old) =>
       old ? { ...old, pages: old.pages.map((p) => ({ ...p, content: p.content.filter((f) => f.id !== id) })) } : old,
@@ -99,6 +104,7 @@ export default function MyFoodsScreen() {
     );
   } else if (foods.length === 0) {
     body = (
+      <View style={styles.empty}>
       <StateBlock
         variant="empty"
         title="Foods you create show up here"
@@ -106,6 +112,7 @@ export default function MyFoodsScreen() {
         actionLabel="Enter a food"
         onAction={() => router.push({ pathname: '/manual-entry', params: { mode: 'create' } })}
       />
+      </View>
     );
   } else {
     body = (
@@ -118,6 +125,7 @@ export default function MyFoodsScreen() {
             food={item}
             divider={index < foods.length - 1}
             onPress={() => openFood(item)}
+            onEdit={() => editFood(item)}
             onDelete={() => {
               setDeleteError(null);
               setDialogName(item.name);
@@ -189,6 +197,7 @@ export default function MyFoodsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  empty: { flex: 1, justifyContent: 'center', paddingBottom: space.xxxl },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.sm },
   back: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1 },
