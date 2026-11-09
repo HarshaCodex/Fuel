@@ -44,3 +44,7 @@ export type CreatedEntry = DashboardEntry & { foodId: string; servingSize: numbe
 /** `loggedAt` is omitted so the server uses now. */
 export const createEntry = (body: CreateEntryBody): Promise<CreatedEntry> =>
   apiClient.request<CreatedEntry>('POST', '/api/tracking/entries', { body });
+
+/** Soft delete, 204 with no body. */
+export const deleteEntry = (id: string): Promise<null> =>
+  apiClient.request<null>('DELETE', `/api/tracking/entries/${encodeURIComponent(id)}`);

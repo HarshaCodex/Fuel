@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { NetworkError } from '@/api/errors';
-import { getDashboard, trackingKeys } from '@/api/tracking';
+import { ApiError, NetworkError } from '@/api/errors';
+import { getDashboard, trackingKeys, type DashboardEntry } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { CalorieRing } from '@/components/CalorieRing';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
@@ -13,7 +13,10 @@ import { MacroPills } from '@/components/MacroPills';
 import { MealList } from '@/components/MealList';
 import { StateBlock } from '@/components/StateBlock';
 import { StreakChip } from '@/components/StreakChip';
+import { UndoToast } from '@/components/UndoToast';
+import { withoutEntries } from '@/lib/dashboardTotals';
 import { addDays, dateTitle, isFutureDate, isoDate } from '@/lib/dashboardView';
+import { usePendingDeletes } from '@/lib/usePendingDeletes';
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
 
 function DateButton({ icon, label, disabled, onPress }: { icon: 'chevron-back' | 'chevron-forward'; label: string; disabled?: boolean; onPress: () => void }) {
@@ -44,7 +47,22 @@ export default function TodayScreen() {
     queryKey: trackingKeys.dashboard(isToday ? undefined : date),
     queryFn: () => getDashboard(isToday ? undefined : date),
   });
-  const data = q.data;
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const pending = usePendingDeletes((error, entry) =>
+    setDeleteError(
+      error instanceof NetworkError
+        ? `You're offline. ${entry.foodName} wasn't deleted.`
+        : error instanceof ApiError && error.status === 404
+          ? `${entry.foodName} was already removed.`
+          : `Couldn't delete ${entry.foodName}. Try again.`,
+    ),
+  );
+  // The deleted rows are hidden by id, not removed from the cache, so a refetch or a failure never loses a row.
+  const data = useMemo(() => (q.data ? withoutEntries(q.data, pending.ids) : undefined), [q.data, pending.ids]);
+  const onDeleteEntry = (entry: DashboardEntry) => {
+    setDeleteError(null);
+    pending.schedule(entry);
+  };
   const offline = q.error instanceof NetworkError;
   const retry = () => void q.refetch();
   const logFood = () => router.push('/quick-log');
@@ -89,6 +107,8 @@ export default function TodayScreen() {
           />
         ) : null}
 
+        {deleteError ? <Banner variant="caution" message={deleteError} /> : null}
+
         {q.isPending ? <DashboardSkeleton /> : null}
 
         {q.isError && !data ? (
@@ -120,12 +140,15 @@ export default function TodayScreen() {
                   onAction={logFood}
                 />
               ) : (
-                <MealList entries={data.entries} />
+                <MealList entries={data.entries} onDeleteEntry={onDeleteEntry} />
               )}
             </View>
           </>
         ) : null}
       </ScrollView>
+      {pending.last ? (
+        <UndoToast message={`${pending.last.foodName} deleted`} actionLabel="Undo" onAction={pending.undo} />
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Log food"
