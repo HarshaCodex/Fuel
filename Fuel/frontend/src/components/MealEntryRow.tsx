@@ -49,7 +49,7 @@ export function MealEntryRow({ entry, onDelete, onEdit }: Props) {
       )}
     >
       <View style={[styles.row, { backgroundColor: colors.surface }]}>
-        <View style={styles.meal}>
+        <Pressable style={styles.meal} onLongPress={onEdit} accessible={false}>
           <MealRow
             name={entry.foodName}
             source={entry.source}
@@ -59,8 +59,9 @@ export function MealEntryRow({ entry, onDelete, onEdit }: Props) {
             carbs={entry.carbs}
             fat={entry.fat}
             mealLabel={entry.mealLabel}
+            accessibilityHint={onEdit ? 'Long press to edit' : undefined}
           />
-        </View>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`More actions for ${entry.foodName}`}

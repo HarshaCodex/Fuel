@@ -1,6 +1,6 @@
 import type { Dashboard, DashboardEntry } from '@/api/tracking';
 
-import { withoutEntries } from './dashboardTotals';
+import { editFactor, withEditedEntry, withoutEntries } from './dashboardTotals';
 
 const entry = (id: string, calories: number, protein: number, carbs: number, fat: number): DashboardEntry => ({
   id, foodName: id, source: 'USDA', mealLabel: 'lunch', calories, protein, carbs, fat, loggedAt: '2026-11-09T08:00:00Z',
@@ -47,5 +47,48 @@ describe('withoutEntries', () => {
     withoutEntries(d, new Set(['a']));
     expect(d.entries).toHaveLength(2);
     expect(d.calories.consumed).toBe(500);
+  });
+});
+
+describe('editFactor', () => {
+  it('is the ratio of amount x quantity', () => {
+    expect(editFactor({ amount: 100, quantity: 1 }, { amount: 100, quantity: 2 })).toBe(2);
+    expect(editFactor({ amount: 100, quantity: 2 }, { amount: 50, quantity: 2 })).toBe(0.5);
+  });
+
+  it('is 1 when the old product is 0', () => {
+    expect(editFactor({ amount: 0, quantity: 1 }, { amount: 50, quantity: 1 })).toBe(1);
+  });
+});
+
+describe('withEditedEntry', () => {
+  it('scales the entry and moves the totals by the difference', () => {
+    const r = withEditedEntry(day(), 'a', { factor: 2 });
+    expect(r.entries[0]).toMatchObject({ calories: 600, protein: 60, carbs: 80, fat: 20 });
+    expect(r.entries[1].calories).toBe(200);
+    expect(r.calories).toEqual({ consumed: 800, goal: 400, remaining: -400 });
+    expect(r.macros.protein.consumed).toBe(80);
+    expect(r.macros.carbs.consumed).toBe(100);
+    expect(r.macros.fat.consumed).toBe(30);
+  });
+
+  it('gives calories back to remaining when the entry shrinks', () => {
+    const r = withEditedEntry(day(), 'a', { factor: 0.5 });
+    expect(r.calories).toEqual({ consumed: 350, goal: 400, remaining: 50 });
+  });
+
+  it('changes only the meal label, not the totals, when the factor is 1', () => {
+    const d = day();
+    const r = withEditedEntry(d, 'a', { factor: 1, mealLabel: 'dinner' });
+    expect(r.entries[0].mealLabel).toBe('dinner');
+    expect(r.calories).toEqual(d.calories);
+    expect(r.macros).toEqual(d.macros);
+  });
+
+  it('keeps the label when none is given, returns the same object for an unknown id and does not mutate', () => {
+    const d = day();
+    expect(withEditedEntry(d, 'a', { factor: 2 }).entries[0].mealLabel).toBe('lunch');
+    expect(withEditedEntry(d, 'zzz', { factor: 2 })).toBe(d);
+    expect(d.entries[0].calories).toBe(300);
   });
 });

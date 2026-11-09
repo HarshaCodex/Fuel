@@ -1,20 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
-import { getDashboard, trackingKeys, type DashboardEntry } from '@/api/tracking';
+import { getDashboard, trackingKeys, updateEntry, type CreatedEntry, type Dashboard, type DashboardEntry, type UpdateEntryBody } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { CalorieRing } from '@/components/CalorieRing';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
+import { EditEntrySheet } from '@/components/EditEntrySheet';
 import { MacroPills } from '@/components/MacroPills';
 import { MealList } from '@/components/MealList';
 import { StateBlock } from '@/components/StateBlock';
 import { StreakChip } from '@/components/StreakChip';
 import { UndoToast } from '@/components/UndoToast';
-import { withoutEntries } from '@/lib/dashboardTotals';
+import { editFactor, withEditedEntry, withoutEntries } from '@/lib/dashboardTotals';
 import { addDays, dateTitle, isFutureDate, isoDate } from '@/lib/dashboardView';
 import { usePendingDeletes } from '@/lib/usePendingDeletes';
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
@@ -47,6 +48,50 @@ export default function TodayScreen() {
     queryKey: trackingKeys.dashboard(isToday ? undefined : date),
     queryFn: () => getDashboard(isToday ? undefined : date),
   });
+  const qc = useQueryClient();
+  const dashKey = trackingKeys.dashboard(isToday ? undefined : date);
+  const [editing, setEditing] = useState<DashboardEntry | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  // Optimistic: totals and the row change at once from the linear estimate; on failure the snapshot comes back.
+  const edit = useMutation({
+    mutationFn: ({ current, body }: { current: CreatedEntry; body: UpdateEntryBody }) => updateEntry(current.id, body),
+    onMutate: async ({ current, body }) => {
+      await qc.cancelQueries({ queryKey: trackingKeys.all });
+      const snapshot = qc.getQueryData<Dashboard>(dashKey);
+      const factor = editFactor(
+        { amount: current.servingSize, quantity: current.quantity },
+        { amount: body.servingSize ?? current.servingSize, quantity: body.quantity ?? current.quantity },
+      );
+      qc.setQueryData<Dashboard>(dashKey, (d) => (d ? withEditedEntry(d, current.id, { factor, mealLabel: body.mealLabel }) : d));
+      return { snapshot };
+    },
+    onError: (error, { current }, ctx) => {
+      if (ctx?.snapshot) qc.setQueryData(dashKey, ctx.snapshot);
+      setEditError(
+        error instanceof NetworkError
+          ? `You're offline. ${current.foodName} wasn't changed.`
+          : error instanceof ApiError && error.status === 404
+            ? 'That entry no longer exists'
+            : error instanceof ApiError && error.status === 400
+              ? error.message
+              : `Couldn't save ${current.foodName}. Try again.`,
+      );
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: trackingKeys.all }),
+  });
+  const onEditEntry = (entry: DashboardEntry) => {
+    setEditError(null);
+    setEditing(entry);
+  };
+  const onSaveEdit = (current: CreatedEntry, body: UpdateEntryBody) => {
+    setEditing(null);
+    edit.mutate({ current, body });
+  };
+  const onMissing = useCallback(() => {
+    setEditing(null);
+    setEditError('That entry no longer exists');
+    void qc.invalidateQueries({ queryKey: trackingKeys.all });
+  }, [qc]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const pending = usePendingDeletes((error, entry) =>
     setDeleteError(
@@ -108,6 +153,7 @@ export default function TodayScreen() {
         ) : null}
 
         {deleteError ? <Banner variant="caution" message={deleteError} /> : null}
+        {editError ? <Banner variant="caution" message={editError} /> : null}
 
         {q.isPending ? <DashboardSkeleton /> : null}
 
@@ -140,12 +186,19 @@ export default function TodayScreen() {
                   onAction={logFood}
                 />
               ) : (
-                <MealList entries={data.entries} onDeleteEntry={onDeleteEntry} />
+                <MealList entries={data.entries} onDeleteEntry={onDeleteEntry} onEditEntry={onEditEntry} />
               )}
             </View>
           </>
         ) : null}
       </ScrollView>
+      <EditEntrySheet
+        entry={editing}
+        date={isToday ? undefined : date}
+        onClose={() => setEditing(null)}
+        onMissing={onMissing}
+        onSave={onSaveEdit}
+      />
       {pending.last ? (
         <UndoToast message={`${pending.last.foodName} deleted`} actionLabel="Undo" onAction={pending.undo} />
       ) : null}

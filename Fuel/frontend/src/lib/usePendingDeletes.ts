@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
+import { ApiError } from '@/api/errors';
 import { deleteEntry, trackingKeys, type DashboardEntry } from '@/api/tracking';
 
 export const UNDO_MS = 6000;
@@ -45,6 +46,8 @@ export function usePendingDeletes(onError: (error: unknown, entry: DashboardEntr
         await qc.invalidateQueries({ queryKey: trackingKeys.all });
         drop(entry.id);
       } catch (error) {
+        // A 404 means the server no longer has it, so the cached list is stale too.
+        if (error instanceof ApiError && error.status === 404) void qc.invalidateQueries({ queryKey: trackingKeys.all });
         drop(entry.id);
         onErrorRef.current(error, entry);
       }

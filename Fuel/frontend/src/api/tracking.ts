@@ -25,6 +25,7 @@ export type Dashboard = {
 export const trackingKeys = {
   all: ['tracking'] as const,
   dashboard: (date?: string) => ['tracking', 'dashboard', date ?? 'today'] as const,
+  entries: (date?: string) => ['tracking', 'entries', date ?? 'today'] as const,
 };
 
 /** Omit `date` for today; the server resolves it in the user's timezone. */
@@ -48,3 +49,14 @@ export const createEntry = (body: CreateEntryBody): Promise<CreatedEntry> =>
 /** Soft delete, 204 with no body. */
 export const deleteEntry = (id: string): Promise<null> =>
   apiClient.request<null>('DELETE', `/api/tracking/entries/${encodeURIComponent(id)}`);
+
+/** Every field is optional and only sent when changed. The food itself cannot change. */
+export type UpdateEntryBody = { servingSize?: number; quantity?: number; mealLabel?: MealLabel };
+
+/** Returns the entry with nutrients recomputed from its original food. */
+export const updateEntry = (id: string, body: UpdateEntryBody): Promise<CreatedEntry> =>
+  apiClient.request<CreatedEntry>('PUT', `/api/tracking/entries/${encodeURIComponent(id)}`, { body });
+
+/** Full entries for a day (with amount and quantity, which the dashboard payload lacks). Omit `date` for today. */
+export const getEntries = (date?: string): Promise<CreatedEntry[]> =>
+  apiClient.request<CreatedEntry[]>('GET', '/api/tracking/entries' + (date ? '?date=' + date : ''));
