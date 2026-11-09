@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { FirstRunGate } from '@/session/FirstRunGate';
 import { SessionProvider, useSession } from '@/session/SessionProvider';
@@ -36,10 +38,14 @@ export default function RootLayout() {
     () => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } }),
   );
   return (
-    <QueryClientProvider client={client}>
-      <SessionProvider>
-        <RootStack />
-      </SessionProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <QueryClientProvider client={client}>
+        <SessionProvider>
+          <RootStack />
+        </SessionProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({ root: { flex: 1 } });

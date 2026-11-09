@@ -1,6 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import { Platform } from 'react-native';
+import { SwipeDirection } from 'react-native-gesture-handler/ReanimatedSwipeable';
+
 import { ApiError, NetworkError } from '@/api/errors';
 import { deleteCustomFood, foodKeys, getCustomFoodPage, type Food, type FoodPage } from '@/api/food';
 
@@ -9,6 +12,20 @@ import MyFoods from './my-foods';
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: mockBack }) }));
+// Gestures cannot run in Jest, so Swipeable is replaced by a stub that records its props for the tests to call.
+const mockSwipes: Record<string, { onSwipeableOpen: (d: string) => void }> = {};
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { forwardRef, useImperativeHandle } = require('react');
+  const { View } = require('react-native');
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  const Swipeable = forwardRef(function Swipeable(props: { testID: string; children: unknown; onSwipeableOpen: (d: string) => void }, ref: unknown) {
+    useImperativeHandle(ref, () => ({ close: () => {} }));
+    mockSwipes[props.testID] = props;
+    return <View>{props.children as never}</View>;
+  });
+  return { __esModule: true, default: Swipeable, SwipeDirection: { LEFT: 'left', RIGHT: 'right' } };
+});
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 jest.mock('@/api/food', () => ({
   ...jest.requireActual('@/api/food'),
@@ -53,7 +70,15 @@ async function openDelete(name: string) {
   await fireEvent.press(screen.getByRole('button', { name: `Delete ${name}` }));
 }
 
-beforeEach(() => jest.clearAllMocks());
+const originalOS = Platform.OS;
+beforeEach(() => {
+  jest.clearAllMocks();
+  // Android runs a menu choice at once; the iOS wait for onDismiss is tested in CustomFoodRow.test.tsx.
+  Platform.OS = 'android';
+});
+afterEach(() => {
+  Platform.OS = originalOS;
+});
 
 describe('My Foods', () => {
   it('shows a skeleton while loading', async () => {
@@ -213,5 +238,46 @@ describe('My Foods', () => {
     await waitFor(() => expect(screen.queryByText('Oat bowl')).toBeNull());
     expect(screen.queryByText("Couldn't delete the food. Try again.")).toBeNull();
     expect(screen.getByText('Rice')).toBeTruthy();
+  });
+});
+
+describe('My Foods edit and swipe', () => {
+  it('menu Edit seeds the cache and opens the editor with the id', async () => {
+    const oat = food('a', 'Oat bowl');
+    mockPage.mockResolvedValue(page([oat]));
+    await renderScreen();
+    await fireEvent.press(await screen.findByRole('button', { name: 'More actions for Oat bowl' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit Oat bowl' }));
+    expect(client.getQueryData(foodKeys.detail('a'))).toEqual(oat);
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/manual-entry', params: { id: 'a' } });
+  });
+
+  it('swipe right opens the editor', async () => {
+    mockPage.mockResolvedValue(page([food('a', 'Oat bowl')]));
+    await renderScreen();
+    await screen.findByText('Oat bowl');
+    await act(async () => mockSwipes['swipe-a'].onSwipeableOpen(SwipeDirection.RIGHT));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/manual-entry', params: { id: 'a' } });
+  });
+
+  it('swipe left asks to confirm, and cancelling deletes nothing', async () => {
+    mockPage.mockResolvedValue(page([food('a', 'Oat bowl')]));
+    await renderScreen();
+    await screen.findByText('Oat bowl');
+    await act(async () => mockSwipes['swipe-a'].onSwipeableOpen(SwipeDirection.LEFT));
+    expect(screen.getByText('Delete Oat bowl?')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(screen.getByText('Oat bowl')).toBeTruthy();
+  });
+
+  it('swipe left then confirm deletes', async () => {
+    mockPage.mockResolvedValueOnce(page([food('a', 'Oat bowl')])).mockReturnValue(new Promise(() => {}));
+    mockDelete.mockResolvedValue(null);
+    await renderScreen();
+    await screen.findByText('Oat bowl');
+    await act(async () => mockSwipes['swipe-a'].onSwipeableOpen(SwipeDirection.LEFT));
+    await fireEvent.press(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('a'));
   });
 });

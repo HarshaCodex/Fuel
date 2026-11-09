@@ -47,6 +47,11 @@ export default function MyFoodsScreen() {
     router.push({ pathname: '/food-detail', params: { id: food.id } });
   };
 
+  const editFood = (food: Food) => {
+    queryClient.setQueryData(foodKeys.detail(food.id), food);
+    router.push({ pathname: '/manual-entry', params: { id: food.id } });
+  };
+
   const removeFromCache = (id: string) => {
     queryClient.setQueryData<InfiniteData<FoodPage, number>>(foodKeys.custom, (old) =>
       old ? { ...old, pages: old.pages.map((p) => ({ ...p, content: p.content.filter((f) => f.id !== id) })) } : old,
@@ -118,6 +123,7 @@ export default function MyFoodsScreen() {
             food={item}
             divider={index < foods.length - 1}
             onPress={() => openFood(item)}
+            onEdit={() => editFood(item)}
             onDelete={() => {
               setDeleteError(null);
               setDialogName(item.name);

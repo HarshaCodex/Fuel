@@ -1,22 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
 import { useEffect, useRef, useState, type ComponentProps, type ComponentRef } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '@/api/errors';
-import { createCustomFood, foodKeys, type CustomFoodBody, type Food, type ServingUnit } from '@/api/food';
+import { createCustomFood, foodKeys, getFood, updateCustomFood, type CustomFoodBody, type Food, type ServingUnit } from '@/api/food';
 import { createEntry, trackingKeys } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { StateBlock } from '@/components/StateBlock';
 import { TextField } from '@/components/TextField';
 import { UnitPicker } from '@/components/UnitPicker';
 import {
   EMPTY_FORM,
   FIELDS,
   fieldError,
+  fromFood,
   isDirty,
   macroHint,
   validateForm,
@@ -29,10 +31,12 @@ import { sizing, space, type, useTheme } from '@/theme';
 
 type Input = ComponentRef<typeof TextInput>;
 type Fields = Partial<Record<CustomFoodField, string>>;
-type Problem = { kind: 'offline' | 'generic' | 'log'; message: string };
+type Problem = { kind: 'offline' | 'generic' | 'log' | 'gone'; message: string };
 
 const OFFLINE = "You're offline. Check your connection and try again.";
 const GENERIC = "Couldn't save this food. Try again.";
+const GONE = 'This food no longer exists.';
+const GONE_TITLE = 'This food no longer exists';
 const LOG_FAILED = "Saved to My Foods, but couldn't log it. Try again.";
 
 export default function ManualEntryScreen() {
@@ -40,16 +44,29 @@ export default function ManualEntryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
-  const createOnly = mode === 'create';
+  const { mode, id } = useLocalSearchParams<{ mode?: string; id?: string }>();
+  const editing = !!id;
+  const createOnly = mode === 'create' && !editing;
 
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
+  const [initial, setInitial] = useState<FormValues>(EMPTY_FORM);
+  const [loaded, setLoaded] = useState(!editing);
+  // Prefill from the cache My Foods seeded; otherwise fetch the food.
+  const source = useQuery({ queryKey: foodKeys.detail(id ?? ''), queryFn: () => getFood(id as string), enabled: editing });
+  if (editing && source.data && !loaded) {
+    const filled = fromFood(source.data);
+    setValues(filled);
+    setInitial(filled);
+    setLoaded(true);
+  }
   const [touched, setTouched] = useState<Fields>({});
   const [serverErrors, setServerErrors] = useState<Fields>({});
   const [problem, setProblem] = useState<Problem | null>(null);
   const [created, setCreated] = useState<Food | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const leaveRepeat = useRef<(() => void) | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const [keyboardUp, setKeyboardUp] = useState(false);
   useEffect(() => {
     const ios = Platform.OS === 'ios';
@@ -60,11 +77,26 @@ export default function ManualEntryScreen() {
       hide.remove();
     };
   }, []);
+  const dirty = isDirty(values, initial);
   const sending = useRef(false);
   const intentLogs = useRef(!createOnly);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const createdRef = useRef<Food | null>(null);
   const inputs = useRef<Partial<Record<CustomFoodField, Input | null>>>({});
+
+  // Android back and the iOS swipe-back are blocked while typed values would be lost, so they ask first.
+  usePreventRemove(dirty && !created && !leaving, ({ repeat }) => {
+    leaveRepeat.current = repeat;
+    setConfirmDiscard(true);
+  });
+  // Leave once prevention has dropped, so the blocked action is repeated against the new state.
+  useEffect(() => {
+    if (!leaving) return;
+    const go = leaveRepeat.current;
+    leaveRepeat.current = null;
+    if (go) go();
+    else router.back();
+  }, [leaving, router]);
 
   const set = (field: CustomFoodField, text: string) => {
     setValues((v) => ({ ...v, [field]: text }));
@@ -126,6 +158,13 @@ export default function ManualEntryScreen() {
     setBusy(true);
     setProblem(null);
     try {
+      if (editing) {
+        const saved = await updateCustomFood(id as string, body as CustomFoodBody);
+        queryClient.setQueryData(foodKeys.detail(saved.id), saved);
+        void queryClient.invalidateQueries({ queryKey: foodKeys.custom });
+        setLeaving(true);
+        return;
+      }
       const food = createdRef.current ?? (await createCustomFood(body as CustomFoodBody));
       if (!createdRef.current) {
         createdRef.current = food;
@@ -135,6 +174,7 @@ export default function ManualEntryScreen() {
       await finish(food, logIt);
     } catch (e) {
       if (e instanceof NetworkError) setProblem({ kind: 'offline', message: OFFLINE });
+      else if (editing && e instanceof ApiError && e.status === 404) setProblem({ kind: 'gone', message: GONE });
       else if (createdRef.current) setProblem({ kind: 'log', message: LOG_FAILED });
       else {
         const mapped = mapFieldErrors(e, FIELDS);
@@ -150,27 +190,44 @@ export default function ManualEntryScreen() {
     }
   };
 
-  const back = () => (isDirty(values) && !created ? setConfirmDiscard(true) : router.back());
+  const back = () => router.back();
   const hint = macroHint(values);
+  const missing = source.error instanceof ApiError && source.error.status === 404;
+  const gate = editing && !loaded;
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} style={styles.back}>
         <Ionicons name="chevron-back" size={sizing.icon} color={colors.text} />
       </Pressable>
+      {gate ? (
+        source.isError ? (
+          <StateBlock
+            variant="error"
+            title={missing ? GONE_TITLE : source.error instanceof NetworkError ? "You're offline" : "Couldn't load this food"}
+            message={missing ? 'It may have been deleted. Go back to My Foods.' : 'Check your connection and try again.'}
+            actionLabel={missing ? 'Back to My Foods' : 'Retry'}
+            onAction={missing ? () => router.back() : () => void source.refetch()}
+          />
+        ) : (
+          <View style={styles.loading}>
+            <ActivityIndicator accessibilityLabel="Loading food" color={colors.accent} />
+          </View>
+        )
+      ) : (
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
-            {createOnly ? 'New food' : 'Enter a food'}
+            {editing ? 'Edit food' : createOnly ? 'New food' : 'Enter a food'}
           </Text>
           {problem ? (
             <Banner
               variant={problem.kind === 'offline' ? 'caution' : 'danger'}
               message={problem.message}
-              action={{ label: 'Retry', onPress: () => void submit(intentLogs.current) }}
+              action={problem.kind === 'gone' ? undefined : { label: 'Retry', onPress: () => void submit(intentLogs.current) }}
             />
           ) : null}
-          {field('name', 'Name', { autoFocus: true, autoCapitalize: 'sentences' })}
+          {field('name', 'Name', { autoFocus: !editing, autoCapitalize: 'sentences' })}
           {field('brand', 'Brand (optional)', { autoCapitalize: 'words' })}
           {numeric('servingSize', 'Serving size', '')}
           <UnitPicker
@@ -200,7 +257,9 @@ export default function ManualEntryScreen() {
             { backgroundColor: colors.bg, borderColor: colors.border, paddingBottom: space.lg + (keyboardUp ? 0 : insets.bottom) },
           ]}
         >
-          {createOnly ? (
+          {editing ? (
+            <Button label="Save changes" onPress={() => void submit(false)} loading={busy} />
+          ) : createOnly ? (
             <Button label="Save food" onPress={() => void submit(false)} loading={busy} />
           ) : (
             <>
@@ -212,6 +271,7 @@ export default function ManualEntryScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+      )}
       <ConfirmDialog
         visible={confirmDiscard}
         title="Discard this food?"
@@ -221,9 +281,12 @@ export default function ManualEntryScreen() {
         danger
         onConfirm={() => {
           setConfirmDiscard(false);
-          router.back();
+          setLeaving(true);
         }}
-        onCancel={() => setConfirmDiscard(false)}
+        onCancel={() => {
+          leaveRepeat.current = null;
+          setConfirmDiscard(false);
+        }}
       />
     </View>
   );
@@ -231,6 +294,7 @@ export default function ManualEntryScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   back: { width: sizing.touchMin, height: sizing.touchMin, marginLeft: space.sm, alignItems: 'center', justifyContent: 'center' },
   content: { padding: space.lg, gap: space.lg },
   row: { flexDirection: 'row', gap: space.md },
