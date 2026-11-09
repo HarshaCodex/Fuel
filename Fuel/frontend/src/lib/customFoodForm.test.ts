@@ -28,10 +28,11 @@ describe('validateForm', () => {
 
   it('limits name to 200 characters', () => {
     expect(fieldError('name', withV({ name: 'a'.repeat(200) }))).toBeNull();
-    expect(fieldError('name', withV({ name: 'a'.repeat(201) }))).toBe(MESSAGES.name);
+    expect(fieldError('name', withV({ name: 'a'.repeat(201) }))).toBe(MESSAGES.nameLong);
   });
 
   it('limits brand to 200 characters', () => {
+    expect(fieldError('brand', withV({ brand: 'a'.repeat(200) }))).toBeNull();
     expect(fieldError('brand', withV({ brand: 'a'.repeat(201) }))).not.toBeNull();
   });
 

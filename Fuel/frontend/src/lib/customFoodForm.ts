@@ -18,6 +18,7 @@ export const EMPTY_FORM: FormValues = {
 
 export const MESSAGES = {
   name: 'Enter a name',
+  nameLong: 'Name must be 200 characters or fewer',
   number: 'Enter a number, 0 or more',
   amount: 'Enter an amount above 0',
 } as const;
@@ -27,7 +28,6 @@ const MAX_BRAND = 200;
 /** Backend digit limits (integer, decimal): servingSize and calories 6+1, macros and fiber 5+2. */
 const DIGITS = { servingSize: [6, 1], calories: [6, 1], protein: [5, 2], carbs: [5, 2], fat: [5, 2], fiber: [5, 2] } as const;
 type NumericField = keyof typeof DIGITS;
-const NUMERIC: readonly NumericField[] = ['servingSize', 'calories', 'protein', 'carbs', 'fat', 'fiber'];
 
 const KCAL_PER_G = { protein: 4, carbs: 4, fat: 9 } as const;
 const HINT_TOLERANCE = 0.2;
@@ -42,7 +42,10 @@ function parseNumeric(text: string, field: NumericField): number | null {
 
 /** The message for one field, or null when it is fine. Fiber may be blank. */
 export function fieldError(field: CustomFoodField, values: FormValues): string | null {
-  if (field === 'name') return values.name.trim() && values.name.trim().length <= MAX_NAME ? null : MESSAGES.name;
+  if (field === 'name') {
+    const n = values.name.trim();
+    return !n ? MESSAGES.name : n.length > MAX_NAME ? MESSAGES.nameLong : null;
+  }
   if (field === 'brand') return values.brand.trim().length <= MAX_BRAND ? null : 'Brand must be 200 characters or fewer';
   if (field === 'servingUnit') return UNITS.includes(values.servingUnit as ServingUnit) ? null : 'Choose a unit';
   if (field === 'fiber' && !values.fiber.trim()) return null;
