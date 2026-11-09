@@ -30,6 +30,10 @@ export const getRecentFoods = (limit = 5): Promise<RecentFood[]> =>
 export const getFood = (id: string): Promise<Food> =>
   apiClient.request<Food>('GET', `/api/food/${encodeURIComponent(id)}`);
 
+/** The backend accepts 8 to 14 digits. 404 means unknown, 400 a bad format. Not cached: the code is not a key. */
+export const getFoodByBarcode = (code: string): Promise<Food> =>
+  apiClient.request<Food>('GET', `/api/food/barcode/${encodeURIComponent(code)}`);
+
 export type FoodPage = { content: Food[]; page: number; size: number; totalElements: number; totalPages: number };
 
 /** The backend needs a 2..100 character `q` and allows 30 searches a minute. */

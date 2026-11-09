@@ -1,4 +1,4 @@
-import { foodKeys, getFood, getFoodPage, getRecentFoods } from './food';
+import { foodKeys, getFood, getFoodByBarcode, getFoodPage, getRecentFoods } from './food';
 
 const fetchMock = jest.fn();
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
@@ -39,5 +39,18 @@ describe('getFoodPage', () => {
   it('encodes the query and paging params', async () => {
     await getFoodPage('mac & cheese', 1);
     expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/api/food/search?q=mac+%26+cheese&page=1&size=20');
+  });
+});
+
+describe('getFoodByBarcode', () => {
+  it('calls the barcode path and unwraps the food', async () => {
+    fetchMock.mockImplementation(async () => reply(200, { data: { id: 'f1' } }));
+    await expect(getFoodByBarcode('0123456789012')).resolves.toEqual({ id: 'f1' });
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/api/food/barcode/0123456789012');
+  });
+
+  it('encodes the code in the path', async () => {
+    await getFoodByBarcode('1/2');
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/api/food/barcode/1%2F2');
   });
 });
