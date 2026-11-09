@@ -64,10 +64,10 @@ async function main() {
     await page.getByText('Chicken breast').first().waitFor();
     await page.screenshot({ path: join(OUT, 'quick-log.png') });
     await page.getByRole('button', { name: 'Search foods', exact: true }).click();
-    await page.getByLabel('Search foods', { exact: true }).fill('chicken');
-    await page.getByRole('button', { name: /^Chicken thigh/ }).waitFor();
+    await page.getByRole('textbox', { name: 'Search foods' }).fill('chicken');
+    await page.getByRole('button', { name: /^Chicken thigh/ }).last().waitFor();
     await page.screenshot({ path: join(OUT, 'search.png') });
-    await page.getByRole('button', { name: /^Chicken breast/ }).click();
+    await page.getByRole('button', { name: /^Chicken breast/ }).last().click();
     await page.getByRole('button', { name: /^Log \d+ kcal$/ }).waitFor();
     await page.screenshot({ path: join(OUT, 'food-detail.png') });
     if (unmocked.length) throw new Error(`Unmocked API calls: ${unmocked.join(', ')}`);

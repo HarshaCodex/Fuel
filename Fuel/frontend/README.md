@@ -33,7 +33,7 @@ cp .env.example .env
 | `npm run lint` | ESLint (`eslint-config-expo`) |
 | `npm test` | Jest (`jest-expo`) with Testing Library |
 | `npm run check` | Typecheck, lint and tests |
-| `npm run screenshots` | Export the web build and write `sign-in.png` and `today.png` to `screenshots/`; it signs in through the UI against a mocked `/api/auth/login`. Run `npx playwright install chromium` once first. |
+| `npm run screenshots` | Export the web build and write `sign-in.png`, `today.png`, `quick-log.png`, `search.png` and `food-detail.png` to `screenshots/`; it signs in through the UI against a mocked `/api/auth/login`. Run `npx playwright install chromium` once first. |
 
 ## Folder layout
 
@@ -42,7 +42,7 @@ cp .env.example .env
 - `src/components/` shared components (`Button`, `TextField`, `Banner`, `FormScreen`, `PasswordRules`).
 - `src/lib/` helpers: `tokenStorage.ts`, `validation.ts` (form rules), `passwordRules.ts` (new-password rules), `authErrors.ts` (API error kinds, 429 text), `pendingEmail.ts` (in-memory email between auth screens), `useCooldown.ts` (resend countdown).
 - `src/config.ts` reads the API base URL.
-- `scripts/` screenshot script and its mocked API fixtures (login, body stats, goals, dashboard).
+- `scripts/` screenshot script and its mocked API fixtures (login, body stats, goals, dashboard, recent foods, food search).
 
 ## Theme rule
 
