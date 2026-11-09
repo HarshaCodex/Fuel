@@ -57,7 +57,7 @@ export function CustomFoodRow({ food, onPress, onEdit, onDelete, divider = false
     >
     <View style={[styles.row, { backgroundColor: colors.surface }, divider && { borderBottomWidth: sizing.border, borderColor: colors.border }]}>
       <View style={styles.food}>
-        <FoodRow food={food} onPress={onPress} />
+        <FoodRow food={food} onPress={onPress} chevron={false} />
       </View>
       <Pressable
         accessibilityRole="button"
@@ -128,7 +128,7 @@ export function CustomFoodRow({ food, onPress, onEdit, onDelete, divider = false
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'stretch' },
   food: { flex: 1 },
-  panel: { width: 96, justifyContent: 'center', paddingHorizontal: space.lg },
+  panel: { width: 84, justifyContent: 'center', paddingHorizontal: space.lg },
   panelInner: { alignItems: 'center', gap: space.xs },
   more: { width: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
   scrim: { flex: 1, justifyContent: 'flex-end', padding: space.lg },

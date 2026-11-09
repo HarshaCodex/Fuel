@@ -7,10 +7,10 @@ import { numeric, sizing, space, type, useTheme } from '@/theme';
 
 import { TrustBadge } from './TrustBadge';
 
-type Props = { food: Food; onPress: () => void; /** Hairline under the row, inset like the meal rows; omit on the last row. */ divider?: boolean };
+type Props = { food: Food; onPress: () => void; /** Hairline under the row, inset like the meal rows; omit on the last row. */ divider?: boolean; /** Trailing chevron; rows that carry their own menu button turn it off. */ chevron?: boolean };
 
 /** Tappable search or recent result: name, brand and serving, trust badge, kcal. */
-export function FoodRow({ food, onPress, divider = false }: Props) {
+export function FoodRow({ food, onPress, divider = false, chevron = true }: Props) {
   const { colors } = useTheme();
   const serving = `${formatGrams(food.servingSize)} ${food.servingUnit}`;
   const detail = [food.brand, serving].filter(Boolean).join(', ');
@@ -44,7 +44,7 @@ export function FoodRow({ food, onPress, divider = false }: Props) {
           kcal
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={sizing.icon} color={colors.textTertiary} accessibilityElementsHidden importantForAccessibility="no" />
+      {chevron ? <Ionicons name="chevron-forward" size={sizing.icon} color={colors.textTertiary} accessibilityElementsHidden importantForAccessibility="no" /> : null}
     </Pressable>
     </View>
   );

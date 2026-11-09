@@ -74,7 +74,19 @@ async function main() {
     await page.getByRole('button', { name: 'More actions for Overnight oats' }).click();
     await page.getByRole('button', { name: 'Edit Overnight oats' }).click();
     await page.getByText('Edit food', { exact: true }).first().waitFor();
+    // The menu fades out over the editor; shoot only once it is gone and the footer is in place.
+    await page.getByRole('button', { name: 'Cancel', exact: true }).waitFor({ state: 'detached' });
+    await page.getByRole('button', { name: 'Save changes', exact: true }).waitFor();
     await page.screenshot({ path: join(OUT, 'manual-entry.png') });
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    // Create mode from My Foods > New food, with the name field touched and left blank for the error style.
+    await page.getByRole('button', { name: 'New food', exact: true }).click();
+    await page.getByText('New food', { exact: true }).first().waitFor();
+    await page.getByRole('button', { name: 'Save food', exact: true }).waitFor();
+    await page.getByLabel('Name', { exact: true }).focus();
+    await page.getByLabel('Name', { exact: true }).blur();
+    await page.getByText('Enter a name', { exact: true }).waitFor();
+    await page.screenshot({ path: join(OUT, 'manual-entry-create.png') });
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('tab', { name: 'Today' }).click();

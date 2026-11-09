@@ -104,6 +104,7 @@ export default function MyFoodsScreen() {
     );
   } else if (foods.length === 0) {
     body = (
+      <View style={styles.empty}>
       <StateBlock
         variant="empty"
         title="Foods you create show up here"
@@ -111,6 +112,7 @@ export default function MyFoodsScreen() {
         actionLabel="Enter a food"
         onAction={() => router.push({ pathname: '/manual-entry', params: { mode: 'create' } })}
       />
+      </View>
     );
   } else {
     body = (
@@ -195,6 +197,7 @@ export default function MyFoodsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  empty: { flex: 1, justifyContent: 'center', paddingBottom: space.xxxl },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg, paddingVertical: space.sm },
   back: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1 },
