@@ -47,7 +47,7 @@ export default function TodayScreen() {
   const data = q.data;
   const offline = q.error instanceof NetworkError;
   const retry = () => void q.refetch();
-  const logMeal = () => router.push('/quick-log');
+  const logFood = () => router.push('/quick-log');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -107,24 +107,29 @@ export default function TodayScreen() {
               <CalorieRing consumed={data.calories.consumed} goal={data.calories.goal} />
             </View>
             <MacroPills protein={data.macros.protein} carbs={data.macros.carbs} fat={data.macros.fat} />
-            {data.entries.length === 0 ? (
-              <StateBlock
-                variant="empty"
-                title="Nothing logged yet"
-                message="Log your first meal to see how the day is going."
-                actionLabel="Log a meal"
-                onAction={logMeal}
-              />
-            ) : (
-              <MealList entries={data.entries} />
-            )}
+            <View style={styles.meals}>
+              <Text accessibilityRole="header" style={[type.title2, { color: colors.text }]} maxFontSizeMultiplier={2}>
+                Meals
+              </Text>
+              {data.entries.length === 0 ? (
+                <StateBlock
+                  variant="empty"
+                  title="Nothing logged yet"
+                  message="Log your first food to see how the day is going."
+                  actionLabel="Log your first food"
+                  onAction={logFood}
+                />
+              ) : (
+                <MealList entries={data.entries} />
+              )}
+            </View>
           </>
         ) : null}
       </ScrollView>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Log a meal"
-        onPress={logMeal}
+        accessibilityLabel="Log food"
+        onPress={logFood}
         style={({ pressed }) => [
           styles.fab,
           shadow.lg,
@@ -139,7 +144,8 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { padding: space.lg, paddingTop: space.xxxl, paddingBottom: sizing.fab + space.xxxl, gap: space.lg },
+  content: { padding: space.lg, paddingTop: space.xxxl, paddingBottom: sizing.fab + space.xxxl, gap: space.md },
+  meals: { gap: space.sm, marginTop: space.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dateButton: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
   ringCard: { alignItems: 'center', padding: space.xl, borderRadius: radius.lg, borderWidth: 1 },

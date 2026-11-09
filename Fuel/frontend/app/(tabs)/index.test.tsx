@@ -45,14 +45,16 @@ describe('Today screen', () => {
     expect(screen.getByText('5 day streak')).toBeTruthy();
     expect(screen.getByText('Greek yogurt')).toBeTruthy();
     expect(screen.getByText('Today')).toBeTruthy();
+    expect(screen.getByText('Meals')).toBeTruthy();
     expect(mockGet).toHaveBeenCalledWith(undefined);
   });
 
-  it('shows the empty state with a Log a meal action when nothing is logged', async () => {
+  it('shows the empty state with a Log your first food action when nothing is logged', async () => {
     mockGet.mockResolvedValue({ ...DAY, entries: [], calories: { consumed: 0, goal: 2200, remaining: 2200 } });
     await renderScreen();
     expect(await screen.findByText('Nothing logged yet')).toBeTruthy();
-    const buttons = screen.getAllByRole('button', { name: 'Log a meal' });
+    expect(screen.getByText('Meals')).toBeTruthy();
+    const buttons = [screen.getByRole('button', { name: 'Log your first food' }), screen.getByRole('button', { name: 'Log food' })];
     expect(buttons).toHaveLength(2);
     await fireEvent.press(buttons[0]);
     expect(mockPush).toHaveBeenCalledWith('/quick-log');
@@ -62,7 +64,7 @@ describe('Today screen', () => {
     mockGet.mockResolvedValue(DAY);
     await renderScreen();
     await screen.findByText('Greek yogurt');
-    await fireEvent.press(screen.getByRole('button', { name: 'Log a meal' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Log food' }));
     expect(mockPush).toHaveBeenCalledWith('/quick-log');
   });
 
