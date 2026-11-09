@@ -23,6 +23,7 @@ export type Dashboard = {
 
 /** Keys hold only the date: dashboard values are health data and must not leak into keys. */
 export const trackingKeys = {
+  all: ['tracking'] as const,
   dashboard: (date?: string) => ['tracking', 'dashboard', date ?? 'today'] as const,
 };
 
