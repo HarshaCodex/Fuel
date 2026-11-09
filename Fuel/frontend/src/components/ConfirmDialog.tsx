@@ -28,7 +28,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={[styles.scrim, { backgroundColor: colors.scrim }]}>
@@ -53,9 +53,12 @@ export function ConfirmDialog({
                 accessibilityState={{ disabled: loading, busy: loading }}
                 disabled={loading}
                 onPress={onConfirm}
-                style={[styles.danger, { backgroundColor: colors.danger, opacity: loading ? 0.6 : 1 }]}
+                style={({ pressed }) => [
+                  styles.danger,
+                  { backgroundColor: colors.danger, opacity: loading ? 0.6 : pressed ? 0.85 : 1 },
+                ]}
               >
-                <Text style={[type.headline, { color: colors.onAccent }]} maxFontSizeMultiplier={2}>
+                <Text style={[type.headline, { color: scheme === 'dark' ? colors.bg : colors.onAccent }]} maxFontSizeMultiplier={2}>
                   {confirmLabel}
                 </Text>
               </Pressable>

@@ -181,6 +181,34 @@ describe('Manual entry screen', () => {
     expect(mockBack).not.toHaveBeenCalled();
   });
 
+  it('Done on the last field logs', async () => {
+    await renderScreen();
+    await fillValid();
+    await fireEvent(screen.getByLabelText('Fiber (optional)'), 'submitEditing');
+    await waitFor(() => expect(mockDismissAll).toHaveBeenCalled());
+    expect(mockEntry).toHaveBeenCalledTimes(1);
+  });
+
+  it('Done on the last field saves only in create mode', async () => {
+    mockParams = { mode: 'create' };
+    await renderScreen();
+    await fillValid();
+    await fireEvent(screen.getByLabelText('Fiber (optional)'), 'submitEditing');
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockEntry).not.toHaveBeenCalled();
+  });
+
+  it('shows offline as caution and other failures as danger', async () => {
+    mockCreate.mockRejectedValueOnce(new ApiError(500, 'boom', []));
+    await renderScreen();
+    await fillValid();
+    await press('Log food');
+    expect(await screen.findByText("Couldn't save this food. Try again.")).toBeTruthy();
+    expect(screen.getByText("Couldn't save this food. Try again.").props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ color: '#B42318' })]),
+    );
+  });
+
   it('goes back at once when nothing was typed', async () => {
     await renderScreen();
     await press('Back');

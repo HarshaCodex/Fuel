@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState, type ComponentProps, type ComponentRef } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState, type ComponentProps, type ComponentRef } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '@/api/errors';
@@ -50,6 +50,16 @@ export default function ManualEntryScreen() {
   const [created, setCreated] = useState<Food | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
   const sending = useRef(false);
   const intentLogs = useRef(!createOnly);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -81,7 +91,7 @@ export default function ManualEntryScreen() {
       onBlur={() => blur(name)}
       error={errorFor(name)}
       editable={!busy && !created}
-      onSubmitEditing={() => focusNext(name)}
+      onSubmitEditing={() => (name === 'fiber' ? void submit(intentLogs.current) : focusNext(name))}
       returnKeyType={name === 'fiber' ? 'done' : 'next'}
       {...extra}
     />
@@ -155,7 +165,7 @@ export default function ManualEntryScreen() {
           </Text>
           {problem ? (
             <Banner
-              variant="caution"
+              variant={problem.kind === 'offline' ? 'caution' : 'danger'}
               message={problem.message}
               action={{ label: 'Retry', onPress: () => void submit(intentLogs.current) }}
             />
@@ -184,14 +194,19 @@ export default function ManualEntryScreen() {
           ) : null}
           {numeric('fiber', 'Fiber (optional)', 'g')}
         </ScrollView>
-        <View style={[styles.footer, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: colors.bg, borderColor: colors.border, paddingBottom: space.lg + (keyboardUp ? 0 : insets.bottom) },
+          ]}
+        >
           {createOnly ? (
             <Button label="Save food" onPress={() => void submit(false)} loading={busy} />
           ) : (
             <>
               <Button label="Log food" onPress={() => void submit(true)} loading={busy} />
               {created ? null : (
-                <Button variant="secondary" label="Save to My Foods only" onPress={() => void submit(false)} disabled={busy} />
+                <Button variant="text" size="md" label="Save to My Foods only" onPress={() => void submit(false)} disabled={busy} />
               )}
             </>
           )}

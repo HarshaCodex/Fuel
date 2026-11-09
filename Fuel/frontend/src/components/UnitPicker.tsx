@@ -33,7 +33,7 @@ export function UnitPicker({ label, value, onChange, disabled = false }: Props) 
               style={[
                 styles.chip,
                 {
-                  backgroundColor: selected ? colors.accentSoft : colors.surface,
+                  backgroundColor: selected ? colors.accentSoft : colors.surfaceMuted,
                   borderColor: selected ? colors.accent : colors.borderStrong,
                 },
               ]}
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.full,
     borderWidth: sizing.border,
   },
 });
