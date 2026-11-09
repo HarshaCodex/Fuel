@@ -156,6 +156,14 @@ describe('scanning', () => {
     expect(lookup).toHaveBeenLastCalledWith('9876543210987');
   });
 
+  it('does not look the same code up again while not found is showing', async () => {
+    lookup.mockRejectedValue(new ApiError(404, 'Not found'));
+    await renderScreen();
+    await scan('12345678');
+    await scan('12345678');
+    expect(lookup).toHaveBeenCalledTimes(1);
+  });
+
   it('treats 400 as not found', async () => {
     lookup.mockRejectedValue(new ApiError(400, 'Bad'));
     await renderScreen();
