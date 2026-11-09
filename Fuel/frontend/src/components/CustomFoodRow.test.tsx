@@ -7,6 +7,7 @@ import type { Food } from '@/api/food';
 import { CustomFoodRow } from './CustomFoodRow';
 
 // Gestures cannot run in Jest, so Swipeable is replaced by a stub that records its props for the tests to call.
+const mockClose = jest.fn();
 const mockSwipes: Record<string, { onSwipeableOpen: (d: string) => void }> = {};
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   /* eslint-disable @typescript-eslint/no-require-imports */
@@ -14,7 +15,7 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const { View } = require('react-native');
   /* eslint-enable @typescript-eslint/no-require-imports */
   const Swipeable = forwardRef(function Swipeable(props: { testID: string; children: unknown; onSwipeableOpen: (d: string) => void }, ref: unknown) {
-    useImperativeHandle(ref, () => ({ close: () => {} }));
+    useImperativeHandle(ref, () => ({ close: mockClose }));
     mockSwipes[props.testID] = props;
     return <View>{props.children as never}</View>;
   });
@@ -96,9 +97,11 @@ describe('CustomFoodRow', () => {
     const fns = await setup();
     const swipe = mockSwipes['swipe-a'];
     await act(async () => swipe.onSwipeableOpen(SwipeDirection.RIGHT));
+    expect(mockClose).toHaveBeenCalledTimes(1);
     expect(fns.onEdit).toHaveBeenCalledTimes(1);
     expect(fns.onDelete).not.toHaveBeenCalled();
     await act(async () => swipe.onSwipeableOpen(SwipeDirection.LEFT));
+    expect(mockClose).toHaveBeenCalledTimes(2);
     expect(fns.onDelete).toHaveBeenCalledTimes(1);
   });
 });

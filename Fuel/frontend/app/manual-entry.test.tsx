@@ -9,12 +9,19 @@ import ManualEntry from './manual-entry';
 
 const mockDismissAll = jest.fn();
 const mockBack = jest.fn();
+let mockBackWhilePrevented: boolean[] = [];
 let mockPrevent = false;
 let mockBlocked: ((o: { data: { action: unknown }; repeat: () => void }) => void) | undefined;
 const mockRepeat = jest.fn();
 let mockParams: { mode?: string; id?: string } = {};
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ dismissAll: mockDismissAll, back: mockBack }),
+  useRouter: () => ({
+    dismissAll: mockDismissAll,
+    back: (...a: unknown[]) => {
+      mockBackWhilePrevented.push(mockPrevent);
+      return mockBack(...a);
+    },
+  }),
   useLocalSearchParams: () => mockParams,
   usePreventRemove: (prevent: boolean, cb: typeof mockBlocked) => {
     mockPrevent = prevent;
@@ -70,6 +77,7 @@ const press = async (name: string) => fireEvent.press(screen.getByRole('button',
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockBackWhilePrevented = [];
   mockParams = {};
   jest.spyOn(Date.prototype, 'getHours').mockReturnValue(9);
   mockCreate.mockResolvedValue(saved);
@@ -97,6 +105,8 @@ describe('Manual entry screen', () => {
     await fillValid();
     await press('Save to My Foods only');
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    // Going back while still protected would raise the discard dialog for a food that was just saved.
+    expect(mockBackWhilePrevented).toEqual([false]);
     expect(mockEntry).not.toHaveBeenCalled();
     expect(mockDismissAll).not.toHaveBeenCalled();
   });
@@ -109,6 +119,7 @@ describe('Manual entry screen', () => {
     await fillValid();
     await press('Save food');
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockBackWhilePrevented).toEqual([false]);
     expect(mockEntry).not.toHaveBeenCalled();
   });
 
@@ -308,6 +319,7 @@ describe('Manual entry screen, edit mode', () => {
     await type('Name', 'Oats 2');
     await press('Save changes');
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockBackWhilePrevented).toEqual([false]);
     expect(mockUpdate).toHaveBeenCalledWith('c1', {
       name: 'Oats 2', brand: 'Quaker', servingSize: 40, servingUnit: 'g', calories: 150, protein: 5, carbs: 27, fat: 3, fiber: 4,
     });

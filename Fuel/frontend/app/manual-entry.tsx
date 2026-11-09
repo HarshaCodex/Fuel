@@ -133,7 +133,8 @@ export default function ManualEntryScreen() {
 
   const finish = async (food: Food, logIt: boolean) => {
     if (!logIt) {
-      router.back();
+      // Leave through the effect so prevention has dropped (created is set) before going back.
+      setLeaving(true);
       return;
     }
     await createEntry({
