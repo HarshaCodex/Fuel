@@ -12,7 +12,7 @@ const mockReplace = jest.fn();
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack }) }));
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),
+  useSafeAreaInsets: () => ({ top: 40, bottom: 34, left: 0, right: 0 }),
 }));
 jest.mock('@/api/food', () => ({ ...jest.requireActual('@/api/food'), getFoodByBarcode: jest.fn() }));
 

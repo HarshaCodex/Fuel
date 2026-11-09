@@ -69,7 +69,7 @@ export default function ScanScreen() {
   };
 
   const manualField = (
-    <View style={styles.manual}>
+    <View style={[styles.manual, { paddingBottom: Math.max(insets.bottom, space.lg) }]}>
       <TextField
         label="Or type the barcode"
         value={manual}
@@ -157,11 +157,15 @@ export default function ScanScreen() {
           onBarcodeScanned={status === 'scanning' ? ({ data }) => accept(data) : undefined}
         />
         <View style={[styles.guide, { borderColor: colors.onAccent }]} />
-        <Text style={[type.callout, styles.hint, { color: colors.onAccent }]} maxFontSizeMultiplier={2}>
-          {status === 'looking' ? 'Looking up barcode' : 'Point at a barcode'}
-        </Text>
+        {status === 'scanning' ? (
+          <View style={[styles.hint, { backgroundColor: colors.scrim }]}>
+            <Text style={[type.callout, { color: colors.onAccent }]} maxFontSizeMultiplier={2}>
+              Point at a barcode
+            </Text>
+          </View>
+        ) : null}
         {status === 'looking' ? (
-          <View style={[styles.overlay, { backgroundColor: colors.scrim }]}>
+          <View accessibilityLiveRegion="polite" style={[styles.overlay, { backgroundColor: colors.scrim }]}>
             <ActivityIndicator accessibilityLabel="Looking up barcode" color={colors.onAccent} />
           </View>
         ) : null}
@@ -190,8 +194,8 @@ const styles = StyleSheet.create({
   text: { textAlign: 'center' },
   result: { flex: 1, padding: space.lg, gap: space.sm },
   camera: { flex: 1, margin: space.lg, borderRadius: radius.lg, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  guide: { width: '75%', height: 120, borderWidth: 2, borderRadius: radius.md },
-  hint: { position: 'absolute', bottom: space.lg },
+  guide: { width: '75%', height: 120, maxHeight: '60%', borderWidth: 2, borderRadius: radius.md },
+  hint: { position: 'absolute', bottom: space.lg, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.md },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   manual: { padding: space.lg, gap: space.sm },
 });
