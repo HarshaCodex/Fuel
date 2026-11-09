@@ -5,7 +5,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
-import { getDashboard, trackingKeys, updateEntry, type CreatedEntry, type Dashboard, type DashboardEntry, type UpdateEntryBody } from '@/api/tracking';
+import {
+  getDashboard,
+  trackingKeys,
+  updateEntry,
+  type CreatedEntry,
+  type Dashboard,
+  type DashboardEntry,
+  type UpdateEntryBody,
+} from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { CalorieRing } from '@/components/CalorieRing';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';

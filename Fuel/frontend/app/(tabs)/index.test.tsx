@@ -269,6 +269,7 @@ describe('Today screen', () => {
     ])('rolls the row and totals back and explains when saving fails (%#)', async (error, message) => {
       await doubleIt();
       mockUpdate.mockRejectedValue(error);
+      mockGet.mockReturnValue(new Promise(() => {}));
       await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
       expect(await screen.findByText(message)).toBeTruthy();
       expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
@@ -307,6 +308,7 @@ describe('Today screen', () => {
       await edit('Greek yogurt');
       await screen.findByText('Edit Greek yogurt');
       await fireEvent.press(screen.getByText('Dinner'));
+      mockGet.mockReturnValue(new Promise(() => {}));
       await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
       expect(await screen.findByText("You're offline. Greek yogurt wasn't changed.")).toBeTruthy();
       expect(screen.getByText('Breakfast')).toBeTruthy();

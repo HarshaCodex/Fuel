@@ -73,7 +73,17 @@ function Form({ current, onClose, onSave }: { current: CreatedEntry; onClose: ()
 /** Bottom sheet to change the amount, quantity and meal of a logged entry. Loads the full entry when it opens. */
 export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Props) {
   const { colors } = useTheme();
-  const list = useQuery({ queryKey: trackingKeys.entries(date), queryFn: () => getEntries(date), enabled: entry !== null });
+  // Cached rows from an earlier open are untrusted until the refetch lands, so the form never prefills
+  // from them. Focus/reconnect refetches are off so a refetch cannot remount the form mid-edit.
+  const list = useQuery({
+    queryKey: trackingKeys.entries(date),
+    queryFn: () => getEntries(date),
+    enabled: entry !== null,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const current = entry && list.data ? list.data.find((e) => e.id === entry.id) : undefined;
   const missing = entry !== null && !!list.data && !current && !list.isFetching;
   useEffect(() => {
@@ -81,7 +91,7 @@ export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Prop
   }, [missing, onMissing]);
 
   let body;
-  if (current) body = <Form key={current.id} current={current} onClose={onClose} onSave={onSave} />;
+  if (current && !list.isFetching) body = <Form key={current.id} current={current} onClose={onClose} onSave={onSave} />;
   else if (list.isError) {
     body = (
       <View>

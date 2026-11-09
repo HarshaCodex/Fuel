@@ -126,6 +126,26 @@ describe('EditEntrySheet', () => {
     await waitFor(() => expect(onMissing).toHaveBeenCalledTimes(1));
   });
 
+  it('does not prefill from cached values on reopen; it waits for the refetch', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const props = { onClose: jest.fn(), onMissing: jest.fn(), onSave: jest.fn() };
+    const ui = (entry: DashboardEntry | null) => (
+      <QueryClientProvider client={client}>
+        <EditEntrySheet entry={entry} {...props} />
+      </QueryClientProvider>
+    );
+    const view = await render(ui(row));
+    await screen.findByDisplayValue('100');
+    await view.rerender(ui(null));
+    let resolve: (e: CreatedEntry[]) => void = () => {};
+    mockGet.mockReturnValue(new Promise((r) => (resolve = r)));
+    await view.rerender(ui(row));
+    expect(screen.queryByDisplayValue('100')).toBeNull();
+    expect(screen.getByLabelText('Loading entry')).toBeTruthy();
+    await act(async () => resolve([{ ...full, servingSize: 200 }]));
+    expect(await screen.findByDisplayValue('200')).toBeTruthy();
+  });
+
   it('shows an error with Retry when the list cannot load, and recovers', async () => {
     mockGet.mockRejectedValueOnce(new ApiError(500, 'boom'));
     await setup();
