@@ -31,6 +31,11 @@ export const fixtures = {
     ],
     streak: { current: 5, longest: 9 },
   }),
+  '/api/tracking/entries': ok([
+    { id: 'e1', foodId: 'f2', foodName: 'Greek yogurt', source: 'USDA', mealLabel: 'breakfast', calories: 150, protein: 15, carbs: 8, fat: 4, loggedAt: at(8, 0), servingSize: 170, servingUnit: 'g', quantity: 1 },
+    { id: 'e2', foodId: 'f4', foodName: 'Chicken salad', source: 'OFF', mealLabel: 'lunch', calories: 520, protein: 46, carbs: 12, fat: 5, loggedAt: at(12, 30), servingSize: 250, servingUnit: 'g', quantity: 1 },
+    { id: 'e3', foodId: 'c2', foodName: 'Protein bar', source: 'USER', mealLabel: 'snack', calories: 230, protein: 20, carbs: 22, fat: 7, loggedAt: at(15, 45), servingSize: 60, servingUnit: 'g', quantity: 1 },
+  ]),
   '/api/food/recent': ok([
     { id: 'f1', name: 'Chicken breast', brand: null, source: 'USDA', servingSize: 100, servingUnit: 'g', calories: 165, protein: 31, carbs: 0, fat: 3.6, lastLoggedAt: at(12, 30) },
     { id: 'f2', name: 'Greek yogurt', brand: 'Fage', source: 'OFF', servingSize: 170, servingUnit: 'g', calories: 100, protein: 18, carbs: 6, fat: 0, lastLoggedAt: at(8, 0) },

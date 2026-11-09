@@ -15,16 +15,17 @@ type Props = {
   carbs: number;
   fat: number;
   mealLabel: string | null;
+  accessibilityHint?: string;
 };
 
 /** Read-only row. MealEntryRow adds the actions; tap to detail comes later. */
-export function MealRow({ name, source, loggedAt, calories, protein, carbs, fat, mealLabel }: Props) {
+export function MealRow({ name, source, loggedAt, calories, protein, carbs, fat, mealLabel, accessibilityHint }: Props) {
   const { colors } = useTheme();
   const time = formatTime(loggedAt);
   const parts = [name, mealLabel, `${formatKcal(calories)} calories`, sourceLabel(source), time];
   const label = parts.filter(Boolean).join(', ');
   return (
-    <View accessible accessibilityLabel={label} style={[styles.row, { backgroundColor: colors.surface }]}>
+    <View accessible accessibilityLabel={label} accessibilityHint={accessibilityHint} style={[styles.row, { backgroundColor: colors.surface }]}>
       <View style={styles.left}>
         <Text
           style={[type.headline, { color: colors.text }]}

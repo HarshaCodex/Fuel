@@ -110,4 +110,18 @@ describe('usePendingDeletes', () => {
     await act(async () => listener('background'));
     expect(mockDelete).toHaveBeenCalledWith('a');
   });
+
+  it.each([
+    [new ApiError(404, 'gone'), 1],
+    [new ApiError(500, 'boom'), 0],
+    [new NetworkError(), 0],
+  ])('refreshes the cache after a failed delete only when the server says 404 (%#)', async (error, calls) => {
+    mockDelete.mockRejectedValue(error);
+    const { result, invalidate, onError } = await setup();
+    await act(async () => void result.current.schedule(entry('a')));
+    await act(async () => void jest.advanceTimersByTime(UNDO_MS));
+    expect(invalidate).toHaveBeenCalledTimes(calls);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(result.current.ids.size).toBe(0);
+  });
 });

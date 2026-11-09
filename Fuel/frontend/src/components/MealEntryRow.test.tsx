@@ -76,4 +76,22 @@ describe('MealEntryRow', () => {
     await fireEvent(more, 'accessibilityAction', { nativeEvent: { actionName: 'edit' } });
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
+
+  it('long press edits when handled, with a hint, and the menu offers Edit', async () => {
+    Platform.OS = 'android';
+    const onEdit = jest.fn();
+    await render(<MealEntryRow entry={entry} onDelete={jest.fn()} onEdit={onEdit} />);
+    const row = screen.getByLabelText(/^Oat bowl, breakfast/);
+    expect(row.props.accessibilityHint).toBe('Long press to edit');
+    await fireEvent(row, 'longPress');
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    await fireEvent.press(screen.getByRole('button', { name: 'More actions for Oat bowl' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit Oat bowl' }));
+    expect(onEdit).toHaveBeenCalledTimes(2);
+  });
+
+  it('has no long press hint without an edit handler', async () => {
+    await render(<MealEntryRow entry={entry} onDelete={jest.fn()} />);
+    expect(screen.getByLabelText(/^Oat bowl, breakfast/).props.accessibilityHint).toBeUndefined();
+  });
 });

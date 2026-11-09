@@ -2,13 +2,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
-import { deleteEntry, getDashboard, type Dashboard } from '@/api/tracking';
+import { deleteEntry, getDashboard, getEntries, updateEntry, type CreatedEntry, type Dashboard } from '@/api/tracking';
 import { UNDO_MS } from '@/lib/usePendingDeletes';
 import { addDays, isoDate } from '@/lib/dashboardView';
 
 import Today from './index';
 
 // Gestures cannot run in Jest, so Swipeable is replaced by a pass-through.
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   /* eslint-disable @typescript-eslint/no-require-imports */
   const { forwardRef, useImperativeHandle } = require('react');
@@ -23,10 +26,17 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
-jest.mock('@/api/tracking', () => ({ ...jest.requireActual('@/api/tracking'), getDashboard: jest.fn(), deleteEntry: jest.fn() }));
+jest.mock('@/api/tracking', () => ({ ...jest.requireActual('@/api/tracking'), getDashboard: jest.fn(), deleteEntry: jest.fn(), getEntries: jest.fn(), updateEntry: jest.fn() }));
+jest.mock('react-native/Libraries/Modal/Modal', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { View } = require('react-native');
+  return { __esModule: true, default: (p: { visible: boolean; children: unknown }) => (p.visible ? <View>{p.children as never}</View> : null) };
+});
 
 const mockGet = jest.mocked(getDashboard);
 const mockDelete = jest.mocked(deleteEntry);
+const mockEntries = jest.mocked(getEntries);
+const mockUpdate = jest.mocked(updateEntry);
 const macro = (consumed: number, goal: number) => ({ consumed, goal, unit: 'g' as const });
 const DAY: Dashboard = {
   date: '2026-11-09',
@@ -217,6 +227,145 @@ describe('Today screen', () => {
       expect(await screen.findByText(message)).toBeTruthy();
       expect(screen.getByText('Toast')).toBeTruthy();
       expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
+    });
+  });
+
+  describe('editing an entry', () => {
+    const FULL: CreatedEntry = { ...DAY.entries[0], foodId: 'f1', servingSize: 100, servingUnit: 'g', quantity: 1 };
+    const edit = (name: string) =>
+      fireEvent(screen.getByRole('button', { name: `More actions for ${name}` }), 'accessibilityAction', { nativeEvent: { actionName: 'edit' } });
+    const doubleIt = async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Increase Quantity' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Increase Quantity' }));
+    };
+    beforeEach(() => {
+      mockEntries.mockResolvedValue([FULL]);
+      mockUpdate.mockResolvedValue({ ...FULL, quantity: 2, calories: 300 });
+    });
+
+    it('opens the sheet from the row action, saves, and updates the row and totals at once', async () => {
+      await doubleIt();
+      // The refresh after saving is held back so the optimistic estimate stays visible.
+      mockGet.mockReturnValue(new Promise(() => {}));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+      expect(mockUpdate).toHaveBeenCalledWith('e1', { quantity: 2 });
+      expect(screen.queryByText('Edit Greek yogurt')).toBeNull();
+      expect(await screen.findByLabelText('600 calories remaining. 1,600 of 2,200 eaten.')).toBeTruthy();
+    });
+
+    it('refreshes from the server after saving', async () => {
+      await doubleIt();
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+      await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
+    });
+
+    it.each([
+      [new ApiError(500, 'boom'), "Couldn't save Greek yogurt. Try again."],
+      [new NetworkError(), "You're offline. Greek yogurt wasn't changed."],
+      [new ApiError(404, 'gone'), 'That entry no longer exists'],
+      [new ApiError(400, 'Quantity is too large'), 'Quantity is too large'],
+    ])('rolls the row and totals back and explains when saving fails (%#)', async (error, message) => {
+      await doubleIt();
+      mockUpdate.mockRejectedValue(error);
+      mockGet.mockReturnValue(new Promise(() => {}));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+      expect(await screen.findByText(message)).toBeTruthy();
+      expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
+    });
+
+    it('closes the sheet and says so when the entry is gone from the list', async () => {
+      mockEntries.mockResolvedValue([]);
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      expect(await screen.findByText('That entry no longer exists')).toBeTruthy();
+      expect(screen.queryByText('Edit Greek yogurt')).toBeNull();
+    });
+
+    it('a meal-only edit moves the row to the new group and leaves the totals alone', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      await fireEvent.press(screen.getByText('Dinner'));
+      mockGet.mockReturnValue(new Promise(() => {}));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+      expect(mockUpdate).toHaveBeenCalledWith('e1', { mealLabel: 'dinner' });
+      expect(await screen.findByText('Dinner')).toBeTruthy();
+      expect(screen.queryByText('Breakfast')).toBeNull();
+      expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
+    });
+
+    it('rolls a failed meal move back to the original group', async () => {
+      mockGet.mockResolvedValue(DAY);
+      mockUpdate.mockRejectedValue(new NetworkError());
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      await fireEvent.press(screen.getByText('Dinner'));
+      mockGet.mockReturnValue(new Promise(() => {}));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+      expect(await screen.findByText("You're offline. Greek yogurt wasn't changed.")).toBeTruthy();
+      expect(screen.getByText('Breakfast')).toBeTruthy();
+    });
+
+    it('sends nothing when no value changed, because Save stays disabled', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('edits optimistically on a past day and refreshes that day', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
+      const yesterday = addDays(isoDate(new Date()), -1);
+      await screen.findByText('Yesterday');
+      await screen.findByRole('button', { name: 'More actions for Greek yogurt' });
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Increase Quantity' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Increase Quantity' }));
+      mockGet.mockReturnValue(new Promise(() => {}));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+      expect(await screen.findByLabelText('600 calories remaining. 1,600 of 2,200 eaten.')).toBeTruthy();
+      expect(mockGet).toHaveBeenLastCalledWith(yesterday);
+    });
+
+    it('does not call the server when the entry is missing from the list', async () => {
+      mockEntries.mockResolvedValue([]);
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('That entry no longer exists');
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('fetches the entry list for the shown date', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
+      const yesterday = addDays(isoDate(new Date()), -1);
+      await screen.findByText('Yesterday');
+      await screen.findByRole('button', { name: 'More actions for Greek yogurt' });
+      await edit('Greek yogurt');
+      await waitFor(() => expect(mockEntries).toHaveBeenCalledWith(yesterday));
     });
   });
 });
