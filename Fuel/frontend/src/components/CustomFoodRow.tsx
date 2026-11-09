@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable, { SwipeDirection, type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import type { Food } from '@/api/food';
-import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
+import { sizing, space, type, useTheme } from '@/theme';
 
 import { FoodRow } from './FoodRow';
+import { RowMenu } from './RowMenu';
 
 type Props = { food: Food; onPress: () => void; onEdit: () => void; onDelete: () => void; divider?: boolean };
 
@@ -18,19 +19,6 @@ export function CustomFoodRow({ food, onPress, onEdit, onDelete, divider = false
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
   const swipe = useRef<SwipeableMethods>(null);
-  const after = useRef<(() => void) | null>(null);
-
-  const runAfter = () => {
-    const fn = after.current;
-    after.current = null;
-    fn?.();
-  };
-  // iOS cannot present a Modal while another is still dismissing, so wait for onDismiss there.
-  const choose = (fn: () => void) => {
-    after.current = fn;
-    setOpen(false);
-    if (Platform.OS !== 'ios') runAfter();
-  };
   const onSwipe = (direction: SwipeDirection) => {
     swipe.current?.close();
     (direction === SwipeDirection.RIGHT ? onEdit : onDelete)();
@@ -77,49 +65,15 @@ export function CustomFoodRow({ food, onPress, onEdit, onDelete, divider = false
       >
         <Ionicons name="ellipsis-horizontal" size={sizing.icon} color={colors.textSecondary} />
       </Pressable>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)} onDismiss={runAfter}>
-        <Pressable
-          accessibilityLabel="Close menu"
-          onPress={() => setOpen(false)}
-          style={[styles.scrim, { backgroundColor: colors.scrim }]}
-        >
-          <View
-            accessibilityViewIsModal
-            style={[styles.sheet, shadow.md, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          >
-            <Text style={[type.headline, { color: colors.text }]} numberOfLines={1} maxFontSizeMultiplier={2}>
-              {food.name}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Edit ${food.name}`}
-              onPress={() => choose(onEdit)}
-              style={styles.action}
-            >
-              <Ionicons name="create-outline" size={sizing.icon} color={colors.text} />
-              <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={2}>
-                Edit
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Delete ${food.name}`}
-              onPress={() => choose(onDelete)}
-              style={styles.action}
-            >
-              <Ionicons name="trash-outline" size={sizing.icon} color={colors.danger} />
-              <Text style={[type.headline, { color: colors.danger }]} maxFontSizeMultiplier={2}>
-                Delete
-              </Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={() => setOpen(false)} style={styles.action}>
-              <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={2}>
-                Cancel
-              </Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
+      <RowMenu
+        visible={open}
+        title={food.name}
+        onClose={() => setOpen(false)}
+        actions={[
+          { label: 'Edit', icon: 'create-outline', onPress: onEdit },
+          { label: 'Delete', icon: 'trash-outline', danger: true, onPress: onDelete },
+        ]}
+      />
     </View>
     </Swipeable>
   );
@@ -131,7 +85,4 @@ const styles = StyleSheet.create({
   panel: { width: 84, justifyContent: 'center', paddingHorizontal: space.lg },
   panelInner: { alignItems: 'center', gap: space.xs },
   more: { width: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
-  scrim: { flex: 1, justifyContent: 'flex-end', padding: space.lg },
-  sheet: { borderRadius: radius.lg, borderWidth: sizing.border, padding: space.lg, gap: space.sm },
-  action: { minHeight: sizing.touchMin, flexDirection: 'row', alignItems: 'center', gap: space.md },
 });

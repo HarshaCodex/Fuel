@@ -17,7 +17,7 @@ type Props = {
   mealLabel: string | null;
 };
 
-/** Read-only row: actions (#135) and tap to detail come later. */
+/** Read-only row. MealEntryRow adds the actions; tap to detail comes later. */
 export function MealRow({ name, source, loggedAt, calories, protein, carbs, fat, mealLabel }: Props) {
   const { colors } = useTheme();
   const time = formatTime(loggedAt);

@@ -2,16 +2,31 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
-import { getDashboard, type Dashboard } from '@/api/tracking';
+import { deleteEntry, getDashboard, type Dashboard } from '@/api/tracking';
+import { UNDO_MS } from '@/lib/usePendingDeletes';
 import { addDays, isoDate } from '@/lib/dashboardView';
 
 import Today from './index';
 
+// Gestures cannot run in Jest, so Swipeable is replaced by a pass-through.
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { forwardRef, useImperativeHandle } = require('react');
+  const { View } = require('react-native');
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  const Swipeable = forwardRef(function Swipeable(props: { children: unknown }, ref: unknown) {
+    useImperativeHandle(ref, () => ({ close: jest.fn() }));
+    return <View>{props.children as never}</View>;
+  });
+  return { __esModule: true, default: Swipeable, SwipeDirection: { LEFT: 'left', RIGHT: 'right' } };
+});
+
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
-jest.mock('@/api/tracking', () => ({ ...jest.requireActual('@/api/tracking'), getDashboard: jest.fn() }));
+jest.mock('@/api/tracking', () => ({ ...jest.requireActual('@/api/tracking'), getDashboard: jest.fn(), deleteEntry: jest.fn() }));
 
 const mockGet = jest.mocked(getDashboard);
+const mockDelete = jest.mocked(deleteEntry);
 const macro = (consumed: number, goal: number) => ({ consumed, goal, unit: 'g' as const });
 const DAY: Dashboard = {
   date: '2026-11-09',
@@ -113,5 +128,95 @@ describe('Today screen', () => {
     await waitFor(() => expect(mockGet).toHaveBeenCalledWith(yesterday));
     expect(await screen.findByText('Yesterday')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Next day' })).toBeEnabled();
+  });
+
+  describe('deleting an entry', () => {
+    const TWO: Dashboard = {
+      ...DAY,
+      entries: [
+        ...DAY.entries,
+        { id: 'e2', foodName: 'Toast', source: 'USDA', mealLabel: 'breakfast', calories: 100, protein: 3, carbs: 18, fat: 1, loggedAt: '2026-11-09T09:00:00Z' },
+      ],
+    };
+    const del = (name: string) =>
+      fireEvent(screen.getByRole('button', { name: `More actions for ${name}` }), 'accessibilityAction', { nativeEvent: { actionName: 'delete' } });
+    beforeEach(() => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+      mockDelete.mockResolvedValue(null);
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it('hides the row at once, updates the totals and offers Undo', async () => {
+      mockGet.mockResolvedValue(TWO);
+      await renderScreen();
+      await screen.findByText('Toast');
+      expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
+      await del('Toast');
+      expect(screen.queryByText('Toast')).toBeNull();
+      expect(screen.getByText('Toast deleted')).toBeTruthy();
+      expect(screen.getByLabelText('850 calories remaining. 1,350 of 2,200 eaten.')).toBeTruthy();
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it('Undo restores the row and totals and never calls the server', async () => {
+      mockGet.mockResolvedValue(TWO);
+      await renderScreen();
+      await screen.findByText('Toast');
+      await del('Toast');
+      await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+      expect(screen.getByText('Toast')).toBeTruthy();
+      expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
+      await act(async () => void jest.advanceTimersByTime(UNDO_MS * 2));
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it('deletes on the server after the undo window and refreshes', async () => {
+      mockGet.mockResolvedValueOnce(TWO).mockResolvedValue({ ...DAY });
+      await renderScreen();
+      await screen.findByText('Toast');
+      await del('Toast');
+      await act(async () => void jest.advanceTimersByTime(UNDO_MS));
+      expect(mockDelete).toHaveBeenCalledWith('e2');
+      await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
+      expect(screen.queryByText('Toast')).toBeNull();
+      expect(screen.queryByText('Toast deleted')).toBeNull();
+    });
+
+    it('a refetch during the undo window does not bring the row back', async () => {
+      mockGet.mockResolvedValue(TWO);
+      await renderScreen();
+      await screen.findByText('Toast');
+      await del('Toast');
+      await act(async () => {
+        screen.getByTestId('today-scroll').props.refreshControl.props.onRefresh();
+      });
+      await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
+      expect(screen.queryByText('Toast')).toBeNull();
+    });
+
+    it('shows the empty state and the lower totals when the last entry goes', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await del('Greek yogurt');
+      expect(screen.getByText('Nothing logged yet')).toBeTruthy();
+      expect(screen.getByLabelText('900 calories remaining. 1,300 of 2,200 eaten.')).toBeTruthy();
+    });
+
+    it.each([
+      [new ApiError(500, 'boom'), "Couldn't delete Toast. Try again."],
+      [new NetworkError(), "You're offline. Toast wasn't deleted."],
+      [new ApiError(404, 'gone'), 'Toast was already removed.'],
+    ])('puts the row back and explains when the server fails (%#)', async (error, message) => {
+      mockGet.mockResolvedValue(TWO);
+      mockDelete.mockRejectedValue(error);
+      await renderScreen();
+      await screen.findByText('Toast');
+      await del('Toast');
+      await act(async () => void jest.advanceTimersByTime(UNDO_MS));
+      expect(await screen.findByText(message)).toBeTruthy();
+      expect(screen.getByText('Toast')).toBeTruthy();
+      expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
+    });
   });
 });
