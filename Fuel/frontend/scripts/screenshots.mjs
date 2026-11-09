@@ -10,9 +10,10 @@ const API = 'http://mock.fuel.test';
 const DIST = 'dist';
 const OUT = 'screenshots';
 const SHOTS = [
-  // Tab screens sit behind sign-in; add them back once the sign-in screen can log in via a mocked /api/auth/login.
   { path: '/', title: 'Sign in', file: 'sign-in.png' },
 ];
+// Tab screens sit behind sign-in, so sign in through the UI (mocked /api/auth/login) and shoot from there.
+const SIGNED_IN_SHOTS = [{ title: 'Greek yogurt', file: 'today.png' }];
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.ttf': 'font/ttf' };
 
 function serve() {
@@ -47,6 +48,13 @@ async function main() {
     const page = await context.newPage();
     for (const shot of SHOTS) {
       await page.goto(base + shot.path);
+      await page.getByText(shot.title, { exact: true }).first().waitFor();
+      await page.screenshot({ path: join(OUT, shot.file) });
+    }
+    await page.getByLabel('Email', { exact: true }).fill('shots@example.com');
+    await page.getByLabel('Password', { exact: true }).fill('Passw0rd!x');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    for (const shot of SIGNED_IN_SHOTS) {
       await page.getByText(shot.title, { exact: true }).first().waitFor();
       await page.screenshot({ path: join(OUT, shot.file) });
     }
