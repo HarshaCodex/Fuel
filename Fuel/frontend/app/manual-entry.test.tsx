@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { createCustomFood, foodKeys, type Food } from '@/api/food';
@@ -153,16 +153,32 @@ describe('Manual entry screen', () => {
     expect(mockEntry).toHaveBeenLastCalledWith(expect.objectContaining({ foodId: 'c1' }));
   });
 
-  it('ignores a second tap while saving', async () => {
+  it('retry after a failed save-only does not log', async () => {
+    mockCreate.mockRejectedValueOnce(new NetworkError());
+    await renderScreen();
+    await fillValid();
+    await press('Save to My Foods only');
+    expect(await screen.findByText(/You're offline/)).toBeTruthy();
+    await press('Retry');
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockEntry).not.toHaveBeenCalled();
+  });
+
+  it('guards against two submits fired in the same batch', async () => {
     let release: (f: Food) => void = () => {};
     mockCreate.mockReturnValue(new Promise<Food>((r) => (release = r)));
     await renderScreen();
     await fillValid();
-    await press('Log food');
-    await press('Log food');
+    const logPress = screen.getByRole('button', { name: 'Log food' });
+    const savePress = screen.getByRole('button', { name: 'Save to My Foods only' });
+    await act(async () => {
+      fireEvent.press(logPress);
+      fireEvent.press(savePress);
+    });
     release(saved);
     await waitFor(() => expect(mockDismissAll).toHaveBeenCalled());
     expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('goes back at once when nothing was typed', async () => {

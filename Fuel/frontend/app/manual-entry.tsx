@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState, type ComponentRef } from 'react';
+import { useRef, useState, type ComponentProps, type ComponentRef } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '@/api/errors';
-import { createCustomFood, foodKeys, type Food, type ServingUnit } from '@/api/food';
+import { createCustomFood, foodKeys, type CustomFoodBody, type Food, type ServingUnit } from '@/api/food';
 import { createEntry, trackingKeys } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
@@ -51,6 +51,8 @@ export default function ManualEntryScreen() {
   const [busy, setBusy] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const sending = useRef(false);
+  const intentLogs = useRef(!createOnly);
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const createdRef = useRef<Food | null>(null);
   const inputs = useRef<Partial<Record<CustomFoodField, Input | null>>>({});
 
@@ -67,7 +69,7 @@ export default function ManualEntryScreen() {
     inputs.current[next === 'servingUnit' ? 'calories' : next]?.focus();
   };
 
-  const field = (name: CustomFoodField, label: string, extra: object = {}) => (
+  const field = (name: CustomFoodField, label: string, extra: Partial<ComponentProps<typeof TextField>> = {}) => (
     <TextField
       key={name}
       ref={(r) => {
@@ -105,6 +107,8 @@ export default function ManualEntryScreen() {
 
   const submit = async (logIt: boolean) => {
     if (sending.current) return;
+    intentLogs.current = logIt;
+    scroll.current?.scrollTo({ y: 0, animated: true });
     setTouched(Object.fromEntries(FIELDS.map((f) => [f, 'yes'])));
     const { body } = validateForm(values);
     if (!createdRef.current && !body) return;
@@ -112,13 +116,13 @@ export default function ManualEntryScreen() {
     setBusy(true);
     setProblem(null);
     try {
-      if (!createdRef.current && body) {
-        const food = await createCustomFood(body);
+      const food = createdRef.current ?? (await createCustomFood(body as CustomFoodBody));
+      if (!createdRef.current) {
         createdRef.current = food;
         setCreated(food);
         void queryClient.invalidateQueries({ queryKey: foodKeys.custom });
       }
-      await finish(createdRef.current as Food, logIt);
+      await finish(food, logIt);
     } catch (e) {
       if (e instanceof NetworkError) setProblem({ kind: 'offline', message: OFFLINE });
       else if (createdRef.current) setProblem({ kind: 'log', message: LOG_FAILED });
@@ -145,7 +149,7 @@ export default function ManualEntryScreen() {
         <Ionicons name="chevron-back" size={sizing.icon} color={colors.text} />
       </Pressable>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
             {createOnly ? 'New food' : 'Enter a food'}
           </Text>
@@ -153,7 +157,7 @@ export default function ManualEntryScreen() {
             <Banner
               variant="caution"
               message={problem.message}
-              action={{ label: 'Retry', onPress: () => void submit(!createOnly) }}
+              action={{ label: 'Retry', onPress: () => void submit(intentLogs.current) }}
             />
           ) : null}
           {field('name', 'Name', { autoFocus: true, autoCapitalize: 'sentences' })}
