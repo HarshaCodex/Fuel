@@ -15,6 +15,11 @@ function RootStack() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="edit-goals" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="quick-log" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="search" />
+          <Stack.Screen name="food-detail" />
+          <Stack.Screen name="scan" />
+          <Stack.Screen name="manual-entry" />
         </Stack.Protected>
         <Stack.Protected guard={status === 'signedOut'}>
           <Stack.Screen name="(auth)" />
