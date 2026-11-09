@@ -79,6 +79,7 @@ export default function QuickLogScreen() {
           <MethodRow icon="search" label="Search foods" onPress={() => router.push('/search')} />
           <MethodRow icon="barcode-outline" label="Scan barcode" onPress={() => router.push('/scan')} />
           <MethodRow icon="create-outline" label="Enter manually" onPress={() => router.push('/manual-entry')} />
+          <MethodRow icon="bookmark-outline" label="My Foods" onPress={() => router.push('/my-foods')} />
         </View>
 
         {recents.isPending ? <RecentsSkeleton /> : null}

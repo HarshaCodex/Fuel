@@ -68,4 +68,11 @@ describe('Profile goals card', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Edit goals' }));
     expect(mockPush).not.toHaveBeenCalled();
   });
+
+  it('opens My Foods from its row', async () => {
+    mockGet.mockResolvedValue(GOALS);
+    await renderScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'My Foods' }));
+    expect(mockPush).toHaveBeenCalledWith('/my-foods');
+  });
 });
