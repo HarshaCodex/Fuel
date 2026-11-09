@@ -61,7 +61,7 @@ describe('Food detail screen', () => {
     await renderScreen();
     expect(screen.getByText('Chicken breast')).toBeTruthy();
     expect(screen.getByText('Farm Co')).toBeTruthy();
-    expect(screen.getByLabelText('Amount (g)').props.value).toBe('100');
+    expect(screen.getByLabelText('Amount').props.value).toBe('100');
     expect(screen.getByRole('button', { name: 'Log 165 kcal' })).toBeTruthy();
     await amount('150');
     expect(screen.getByRole('button', { name: 'Log 248 kcal' })).toBeTruthy();
@@ -80,7 +80,7 @@ describe('Food detail screen', () => {
   it('shows and sends a non-gram unit', async () => {
     mockCreate.mockResolvedValue({} as never);
     await renderScreen({ ...chicken, servingSize: 1, servingUnit: 'cup', calories: 200 });
-    expect(screen.getByLabelText('Amount (cup)')).toBeTruthy();
+    expect(screen.getByLabelText('Amount')).toBeTruthy();
     expect(screen.getByText('cup')).toBeTruthy();
     await fireEvent.press(logButton());
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
@@ -184,7 +184,7 @@ describe('Food detail screen', () => {
     await fireEvent.press(logButton());
     expect(await screen.findByText(message)).toBeTruthy();
     expect(mockDismissAll).not.toHaveBeenCalled();
-    expect(screen.getByLabelText('Amount (g)').props.value).toBe('150');
+    expect(screen.getByLabelText('Amount').props.value).toBe('150');
     expect(selectedMeal()).toBe('Snack');
     expect(screen.getByText('1.5')).toBeTruthy();
 

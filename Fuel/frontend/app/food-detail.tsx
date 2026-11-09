@@ -7,7 +7,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getFood, type Food } from '@/api/food';
-import { createEntry, trackingKeys, type MealLabel } from '@/api/tracking';
+import { createEntry, trackingKeys, type FoodSource, type MealLabel } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -15,12 +15,17 @@ import { StateBlock } from '@/components/StateBlock';
 import { Stepper } from '@/components/Stepper';
 import { TextField } from '@/components/TextField';
 import { TrustBadge } from '@/components/TrustBadge';
-import { formatGrams, formatKcal, sourceLabel } from '@/lib/dashboardView';
+import { formatGrams, formatKcal } from '@/lib/dashboardView';
 import { MEAL_OPTIONS, mealForHour } from '@/lib/mealLabel';
 import { MAX_QUANTITY, amountError, parseAmount, portionMacros } from '@/lib/portion';
 import { radius, sizing, space, type, useTheme } from '@/theme';
 
 const FOOD_STALE_MS = 60_000;
+const SOURCE_LINES: Record<FoodSource, string> = {
+  USDA: 'From USDA FoodData Central',
+  OFF: 'From the manufacturer label',
+  USER: 'Entered by you',
+};
 
 function logErrorMessage(error: unknown): string {
   if (error instanceof NetworkError) return "You're offline. Check your connection and try again.";
@@ -90,8 +95,8 @@ function Confirm({ food }: { food: Food }) {
         ) : null}
         <View style={styles.trust}>
           <TrustBadge source={food.source} />
-          <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
-            {sourceLabel(food.source)}
+          <Text style={[type.callout, styles.source, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
+            {SOURCE_LINES[food.source]}
           </Text>
         </View>
 
@@ -99,10 +104,10 @@ function Confirm({ food }: { food: Food }) {
           <Banner variant="caution" message={logErrorMessage(log.error)} action={{ label: 'Retry', onPress: submit }} />
         ) : null}
 
-        <View style={styles.amountRow}>
-          <View style={styles.flex}>
+        <View>
             <TextField
-              label={`Amount (${food.servingUnit})`}
+              label="Amount"
+              suffix={food.servingUnit}
               value={amountText}
               onChangeText={setAmountText}
               onBlur={() => setTouched(true)}
@@ -111,10 +116,6 @@ function Confirm({ food }: { food: Food }) {
               editable={!log.isPending}
               returnKeyType="done"
             />
-          </View>
-          <Text style={[type.headline, styles.unit, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
-            {food.servingUnit}
-          </Text>
         </View>
 
         <Stepper
@@ -207,9 +208,8 @@ const styles = StyleSheet.create({
   back: { width: sizing.touchMin, height: sizing.touchMin, marginLeft: space.sm, alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: space.lg, gap: space.lg },
-  trust: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  amountRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
-  unit: { minWidth: sizing.touchMin, marginTop: space.xl },
+  trust: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.sm },
+  source: { flexShrink: 1 },
   card: { borderRadius: radius.md, borderWidth: sizing.border, padding: space.lg, gap: space.md },
   macros: { flexDirection: 'row', justifyContent: 'space-between' },
   macro: { alignItems: 'flex-start', gap: space.xs },

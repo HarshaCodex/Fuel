@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef, useState, type ComponentRef } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { forwardRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
 
@@ -9,10 +9,14 @@ type Props = TextInputProps & {
   error?: string | null;
   /** Password-style field with a show/hide toggle. */
   secure?: boolean;
+  /** Read-only text inside the right edge, such as a unit. */
+  suffix?: string;
+  /** Control inside the right edge, such as a clear button. */
+  trailing?: ReactNode;
 };
 
 export const TextField = forwardRef<ComponentRef<typeof TextInput>, Props>(function TextField(
-  { label, error, secure = false, editable = true, onFocus, onBlur, style, ...rest },
+  { label, error, secure = false, suffix, trailing, editable = true, onFocus, onBlur, style, ...rest },
   ref,
 ) {
   const { colors, scheme } = useTheme();
@@ -51,9 +55,22 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, Props>(funct
             setFocused(false);
             onBlur?.(e);
           }}
-          style={[type.body, styles.input, { color: editable ? colors.text : colors.textTertiary }, style]}
+          style={[
+            type.body,
+            styles.input,
+            { color: editable ? colors.text : colors.textTertiary },
+            // The field border shows focus; drop the browser's own ring on web.
+            Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null,
+            style,
+          ]}
           maxFontSizeMultiplier={2}
         />
+        {suffix ? (
+          <Text style={[type.body, styles.suffix, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
+            {suffix}
+          </Text>
+        ) : null}
+        {trailing}
         {secure ? (
           <Pressable
             accessibilityRole="button"
@@ -83,6 +100,7 @@ const styles = StyleSheet.create({
   root: { gap: space.xs },
   field: { minHeight: sizing.input, flexDirection: 'row', alignItems: 'center', borderRadius: radius.md },
   input: { flex: 1, paddingHorizontal: space.lg, minHeight: sizing.input },
+  suffix: { paddingRight: space.lg },
   toggle: { minWidth: sizing.touchMin, minHeight: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
   error: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   errorText: { flex: 1 },
