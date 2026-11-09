@@ -284,6 +284,73 @@ describe('Today screen', () => {
       expect(screen.queryByText('Edit Greek yogurt')).toBeNull();
     });
 
+    it('a meal-only edit moves the row to the new group and leaves the totals alone', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      await fireEvent.press(screen.getByText('Dinner'));
+      mockGet.mockReturnValue(new Promise(() => {}));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      expect(mockUpdate).toHaveBeenCalledWith('e1', { mealLabel: 'dinner' });
+      expect(await screen.findByText('Dinner')).toBeTruthy();
+      expect(screen.queryByText('Breakfast')).toBeNull();
+      expect(screen.getByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
+    });
+
+    it('rolls a failed meal move back to the original group', async () => {
+      mockGet.mockResolvedValue(DAY);
+      mockUpdate.mockRejectedValue(new NetworkError());
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      await fireEvent.press(screen.getByText('Dinner'));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      expect(await screen.findByText("You're offline. Greek yogurt wasn't changed.")).toBeTruthy();
+      expect(screen.getByText('Breakfast')).toBeTruthy();
+    });
+
+    it('sends nothing when no value changed, because Save stays disabled', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('edits optimistically on a past day and refreshes that day', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
+      const yesterday = addDays(isoDate(new Date()), -1);
+      await screen.findByText('Yesterday');
+      await screen.findByRole('button', { name: 'More actions for Greek yogurt' });
+      await edit('Greek yogurt');
+      await screen.findByText('Edit Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Increase Quantity' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Increase Quantity' }));
+      mockGet.mockReturnValue(new Promise(() => {}));
+      await fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      expect(await screen.findByLabelText('600 calories remaining. 1,600 of 2,200 eaten.')).toBeTruthy();
+      expect(mockGet).toHaveBeenLastCalledWith(yesterday);
+    });
+
+    it('does not call the server when the entry is missing from the list', async () => {
+      mockEntries.mockResolvedValue([]);
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await edit('Greek yogurt');
+      await screen.findByText('That entry no longer exists');
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
     it('fetches the entry list for the shown date', async () => {
       mockGet.mockResolvedValue(DAY);
       await renderScreen();
