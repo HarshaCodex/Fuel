@@ -29,3 +29,9 @@ export const getRecentFoods = (limit = 5): Promise<RecentFood[]> =>
 
 export const getFood = (id: string): Promise<Food> =>
   apiClient.request<Food>('GET', `/api/food/${encodeURIComponent(id)}`);
+
+export type FoodPage = { content: Food[]; page: number; size: number; totalElements: number; totalPages: number };
+
+/** The backend needs a 2..100 character `q` and allows 30 searches a minute. */
+export const getFoodPage = (q: string, page = 0, size = 20): Promise<FoodPage> =>
+  apiClient.request<FoodPage>('GET', `/api/food/search?${new URLSearchParams({ q, page: String(page), size: String(size) })}`);
