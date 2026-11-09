@@ -1,15 +1,17 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { NetworkError } from '@/api/errors';
 import { foodKeys, getFoodPage, type Food } from '@/api/food';
+import { Button } from '@/components/Button';
 import { FoodRow } from '@/components/FoodRow';
 import { StateBlock } from '@/components/StateBlock';
 import { TextField } from '@/components/TextField';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
-import { Button } from '@/components/Button';
 import { radius, sizing, space, type, useTheme } from '@/theme';
 
 const MIN_CHARS = 2;
@@ -20,9 +22,10 @@ export default function SearchScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const q = useDebouncedValue(text.trim(), DEBOUNCE_MS);
-  const active = q.length >= MIN_CHARS;
+  const active = text.trim().length >= MIN_CHARS && q.length >= MIN_CHARS;
 
   const search = useInfiniteQuery({
     queryKey: foodKeys.search(q),
@@ -32,12 +35,15 @@ export default function SearchScreen() {
     enabled: active,
   });
 
-  const loading = active && search.isPending && !search.isError;
+  const loading = active && ((search.isPending && !search.isError) || (search.isFetching && !search.data));
   const showSkeleton = useDebouncedValue(loading, SKELETON_DELAY_MS) && loading;
 
   const foods = useMemo(() => {
-    const seen = new Set<string>();
-    return (search.data?.pages ?? []).flatMap((p) => p.content).filter((f) => !seen.has(f.id) && seen.add(f.id));
+    const byId = new Map<string, Food>();
+    for (const page of search.data?.pages ?? []) {
+      for (const food of page.content) if (!byId.has(food.id)) byId.set(food.id, food);
+    }
+    return [...byId.values()];
   }, [search.data]);
 
   const openFood = (food: Food) => {
@@ -50,10 +56,10 @@ export default function SearchScreen() {
   if (!active) {
     body = (
       <Text style={[type.callout, styles.hint, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
-        Type at least 2 letters to search foods.
+        Type at least 2 characters to search foods.
       </Text>
     );
-  } else if (search.isError) {
+  } else if (search.isError && !search.data) {
     body = (
       <StateBlock
         variant="error"
@@ -93,18 +99,32 @@ export default function SearchScreen() {
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => <FoodRow food={item} onPress={() => openFood(item)} />}
         onEndReached={() => {
-          if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage();
+          if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage({ cancelRefetch: false });
         }}
         onEndReachedThreshold={0.5}
-        ListFooterComponent={search.isFetchingNextPage ? <ActivityIndicator accessibilityLabel="Loading more" color={colors.accent} /> : undefined}
+        ListFooterComponent={
+          search.isFetchingNextPage ? (
+            <ActivityIndicator accessibilityLabel="Loading more" color={colors.accent} />
+          ) : search.isError ? (
+            <View style={styles.more}>
+              <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
+                {"Couldn't load more"}
+              </Text>
+              <Button variant="text" size="md" label="Retry" onPress={() => void search.fetchNextPage()} />
+            </View>
+          ) : undefined
+        }
         style={[styles.list, { borderColor: colors.border }]}
       />
     );
   }
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.bg }]}>
+    <View style={[styles.flex, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
       <View style={styles.header}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
+          <Ionicons name="chevron-back" size={sizing.icon} color={colors.text} />
+        </Pressable>
         <TextField
           label="Search foods"
           value={text}
@@ -127,6 +147,8 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: { padding: space.lg, gap: space.sm },
+  back: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
+  more: { padding: space.md, alignItems: 'center', gap: space.xs },
   hint: { paddingHorizontal: space.lg },
   list: { marginHorizontal: space.lg, borderRadius: radius.md, borderWidth: sizing.border },
   skeleton: { paddingHorizontal: space.lg, gap: space.sm },

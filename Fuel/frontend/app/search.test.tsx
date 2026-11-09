@@ -7,7 +7,11 @@ import { foodKeys, getFoodPage, type Food, type FoodPage } from '@/api/food';
 import Search from './search';
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+const mockBack = jest.fn();
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: mockBack }) }));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock('@/api/food', () => ({ ...jest.requireActual('@/api/food'), getFoodPage: jest.fn() }));
 
 const mockPage = jest.mocked(getFoodPage);
@@ -55,7 +59,7 @@ afterEach(() => jest.useRealTimers());
 describe('Search screen', () => {
   it('shows the idle hint and sends nothing for 1 character or spaces', async () => {
     await renderScreen();
-    expect(screen.getByText('Type at least 2 letters to search foods.')).toBeTruthy();
+    expect(screen.getByText('Type at least 2 characters to search foods.')).toBeTruthy();
     await type('a');
     await settle(400);
     await type('   ');
@@ -169,8 +173,44 @@ describe('Search screen', () => {
     await type('chicken');
     await settle(301);
     await fireEvent.press(screen.getByRole('button', { name: 'Clear' }));
-    await settle(301);
-    expect(screen.getByText('Type at least 2 letters to search foods.')).toBeTruthy();
+    expect(screen.getByText('Type at least 2 characters to search foods.')).toBeTruthy();
     expect(screen.queryByText('Chicken')).toBeNull();
+  });
+
+  it('goes back from the Back button', async () => {
+    await renderScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('keeps the list when page 2 fails and retries just that page', async () => {
+    mockPage
+      .mockResolvedValueOnce(page([food('1'), food('2')], 0, 2))
+      .mockRejectedValueOnce(new ApiError(429, 'Too many requests'))
+      .mockResolvedValue(page([food('3')], 1, 2));
+    await renderScreen();
+    await type('food');
+    await settle(301);
+    const list = screen.getByTestId('search-list');
+    await act(async () => list.props.onEndReached());
+    await settle(1);
+    expect(screen.getByText("Couldn't load more")).toBeTruthy();
+    expect(screen.getAllByText(/^Food \d$/)).toHaveLength(2);
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    await settle(1);
+    expect(screen.getAllByText(/^Food \d$/)).toHaveLength(3);
+  });
+
+  it('fires only one next-page request while one is in flight', async () => {
+    mockPage.mockResolvedValueOnce(page([food('1')], 0, 3)).mockReturnValue(new Promise(() => {}));
+    await renderScreen();
+    await type('food');
+    await settle(301);
+    const list = screen.getByTestId('search-list');
+    await act(async () => {
+      list.props.onEndReached();
+      list.props.onEndReached();
+    });
+    expect(mockPage).toHaveBeenCalledTimes(2);
   });
 });
