@@ -58,11 +58,29 @@ export default function ProfileScreen() {
           <Text style={[type.callout, { color: colors.accentText }]}>Edit goals</Text>
         </View>
       </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="My Foods"
+        onPress={() => router.push('/my-foods')}
+        style={({ pressed }) => [
+          styles.link,
+          { backgroundColor: pressed ? colors.surfaceMuted : colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[type.headline, styles.linkText, { color: colors.text }]} maxFontSizeMultiplier={2}>
+          My Foods
+        </Text>
+        <Text style={[type.headline, { color: colors.textTertiary }]} accessibilityElementsHidden importantForAccessibility="no">
+          ›
+        </Text>
+      </Pressable>
     </FormScreen>
   );
 }
 
 const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: sizing.border, padding: space.lg, gap: space.xs, minHeight: sizing.touchMin },
+  link: { minHeight: sizing.row, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, borderRadius: radius.lg, borderWidth: sizing.border },
+  linkText: { flex: 1 },
   cta: { minHeight: sizing.touchMin, justifyContent: 'center' },
 });

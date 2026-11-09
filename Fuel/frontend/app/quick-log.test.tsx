@@ -39,13 +39,14 @@ async function renderScreen() {
 beforeEach(() => jest.clearAllMocks());
 
 describe('Quick Log menu', () => {
-  it('shows the three methods and routes each one', async () => {
+  it('shows the four methods and routes each one', async () => {
     mockRecent.mockResolvedValue([]);
     await renderScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Search foods' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Scan barcode' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Enter manually' }));
-    expect(mockPush.mock.calls.map((c) => c[0])).toEqual(['/search', '/scan', '/manual-entry']);
+    await fireEvent.press(screen.getByRole('button', { name: 'My Foods' }));
+    expect(mockPush.mock.calls.map((c) => c[0])).toEqual(['/search', '/scan', '/manual-entry', '/my-foods']);
   });
 
   it('shows three skeleton rows while recents load', async () => {
