@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
 
-import { fixtures } from './fixtures.mjs';
+import { emptyCustomFoods, fixtures } from './fixtures.mjs';
 
 const API = 'http://mock.fuel.test';
 const DIST = 'dist';
@@ -39,8 +39,10 @@ async function main() {
     const base = `http://localhost:${server.address().port}`;
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: 'light' });
     const unmocked = [];
+    let customEmpty = false;
     await context.route(`${API}/**`, (route) => {
       const { pathname } = new URL(route.request().url());
+      if (pathname === '/api/food/custom') return route.fulfill({ json: customEmpty ? emptyCustomFoods : fixtures[pathname] });
       if (pathname in fixtures) return route.fulfill({ json: fixtures[pathname] });
       unmocked.push(pathname);
       return route.abort();
@@ -58,6 +60,25 @@ async function main() {
       await page.getByText(shot.title, { exact: true }).first().waitFor();
       await page.screenshot({ path: join(OUT, shot.file) });
     }
+    // My Foods: empty first, then with foods, then the editor prefilled from a food.
+    customEmpty = true;
+    await page.getByRole('tab', { name: 'Profile' }).click();
+    await page.getByRole('button', { name: 'My Foods', exact: true }).click();
+    await page.getByText('Foods you create show up here').waitFor();
+    await page.screenshot({ path: join(OUT, 'my-foods-empty.png') });
+    customEmpty = false;
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: 'My Foods', exact: true }).click();
+    await page.getByText('Overnight oats').waitFor();
+    await page.screenshot({ path: join(OUT, 'my-foods.png') });
+    await page.getByRole('button', { name: 'More actions for Overnight oats' }).click();
+    await page.getByRole('button', { name: 'Edit Overnight oats' }).click();
+    await page.getByText('Edit food', { exact: true }).first().waitFor();
+    await page.screenshot({ path: join(OUT, 'manual-entry.png') });
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByRole('tab', { name: 'Today' }).click();
+    await page.getByText('Greek yogurt', { exact: true }).first().waitFor();
     // Quick Log flow: menu, search, then the portion confirm for the first result.
     await page.getByRole('button', { name: 'Log food', exact: true }).click();
     await page.getByText('Search foods', { exact: true }).first().waitFor();
