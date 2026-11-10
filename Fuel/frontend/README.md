@@ -1,6 +1,18 @@
 # Fuel mobile app
 
-Expo (React Native, TypeScript) app for Fuel. This is the scaffold: three placeholder tabs (Today, History, Profile), design tokens, and a secure token store. The Sign in screen and the auth API calls are in; Register and Forgot password are still placeholders.
+Expo (React Native, TypeScript) app for Fuel, a macro and calorie tracker. Setup for the whole stack is in [`docs/LOCAL_SETUP.md`](../docs/LOCAL_SETUP.md).
+
+## Screens and flows
+
+Routes live in `app/` (Expo Router).
+
+- Auth (`app/(auth)/`): sign in (email and password, Google, Apple), registration, email verification, forgot password and reset password.
+- Onboarding (`app/onboarding.tsx`): body stats and goals for new accounts.
+- Tabs (`app/(tabs)/`):
+  - Today: calorie ring, macros, streak and the day's meals. `app/day.tsx` shows any past day.
+  - History: chart, summary and a list of days.
+  - Profile: edit profile, body stats and goals; sign out; delete account.
+- Logging: Quick Log (`quick-log.tsx`), food search (`search.tsx`), food detail (`food-detail.tsx`), barcode scan (`scan.tsx`), manual entry (`manual-entry.tsx`) and My Foods (`my-foods.tsx`).
 
 ## Prerequisites
 
@@ -33,16 +45,16 @@ cp .env.example .env
 | `npm run lint` | ESLint (`eslint-config-expo`) |
 | `npm test` | Jest (`jest-expo`) with Testing Library |
 | `npm run check` | Typecheck, lint and tests |
-| `npm run screenshots` | Export the web build and write `sign-in.png`, `today.png`, `quick-log.png`, `search.png` and `food-detail.png` to `screenshots/`; it signs in through the UI against a mocked `/api/auth/login`. Run `npx playwright install chromium` once first. |
+| `npm run screenshots` | Export the web build and write PNGs for the main screens and their empty and error states to `screenshots/`; it signs in through the UI against a mocked `/api/auth/login`. Run `npx playwright install chromium` once first. |
 
 ## Folder layout
 
-- `app/` Expo Router routes. `(tabs)/` holds the bottom tabs; `(auth)/` holds sign-in, register, verify-email, forgot-password and reset-password.
+- `app/` Expo Router routes. `(tabs)/` holds the bottom tabs; `(auth)/` holds sign-in, register, verify-email, forgot-password and reset-password. Other screens sit directly in `app/`.
 - `src/theme/` design tokens (colors, type, space, radius, shadow, motion, sizing) from `docs/design/ui.md`.
-- `src/components/` shared components (`Button`, `TextField`, `Banner`, `FormScreen`, `PasswordRules`).
+- `src/components/` shared components, for example form controls, dialogs and the dashboard and history widgets.
 - `src/lib/` helpers: `tokenStorage.ts`, `validation.ts` (form rules), `passwordRules.ts` (new-password rules), `authErrors.ts` (API error kinds, 429 text), `pendingEmail.ts` (in-memory email between auth screens), `useCooldown.ts` (resend countdown).
 - `src/config.ts` reads the API base URL.
-- `scripts/` screenshot script and its mocked API fixtures (login, body stats, goals, dashboard, recent foods, food search).
+- `scripts/` screenshot script and its mocked API fixtures for the screens it covers.
 
 ## Theme rule
 
