@@ -36,4 +36,10 @@ export function filterTimezones(list: readonly string[], query: string): string[
   return q ? list.filter((z) => norm(z).includes(q)) : [...list];
 }
 
-export const deviceTimezone = (): string | undefined => Intl.DateTimeFormat().resolvedOptions().timeZone;
+export const deviceTimezone = (): string | undefined => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+};

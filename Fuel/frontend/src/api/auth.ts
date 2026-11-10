@@ -1,3 +1,5 @@
+import { deviceTimezone } from '@/lib/timezones';
+
 import { apiClient } from './client';
 
 export type AuthTokens = {
@@ -45,7 +47,7 @@ export const resetPassword = (email: string, resetCode: string, newPassword: str
   apiClient.request<null>('POST', '/api/auth/reset-password', { body: { email, resetCode, newPassword } });
 
 export const oauthGoogle = (idToken: string) =>
-  apiClient.request<UserData>('POST', '/api/auth/oauth/google', { body: { idToken } });
+  apiClient.request<UserData>('POST', '/api/auth/oauth/google', { body: { idToken, timezone: deviceTimezone() } });
 
 export type AppleOAuthInput = {
   identityToken: string;
@@ -54,4 +56,4 @@ export type AppleOAuthInput = {
 };
 
 export const oauthApple = (input: AppleOAuthInput) =>
-  apiClient.request<UserData>('POST', '/api/auth/oauth/apple', { body: input });
+  apiClient.request<UserData>('POST', '/api/auth/oauth/apple', { body: { ...input, timezone: deviceTimezone() } });
