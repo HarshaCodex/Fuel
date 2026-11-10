@@ -1,5 +1,5 @@
 import { ApiError } from './errors';
-import { createEntry, getDashboard, trackingKeys } from './tracking';
+import { createEntry, getDashboard, getHistory, trackingKeys } from './tracking';
 
 const fetchMock = jest.fn();
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
@@ -43,5 +43,24 @@ describe('createEntry', () => {
     expect(url).toBe('http://api.test/api/tracking/entries');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual(body);
+  });
+});
+
+describe('getHistory', () => {
+  it('sends from and to and unwraps the list', async () => {
+    fetchMock.mockResolvedValue(reply(200, { data: [{ date: '2026-11-09', entryCount: 2 }] }));
+    await expect(getHistory('2026-11-03', '2026-11-09')).resolves.toEqual([{ date: '2026-11-09', entryCount: 2 }]);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/tracking/history?from=2026-11-03&to=2026-11-09');
+    expect(init.method).toBe('GET');
+  });
+
+  it('passes ApiError through', async () => {
+    fetchMock.mockResolvedValue(reply(400, { status: 'error', message: 'Range too long' }));
+    await expect(getHistory('2026-01-01', '2026-11-09')).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('keys hold only the dates', () => {
+    expect(trackingKeys.history('2026-11-03', '2026-11-09')).toEqual(['tracking', 'history', '2026-11-03', '2026-11-09']);
   });
 });
