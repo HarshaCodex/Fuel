@@ -11,7 +11,8 @@ import VerifyEmail from './verify-email';
 const mockReplace = jest.fn();
 const mockSignIn = jest.fn();
 const mockRouter = { replace: mockReplace };
-jest.mock('expo-router', () => ({ useRouter: () => mockRouter }));
+let mockParams: Record<string, string> = {};
+jest.mock('expo-router', () => ({ useRouter: () => mockRouter, useLocalSearchParams: () => mockParams }));
 jest.mock('@/api/auth');
 jest.mock('@/lib/tokenStorage');
 jest.mock('@/session/SessionProvider', () => ({ useSession: () => ({ signIn: mockSignIn }) }));
@@ -29,6 +30,7 @@ const resendBtn = () => screen.getByRole('button', { name: /^Resend/ });
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
+  mockParams = {};
   setPendingEmail(EMAIL);
   mockSignIn.mockResolvedValue(undefined);
 });
@@ -210,5 +212,19 @@ describe('VerifyEmail', () => {
     jest.spyOn(RN, 'useColorScheme').mockReturnValue('dark');
     await render(<VerifyEmail />);
     expect(screen.getByRole('button', { name: 'Verify' })).toHaveStyle({ backgroundColor: darkColors.accent });
+  });
+});
+
+describe('arriving from a blocked sign-in', () => {
+  it('offers Resend immediately and sends once', async () => {
+    mockParams = { unsent: '1' };
+    mockResend.mockResolvedValue({ emailVerified: false });
+    await render(<VerifyEmail />);
+    expect(screen.queryByText(`We sent a code to ${EMAIL}`)).toBeNull();
+    expect(resendBtn()).toHaveTextContent('Resend code');
+    expect(resendBtn()).toBeEnabled();
+    await fireEvent.press(resendBtn());
+    await waitFor(() => expect(mockResend).toHaveBeenCalledTimes(1));
+    expect(mockResend).toHaveBeenCalledWith(EMAIL);
   });
 });

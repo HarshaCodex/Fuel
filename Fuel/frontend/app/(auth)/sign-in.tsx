@@ -59,8 +59,9 @@ export default function SignInScreen() {
     // Password sign-in 403 means the email is unverified: continue on the verify screen (it offers resend).
     if (credentialsOnAuthFailure && kind === 'forbidden') {
       setPendingEmail(email.trim());
+      setPassword('');
       setLoading(false);
-      router.push('/verify-email');
+      router.push({ pathname: '/verify-email', params: { unsent: '1' } });
       return;
     }
     if (kind === 'offline') setFailure({ kind: 'offline', message: OFFLINE_ERROR });

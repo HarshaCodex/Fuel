@@ -97,7 +97,7 @@ describe('SignIn', () => {
     await fill();
     await submit();
     expect(await screen.findByText('Email or password is incorrect')).toBeTruthy();
-    expect(mockPush).not.toHaveBeenCalledWith('/verify-email');
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('routes a 403 to verify-email with the typed email and no error', async () => {
@@ -105,7 +105,8 @@ describe('SignIn', () => {
     await render(<SignIn />);
     await fill(`  ${EMAIL} `);
     await submit();
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/verify-email'));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith({ pathname: '/verify-email', params: { unsent: '1' } }));
+    expect(screen.getByLabelText('Password').props.value).toBe('');
     expect(getPendingEmail()).toBe(EMAIL);
     expect(screen.queryByText('Email or password is incorrect')).toBeNull();
   });

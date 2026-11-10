@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -28,6 +28,9 @@ export default function VerifyEmailScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { signIn } = useSession();
+  // `unsent=1`: arrived from a blocked sign-in, so no code has been sent yet.
+  const { unsent } = useLocalSearchParams<{ unsent?: string }>();
+  const noCodeYet = unsent === '1';
   const [email] = useState(getPendingEmail);
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -36,7 +39,7 @@ export default function VerifyEmailScreen() {
   const [resending, setResending] = useState(false);
   // 429 on verify: locked for retryAfter seconds, or until the screen is reopened when unknown.
   const [lockedForever, setLockedForever] = useState(false);
-  const resendCooldown = useCooldown(RESEND_COOLDOWN_SECONDS);
+  const resendCooldown = useCooldown(noCodeYet ? 0 : RESEND_COOLDOWN_SECONDS);
   const lock = useCooldown(0);
   const inFlight = useRef(false);
   const resendInFlight = useRef(false);
@@ -119,7 +122,7 @@ export default function VerifyEmailScreen() {
           Check your email
         </Text>
         <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
-          {`We sent a code to ${email}`}
+          {noCodeYet ? `Verify ${email} to sign in. Request a code below.` : `We sent a code to ${email}`}
         </Text>
       </View>
       {notice ? (
