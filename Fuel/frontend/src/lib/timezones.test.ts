@@ -33,3 +33,13 @@ describe('filterTimezones', () => {
     expect(filterTimezones(TIMEZONES, 'zzzz')).toEqual([]);
   });
 });
+
+describe('TIMEZONES', () => {
+  it('only holds unique ids the server can accept (under 50 chars, valid IANA)', () => {
+    expect(new Set(TIMEZONES).size).toBe(TIMEZONES.length);
+    for (const zone of TIMEZONES) {
+      expect(zone.length).toBeLessThanOrEqual(50);
+      expect(() => new Intl.DateTimeFormat('en', { timeZone: zone })).not.toThrow();
+    }
+  });
+});

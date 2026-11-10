@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { NetworkError } from '@/api/errors';
-import { getGoals, getProfile, type Goals, type UserProfile } from '@/api/user';
+import { getGoals, getProfile, userKeys, type Goals, type UserProfile } from '@/api/user';
 
 import Profile from './profile';
 
@@ -94,6 +94,20 @@ describe('Profile account card', () => {
     expect(screen.getByText('sam@example.com')).toBeTruthy();
     expect(screen.getByText('Europe/London')).toBeTruthy();
     expect(screen.getByText('S', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('shows the new name when the profile cache is updated after an edit', async () => {
+    mockGet.mockResolvedValue(GOALS);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await render(
+      <QueryClientProvider client={client}>
+        <Profile />
+      </QueryClientProvider>,
+    );
+    await screen.findByText('sam k');
+    await act(async () => client.setQueryData(userKeys.profile, { ...PROFILE, name: 'Alex', timezone: 'Asia/Tokyo' }));
+    expect(await screen.findByText('Alex')).toBeTruthy();
+    expect(screen.getByText('Asia/Tokyo')).toBeTruthy();
   });
 
   it('opens the edit profile modal', async () => {

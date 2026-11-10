@@ -82,6 +82,7 @@ async function main() {
     // Profile: account card, the edit modal, then its timezone picker.
     await page.getByRole('tab', { name: 'Profile' }).click();
     await page.getByText('shots@example.com', { exact: true }).waitFor();
+    await page.waitForTimeout(600); // let the previous modal finish sliding away
     await page.screenshot({ path: join(OUT, 'profile.png') });
     await page.getByRole('button', { name: 'Edit profile', exact: true }).click();
     await page.getByRole('button', { name: 'Timezone, America/New_York' }).waitFor();

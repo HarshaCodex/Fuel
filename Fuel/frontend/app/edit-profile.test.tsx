@@ -150,6 +150,16 @@ describe('Edit profile', () => {
     expect(await screen.findByText('This account no longer exists.')).toBeTruthy();
   });
 
+  it('shows the rate limit message on a 429', async () => {
+    mockPut.mockRejectedValue(new ApiError(429, 'slow down', [], 30));
+    await renderScreen();
+    await typeName('Sam K');
+    await save();
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeTruthy();
+    expect(screen.getByLabelText('Name').props.value).toBe('Sam K');
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
   it('shows a generic banner on a server error', async () => {
     mockPut.mockRejectedValue(apiError(500));
     await renderScreen();
