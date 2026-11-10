@@ -45,7 +45,7 @@ public class AppleOAuthService {
                         verified.email(),
                         fullName(oAuthAppleRequest.getFullName()));
 
-        return oAuthAccountService.signIn(identity, clientInfo);
+        return oAuthAccountService.signIn(identity, oAuthAppleRequest.getTimezone(), clientInfo);
     }
 
     private static String fullName(OAuthAppleRequest.FullName fullName) {

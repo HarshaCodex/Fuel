@@ -29,6 +29,8 @@ public class GoogleOAuthService {
             OAuthGoogleRequest oAuthGoogleRequest, ClientInfo clientInfo) throws Exception {
 
         return oAuthAccountService.signIn(
-                googleIdTokenVerifier.verify(oAuthGoogleRequest.getIdToken()), clientInfo);
+                googleIdTokenVerifier.verify(oAuthGoogleRequest.getIdToken()),
+                oAuthGoogleRequest.getTimezone(),
+                clientInfo);
     }
 }
