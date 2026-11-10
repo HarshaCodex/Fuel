@@ -26,6 +26,7 @@ export const trackingKeys = {
   all: ['tracking'] as const,
   dashboard: (date?: string) => ['tracking', 'dashboard', date ?? 'today'] as const,
   entries: (date?: string) => ['tracking', 'entries', date ?? 'today'] as const,
+  history: (from: string, to: string) => ['tracking', 'history', from, to] as const,
 };
 
 /** Omit `date` for today; the server resolves it in the user's timezone. */
@@ -60,3 +61,19 @@ export const updateEntry = (id: string, body: UpdateEntryBody): Promise<CreatedE
 /** Full entries for a day (with amount and quantity, which the dashboard payload lacks). Omit `date` for today. */
 export const getEntries = (date?: string): Promise<CreatedEntry[]> =>
   apiClient.request<CreatedEntry[]>('GET', '/api/tracking/entries' + (date ? '?date=' + date : ''));
+
+/** One logged day. `calorieGoal` is the current goal and is the same on every row. */
+export type HistoryDay = {
+  date: string; // YYYY-MM-DD
+  calories: number;
+  calorieGoal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  entryCount: number;
+};
+
+/** Both dates inclusive, at most 90 days apart. Newest first; days with no entries are omitted. */
+export const getHistory = (from: string, to: string): Promise<HistoryDay[]> =>
+  apiClient.request<HistoryDay[]>('GET', `/api/tracking/history?from=${from}&to=${to}`);
