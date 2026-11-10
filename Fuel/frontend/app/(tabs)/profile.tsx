@@ -1,15 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getBodyStats, getGoals, getProfile, userKeys, type Goals } from '@/api/user';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
+import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
 import { FormScreen } from '@/components/FormScreen';
 import { classifyAuthError } from '@/lib/authErrors';
 import { activityLabel, BODY_STATS_UI, summarizeBodyStats } from '@/lib/bodyStatsForm';
 import { GOALS_MESSAGES, summarizeGoals } from '@/lib/goalsForm';
 import { PROFILE_MESSAGES } from '@/lib/profileForm';
+import { useSession } from '@/session/SessionProvider';
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
 
 const noteFor = (g: Goals) =>
@@ -18,6 +21,8 @@ const noteFor = (g: Goals) =>
 export default function ProfileScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { signOut } = useSession();
+  const [deleting, setDeleting] = useState(false);
   const goals = useQuery({ queryKey: userKeys.goals, queryFn: getGoals });
   const profile = useQuery({ queryKey: userKeys.profile, queryFn: getProfile });
   const body = useQuery({ queryKey: userKeys.bodyStats, queryFn: getBodyStats });
@@ -141,6 +146,40 @@ export default function ProfileScreen() {
           ›
         </Text>
       </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Sign out"
+        onPress={() => void signOut()}
+        style={({ pressed }) => [
+          styles.link,
+          { backgroundColor: pressed ? colors.surfaceMuted : colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[type.headline, styles.linkText, { color: colors.text }]} maxFontSizeMultiplier={2}>
+          Sign out
+        </Text>
+      </Pressable>
+      {account ? (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+            onPress={() => setDeleting(true)}
+            style={styles.delete}
+          >
+            <Text style={[type.callout, { color: colors.danger }]} maxFontSizeMultiplier={2}>Delete account</Text>
+          </Pressable>
+          <DeleteAccountDialog
+            visible={deleting}
+            provider={account.authProvider}
+            onClose={() => setDeleting(false)}
+            onDeleted={() => {
+              setDeleting(false);
+              void signOut();
+            }}
+          />
+        </>
+      ) : null}
     </FormScreen>
   );
 }
@@ -153,5 +192,6 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: sizing.border, padding: space.lg, gap: space.xs, minHeight: sizing.touchMin },
   link: { minHeight: sizing.row, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, borderRadius: radius.lg, borderWidth: sizing.border },
   linkText: { flex: 1 },
+  delete: { minHeight: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
   cta: { minHeight: sizing.touchMin, justifyContent: 'center' },
 });

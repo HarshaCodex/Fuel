@@ -66,3 +66,13 @@ export const recalculateGoals = (input?: RecalculateInput) =>
 export const getProfile = () => apiClient.request<UserProfile>('GET', '/api/user/profile');
 
 export const putProfile = (input: ProfileInput) => apiClient.request<UserProfile>('PUT', '/api/user/profile', { body: input });
+
+/** Send exactly one. An account with Apple linked must confirm with Apple. Never log or cache these. */
+export type DeleteConfirmation =
+  | { password: string }
+  | { googleIdToken: string }
+  | { appleIdentityToken: string; appleAuthorizationCode: string };
+
+/** Resolves on success. The server revokes every session. */
+export const deleteAccount = (confirmation: DeleteConfirmation) =>
+  apiClient.request<null>('DELETE', '/api/user/account', { body: confirmation });

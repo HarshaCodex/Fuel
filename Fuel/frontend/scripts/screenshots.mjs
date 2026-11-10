@@ -100,6 +100,16 @@ async function main() {
     await page.getByLabel('Height (cm)', { exact: true }).waitFor();
     await page.screenshot({ path: join(OUT, 'edit-body-stats.png') });
     await page.getByRole('button', { name: 'Close', exact: true }).click();
+    // Delete account dialog: untouched, then the empty-password error.
+    await page.getByRole('button', { name: 'Delete account', exact: true }).click();
+    await page.getByText('Delete your account?', { exact: true }).waitFor();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: join(OUT, 'delete-account.png') });
+    await page.getByRole('button', { name: 'Delete account', exact: true }).last().click();
+    await page.getByText('Enter your password', { exact: true }).waitFor();
+    await page.screenshot({ path: join(OUT, 'delete-account-error.png') });
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByText('Delete your account?', { exact: true }).waitFor({ state: 'detached' });
     // My Foods: empty first, then with foods, then the editor prefilled from a food.
     customEmpty = true;
     await page.getByRole('tab', { name: 'Profile' }).click();
