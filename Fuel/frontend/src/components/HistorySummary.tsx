@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { formatKcal } from '@/lib/dashboardView';
 import type { HistorySummaryModel } from '@/lib/historyView';
-import { numeric, radius, space, type, useTheme } from '@/theme';
+import { numeric, radius, sizing, space, type, useTheme } from '@/theme';
 
 /** Average calories per logged day and how many logged days were on goal. */
 export function HistorySummary({ averageCalories, daysLogged, daysOnGoal }: HistorySummaryModel) {
@@ -34,5 +34,5 @@ export function HistorySummary({ averageCalories, daysLogged, daysOnGoal }: Hist
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: space.md },
-  tile: { flex: 1, gap: space.xs, padding: space.lg, borderRadius: radius.md, borderWidth: 1 },
+  tile: { flex: 1, gap: space.xs, padding: space.lg, borderRadius: radius.md, borderWidth: sizing.border },
 });

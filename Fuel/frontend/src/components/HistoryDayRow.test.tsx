@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { HistoryDay } from '@/api/tracking';
+import { lightColors } from '@/theme/colors';
 
 import { HistoryDayRow } from './HistoryDayRow';
 
@@ -44,12 +45,22 @@ describe('HistoryDayRow', () => {
 
   it('caps the bar at 100% when over goal', async () => {
     await render(<HistoryDayRow day={day({ calories: 3000 })} onPress={jest.fn()} />);
-    expect(screen.getByTestId('day-fill')).toHaveStyle({ width: '100%' });
+    expect(screen.getByTestId('day-fill')).toHaveStyle({ width: '100%', backgroundColor: lightColors.caution });
+    expect(screen.getByText('3,000 kcal')).toHaveStyle({ color: lightColors.caution });
   });
 
   it('is full when exactly on goal', async () => {
     await render(<HistoryDayRow day={day({ calories: 2200 })} onPress={jest.fn()} />);
-    expect(screen.getByTestId('day-fill')).toHaveStyle({ width: '100%' });
+    expect(screen.getByTestId('day-fill')).toHaveStyle({ width: '100%', backgroundColor: lightColors.accent });
+    expect(screen.getByText('2,200 kcal')).toHaveStyle({ color: lightColors.text });
+  });
+
+  it('reads macros and goal in the hint', async () => {
+    await render(<HistoryDayRow day={day()} onPress={jest.fn()} />);
+    expect(screen.getByLabelText('Open Mon 9 Nov')).toHaveProp(
+      'accessibilityHint',
+      '1,450 calories, goal 2,200, protein 120, carbs 140, fat 45.3, 4 entries',
+    );
   });
 
   it('does not divide by a zero goal', async () => {
