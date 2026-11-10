@@ -48,18 +48,43 @@ describe('auth api', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('http://api.test/api/auth/oauth/google');
     expect(init.headers.Authorization).toBeUndefined();
-    expect(JSON.parse(init.body)).toEqual({ idToken: 'gid' });
+    expect(JSON.parse(init.body)).toEqual({ idToken: 'gid', timezone: expect.any(String) });
   });
 
   it('oauthApple posts the credential and omits fullName when absent', async () => {
     await oauthApple({ identityToken: 'aid' });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('http://api.test/api/auth/oauth/apple');
-    expect(JSON.parse(init.body)).toEqual({ identityToken: 'aid' });
+    expect(JSON.parse(init.body)).toEqual({ identityToken: 'aid', timezone: expect.any(String) });
   });
 
   it('oauthApple includes fullName when given', async () => {
     await oauthApple({ identityToken: 'aid', fullName: { givenName: 'A', familyName: 'B' } });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).fullName).toEqual({ givenName: 'A', familyName: 'B' });
+  });
+
+  describe('timezone', () => {
+    afterEach(() => jest.restoreAllMocks());
+    const stub = (tz: string | undefined) => {
+      // A Response body can be read once, so each call needs a fresh one.
+      fetchMock.mockImplementation(async () => new Response('{"data":{}}', { status: 200 }));
+      return jest.spyOn(Intl, 'DateTimeFormat').mockReturnValue({ resolvedOptions: () => ({ timeZone: tz }) } as Intl.DateTimeFormat);
+    };
+
+    it('sends the device timezone for google and apple', async () => {
+      stub('Europe/Paris');
+      await oauthGoogle('gid');
+      await oauthApple({ identityToken: 'aid' });
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body).timezone).toBe('Europe/Paris');
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body).timezone).toBe('Europe/Paris');
+    });
+
+    it('omits timezone when it cannot be determined', async () => {
+      stub(undefined);
+      await oauthGoogle('gid');
+      await oauthApple({ identityToken: 'aid' });
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ idToken: 'gid' });
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ identityToken: 'aid' });
+    });
   });
 });
