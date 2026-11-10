@@ -2,6 +2,7 @@ package com.lazybuff.fuel.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -31,7 +32,7 @@ class GoogleOAuthServiceTest {
 
     private GoogleOAuthService googleOAuthService;
 
-    private final OAuthGoogleRequest request = new OAuthGoogleRequest(ID_TOKEN);
+    private final OAuthGoogleRequest request = new OAuthGoogleRequest(ID_TOKEN, null);
 
     @BeforeEach
     void setUp() {
@@ -46,13 +47,29 @@ class GoogleOAuthServiceTest {
                         AuthProvider.GOOGLE, "109876543210", TestDataFactory.EMAIL, "John");
         ApiResponse<UserData> signedIn = ApiResponse.<UserData>builder().status(200).build();
         when(googleIdTokenVerifier.verify(ID_TOKEN)).thenReturn(identity);
-        when(oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO))
+        when(oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO))
                 .thenReturn(signedIn);
 
         ApiResponse<UserData> response =
                 googleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO);
 
         assertThat(response).isSameAs(signedIn);
+    }
+
+    @Test
+    @DisplayName("passes the requested timezone on to the shared sign-in")
+    void shouldPassTimezoneToSignIn() throws Exception {
+        OAuthIdentity identity =
+                new OAuthIdentity(
+                        AuthProvider.GOOGLE, "109876543210", TestDataFactory.EMAIL, "John");
+        when(googleIdTokenVerifier.verify(ID_TOKEN)).thenReturn(identity);
+        when(oAuthAccountService.signIn(identity, "Asia/Kolkata", TestDataFactory.CLIENT_INFO))
+                .thenReturn(ApiResponse.<UserData>builder().status(200).build());
+
+        googleOAuthService.authenticate(
+                new OAuthGoogleRequest(ID_TOKEN, "Asia/Kolkata"), TestDataFactory.CLIENT_INFO);
+
+        verify(oAuthAccountService).signIn(identity, "Asia/Kolkata", TestDataFactory.CLIENT_INFO);
     }
 
     @Test

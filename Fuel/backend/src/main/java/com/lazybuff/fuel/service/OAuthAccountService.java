@@ -33,6 +33,8 @@ public class OAuthAccountService {
 
     private static final int MAX_NAME_LENGTH = 100;
 
+    private static final String DEFAULT_TIMEZONE = "UTC";
+
     private final UserRepository userRepository;
 
     private final UserAuthProviderRepository userAuthProviderRepository;
@@ -48,13 +50,16 @@ public class OAuthAccountService {
     /**
      * Logs in the user linked to the provider account, linking or creating one by email if needed.
      *
-     * @throws FuelException 400 if the user isn't linked yet and the identity has no email, 409 if
-     *     the email's account is linked to a different account of the same provider
+     * <p>The timezone is only applied to a newly created user; null means UTC.
+     *
+     * @throws FuelException 400 if the user isn't linked yet and the identity has no email, or a
+     *     new user's timezone is not an IANA zone id; 409 if the email's account is linked to a
+     *     different account of the same provider
      */
     @Transactional
     @NoLogging
-    public ApiResponse<UserData> signIn(OAuthIdentity identity, ClientInfo clientInfo)
-            throws Exception {
+    public ApiResponse<UserData> signIn(
+            OAuthIdentity identity, String timezone, ClientInfo clientInfo) throws Exception {
 
         User linkedUser =
                 userAuthProviderRepository
@@ -84,7 +89,8 @@ public class OAuthAccountService {
             return buildResponse(existingUser, false, identity.provider(), clientInfo);
         }
 
-        User newUser = createUser(identity);
+        UserZones.requireValid(timezone);
+        User newUser = createUser(identity, timezone);
         log.info(
                 "Created user {} via {} sign-in",
                 newUser.getId(),
@@ -125,7 +131,7 @@ public class OAuthAccountService {
                 user.getId());
     }
 
-    private User createUser(OAuthIdentity identity) {
+    private User createUser(OAuthIdentity identity, String timezone) {
 
         User user =
                 userRepository.save(
@@ -133,6 +139,7 @@ public class OAuthAccountService {
                                 .email(identity.email())
                                 .name(resolveName(identity))
                                 .emailVerified(true)
+                                .timezone(timezone == null ? DEFAULT_TIMEZONE : timezone)
                                 .build());
 
         saveProvider(user, identity);

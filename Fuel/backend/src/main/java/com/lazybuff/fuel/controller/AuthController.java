@@ -297,7 +297,8 @@ public class AuthController {
                     "Send the ID token from Google Sign-In on the device. Logs in the linked user, links"
                             + " Google to an existing account with the same email, or creates a new"
                             + " account (isNewUser: true). Linking to an unverified account removes its"
-                            + " password and sessions; see ADR 0001.")
+                            + " password and sessions; see ADR 0001. An optional timezone (IANA id) is applied"
+                            + " to new accounts only; it defaults to UTC.")
     @SecurityRequirements
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -305,7 +306,7 @@ public class AuthController {
                 description = "Signed in; returns access and refresh tokens"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "400",
-                description = "Validation failed"),
+                description = "Validation failed, or invalid timezone for a new account"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
                 description = "ID token invalid, expired, or issued for another app"),
@@ -341,7 +342,8 @@ public class AuthController {
                             + " email, or creates a new account (isNewUser: true). Linking to an"
                             + " unverified account removes its password and sessions; see ADR 0001."
                             + " Apple only gives the app the user's name on the first sign-in, so"
-                            + " send fullName whenever it's available.")
+                            + " send fullName whenever it's available. An optional timezone (IANA id) is"
+                            + " applied to new accounts only; it defaults to UTC.")
     @SecurityRequirements
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -350,8 +352,8 @@ public class AuthController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "400",
                 description =
-                        "Validation failed, or Apple shared no email for an account not yet"
-                                + " linked"),
+                        "Validation failed, invalid timezone for a new account, or Apple shared no"
+                                + " email for an account not yet linked"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
                 description = "Identity token invalid, expired, or issued for another app"),

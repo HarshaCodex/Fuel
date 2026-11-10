@@ -19,7 +19,6 @@ import com.lazybuff.fuel.security.VerifiedAppleToken;
 import com.lazybuff.fuel.util.AuthProvider;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -78,9 +77,7 @@ public class UserService {
         User user = findActiveUser(userId);
 
         String timezone = request.getTimezone();
-        if (timezone != null && !ZoneId.getAvailableZoneIds().contains(timezone)) {
-            throw new FuelException(HttpStatus.BAD_REQUEST, "Invalid timezone.");
-        }
+        UserZones.requireValid(timezone);
 
         String name = request.getName() == null ? null : request.getName().strip();
         // Bean Validation's \S is ASCII-only, so Unicode-only whitespace can reach here.
