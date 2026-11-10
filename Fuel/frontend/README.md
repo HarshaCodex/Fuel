@@ -45,16 +45,16 @@ cp .env.example .env
 | `npm run lint` | ESLint (`eslint-config-expo`) |
 | `npm test` | Jest (`jest-expo`) with Testing Library |
 | `npm run check` | Typecheck, lint and tests |
-| `npm run screenshots` | Export the web build and write `sign-in.png`, `today.png`, `quick-log.png`, `search.png` and `food-detail.png` to `screenshots/`; it signs in through the UI against a mocked `/api/auth/login`. Run `npx playwright install chromium` once first. |
+| `npm run screenshots` | Export the web build and write PNGs for the main screens and their empty and error states to `screenshots/`; it signs in through the UI against a mocked `/api/auth/login`. Run `npx playwright install chromium` once first. |
 
 ## Folder layout
 
 - `app/` Expo Router routes. `(tabs)/` holds the bottom tabs; `(auth)/` holds sign-in, register, verify-email, forgot-password and reset-password. Other screens sit directly in `app/`.
 - `src/theme/` design tokens (colors, type, space, radius, shadow, motion, sizing) from `docs/design/ui.md`.
-- `src/components/` shared components (`Button`, `TextField`, `Banner`, `FormScreen`, `PasswordRules`).
+- `src/components/` shared components, for example form controls, dialogs and the dashboard and history widgets.
 - `src/lib/` helpers: `tokenStorage.ts`, `validation.ts` (form rules), `passwordRules.ts` (new-password rules), `authErrors.ts` (API error kinds, 429 text), `pendingEmail.ts` (in-memory email between auth screens), `useCooldown.ts` (resend countdown).
 - `src/config.ts` reads the API base URL.
-- `scripts/` screenshot script and its mocked API fixtures (login, body stats, goals, dashboard, recent foods, food search).
+- `scripts/` screenshot script and its mocked API fixtures for the screens it covers.
 
 ## Theme rule
 
