@@ -30,6 +30,10 @@ export const fixtures = {
     name: 'Shots',
     emailVerified: true,
   }),
+  '/api/user/profile': ok({
+    userId: '00000000-0000-0000-0000-000000000001', email: 'shots@example.com', name: 'Shots', profilePhotoUrl: null,
+    emailVerified: true, authProvider: 'EMAIL', timezone: 'America/New_York', createdAt: at(0, 0),
+  }),
   '/api/user/body-stats': ok({
     height: 180, heightUnit: 'cm', weight: 80, weightUnit: 'kg', age: 30, gender: 'MALE', activityLevel: 'MODERATE', updatedAt: at(0, 0),
   }),

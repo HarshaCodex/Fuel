@@ -30,8 +30,23 @@ export type RecalculatedGoals = Omit<Goals, 'updatedAt'> & {
   macroSplit: string;
 };
 
+export type AuthProvider = 'EMAIL' | 'GOOGLE' | 'APPLE';
+export type UserProfile = {
+  userId: string;
+  email: string;
+  name: string;
+  profilePhotoUrl: string | null;
+  emailVerified: boolean;
+  /** The provider the user registered with, not every linked one. */
+  authProvider: AuthProvider;
+  timezone: string; // IANA id
+  createdAt: string;
+};
+/** Omitted fields stay unchanged on the server. */
+export type ProfileInput = { name?: string; timezone?: string };
+
 /** Health data: keep it out of keys beyond these constants. */
-export const userKeys = { bodyStats: ['user', 'bodyStats'] as const, goals: ['user', 'goals'] as const };
+export const userKeys = { profile: ['user', 'profile'] as const, bodyStats: ['user', 'bodyStats'] as const, goals: ['user', 'goals'] as const };
 
 /** Resolves null when the user has not saved body stats yet. */
 export const getBodyStats = async () =>
@@ -47,3 +62,7 @@ export const putGoals = (input: GoalsInput) => apiClient.request<Goals>('PUT', '
 /** Sends no body when `input` is omitted so the server applies its defaults. */
 export const recalculateGoals = (input?: RecalculateInput) =>
   apiClient.request<RecalculatedGoals>('POST', '/api/user/goals/recalculate', input ? { body: input } : {});
+
+export const getProfile = () => apiClient.request<UserProfile>('GET', '/api/user/profile');
+
+export const putProfile = (input: ProfileInput) => apiClient.request<UserProfile>('PUT', '/api/user/profile', { body: input });

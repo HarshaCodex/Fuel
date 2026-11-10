@@ -6,6 +6,7 @@ export const sizing = {
   row: 64,
   icon: 24,
   fab: 56,
+  avatar: 56,
   tabBar: 56,
   border: 1.5,
   borderFocus: 2,
