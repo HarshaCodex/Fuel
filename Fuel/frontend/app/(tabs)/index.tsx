@@ -24,7 +24,7 @@ import { StateBlock } from '@/components/StateBlock';
 import { StreakChip } from '@/components/StreakChip';
 import { UndoToast } from '@/components/UndoToast';
 import { editFactor, withEditedEntry, withoutEntries } from '@/lib/dashboardTotals';
-import { addDays, dateTitle, isFutureDate, isoDate } from '@/lib/dashboardView';
+import { addDays, dateTitle, isFutureDate } from '@/lib/dashboardView';
 import { usePendingDeletes } from '@/lib/usePendingDeletes';
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
 
@@ -48,16 +48,23 @@ function DateButton({ icon, label, disabled, onPress }: { icon: 'chevron-back' |
 export default function TodayScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const todayIso = isoDate(new Date());
-  const [date, setDate] = useState(todayIso);
+  // null means "today as the server sees it": the request omits the date and the response says which day that is.
+  const [selected, setSelected] = useState<string | null>(null);
+  const [serverToday, setServerToday] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const isToday = date === todayIso;
+  const isToday = selected === null;
+  const date = selected ?? undefined;
   const q = useQuery({
-    queryKey: trackingKeys.dashboard(isToday ? undefined : date),
-    queryFn: () => getDashboard(isToday ? undefined : date),
+    queryKey: trackingKeys.dashboard(date),
+    queryFn: () => getDashboard(date),
   });
+  const todayFromServer = isToday ? q.data?.date : undefined;
+  // Remember the server's today so it survives while another day is selected (state adjusted during render).
+  if (todayFromServer && todayFromServer !== serverToday) setServerToday(todayFromServer);
+  const today = todayFromServer ?? serverToday;
+  const goTo = (target: string) => setSelected(target === today ? null : target);
   const qc = useQueryClient();
-  const dashKey = trackingKeys.dashboard(isToday ? undefined : date);
+  const dashKey = trackingKeys.dashboard(date);
   const [editing, setEditing] = useState<DashboardEntry | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   // Optimistic: totals and the row change at once from the linear estimate; on failure the snapshot comes back.
@@ -138,15 +145,20 @@ export default function TodayScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         <View style={styles.header}>
-          <DateButton icon="chevron-back" label="Previous day" onPress={() => setDate(addDays(date, -1))} />
+          <DateButton
+            icon="chevron-back"
+            label="Previous day"
+            disabled={!today}
+            onPress={() => today && goTo(addDays(selected ?? today, -1))}
+          />
           <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
-            {dateTitle(date, todayIso)}
+            {selected && today ? dateTitle(selected, today) : 'Today'}
           </Text>
           <DateButton
             icon="chevron-forward"
             label="Next day"
-            disabled={isFutureDate(addDays(date, 1), todayIso)}
-            onPress={() => setDate(addDays(date, 1))}
+            disabled={!today || isToday || isFutureDate(addDays(selected, 1), today)}
+            onPress={() => today && selected && goTo(addDays(selected, 1))}
           />
         </View>
 
@@ -202,7 +214,7 @@ export default function TodayScreen() {
       </ScrollView>
       <EditEntrySheet
         entry={editing}
-        date={isToday ? undefined : date}
+        date={date}
         onClose={() => setEditing(null)}
         onMissing={onMissing}
         onSave={onSaveEdit}

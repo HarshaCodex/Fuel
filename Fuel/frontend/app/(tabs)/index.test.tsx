@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { ApiError, NetworkError } from '@/api/errors';
 import { deleteEntry, getDashboard, getEntries, updateEntry, type CreatedEntry, type Dashboard } from '@/api/tracking';
 import { UNDO_MS } from '@/lib/usePendingDeletes';
-import { addDays, isoDate } from '@/lib/dashboardView';
+import { addDays } from '@/lib/dashboardView';
 
 import Today from './index';
 
@@ -134,10 +134,48 @@ describe('Today screen', () => {
     await screen.findByText('Greek yogurt');
     expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
     await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
-    const yesterday = addDays(isoDate(new Date()), -1);
+    const yesterday = addDays(DAY.date, -1);
     await waitFor(() => expect(mockGet).toHaveBeenCalledWith(yesterday));
     expect(await screen.findByText('Yesterday')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Next day' })).toBeEnabled();
+  });
+
+  describe('server date as today', () => {
+    // Device clock says 2026-11-10 while the server's today is 2026-11-09 (profile timezone).
+    beforeEach(() => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'], now: new Date(2026, 10, 10, 12, 0, 0) });
+    });
+    afterEach(() => jest.useRealTimers());
+
+    it('requests without a date, labels the server day Today and blocks Next', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      expect(mockGet).toHaveBeenCalledWith(undefined);
+      expect(screen.getByText('Today')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+    });
+
+    it('steps back from the server date and returns to server today without a date', async () => {
+      mockGet.mockResolvedValue(DAY);
+      await renderScreen();
+      await screen.findByText('Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
+      await waitFor(() => expect(mockGet).toHaveBeenCalledWith('2026-11-08'));
+      expect(await screen.findByText('Yesterday')).toBeTruthy();
+      mockGet.mockClear();
+      await fireEvent.press(screen.getByRole('button', { name: 'Next day' }));
+      expect(await screen.findByText('Today')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+      expect(mockGet.mock.calls.every(([d]) => d === undefined)).toBe(true);
+    });
+
+    it('disables both arrows until the server date is known', async () => {
+      mockGet.mockReturnValue(new Promise(() => {}));
+      await renderScreen();
+      expect(screen.getByRole('button', { name: 'Previous day' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+    });
   });
 
   describe('deleting an entry', () => {
@@ -333,7 +371,7 @@ describe('Today screen', () => {
       await renderScreen();
       await screen.findByText('Greek yogurt');
       await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
-      const yesterday = addDays(isoDate(new Date()), -1);
+      const yesterday = addDays(DAY.date, -1);
       await screen.findByText('Yesterday');
       await screen.findByRole('button', { name: 'More actions for Greek yogurt' });
       await edit('Greek yogurt');
@@ -361,7 +399,7 @@ describe('Today screen', () => {
       await renderScreen();
       await screen.findByText('Greek yogurt');
       await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
-      const yesterday = addDays(isoDate(new Date()), -1);
+      const yesterday = addDays(DAY.date, -1);
       await screen.findByText('Yesterday');
       await screen.findByRole('button', { name: 'More actions for Greek yogurt' });
       await edit('Greek yogurt');
