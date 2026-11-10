@@ -10,7 +10,7 @@ import { FormScreen } from '@/components/FormScreen';
 import { OAuthButtons } from '@/components/OAuthButtons';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
-import { clearPendingEmail, getPendingEmail } from '@/lib/pendingEmail';
+import { clearPendingEmail, getPendingEmail, setPendingEmail } from '@/lib/pendingEmail';
 import { validateEmail, validateLoginPassword } from '@/lib/validation';
 import { useSession } from '@/session/SessionProvider';
 import { space, type, useTheme } from '@/theme';
@@ -56,10 +56,17 @@ export default function SignInScreen() {
 
   function showError(e: unknown, credentialsOnAuthFailure: boolean) {
     const { kind, retryAfter } = classifyAuthError(e);
+    // Password sign-in 403 means the email is unverified: continue on the verify screen (it offers resend).
+    if (credentialsOnAuthFailure && kind === 'forbidden') {
+      setPendingEmail(email.trim());
+      setPassword('');
+      setLoading(false);
+      router.push({ pathname: '/verify-email', params: { unsent: '1' } });
+      return;
+    }
     if (kind === 'offline') setFailure({ kind: 'offline', message: OFFLINE_ERROR });
     else if (kind === 'rateLimited') setFailure({ kind: 'rateLimited', message: rateLimitMessage(retryAfter) });
-    // 403 (unverified email) deliberately looks the same as a wrong password.
-    else if (credentialsOnAuthFailure && (kind === 'unauthorized' || kind === 'forbidden')) setFailure({ kind: 'credentials' });
+    else if (credentialsOnAuthFailure && kind === 'unauthorized') setFailure({ kind: 'credentials' });
     else setFailure({ kind: 'generic', message: GENERIC_ERROR });
     setLoading(false);
   }
