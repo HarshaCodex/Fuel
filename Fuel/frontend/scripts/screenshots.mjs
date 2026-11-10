@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
 
-import { emptyCustomFoods, fixtures } from './fixtures.mjs';
+import { emptyCustomFoods, emptyHistory, fixtures } from './fixtures.mjs';
 
 const API = 'http://mock.fuel.test';
 const DIST = 'dist';
@@ -40,9 +40,14 @@ async function main() {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: 'light' });
     const unmocked = [];
     let customEmpty = false;
+    let historyMode = 'ok';
     await context.route(`${API}/**`, (route) => {
       const { pathname } = new URL(route.request().url());
       if (pathname === '/api/food/custom') return route.fulfill({ json: customEmpty ? emptyCustomFoods : fixtures[pathname] });
+      if (pathname === '/api/tracking/history') {
+        if (historyMode === 'error') return route.fulfill({ status: 500, json: { status: 'ERROR', message: 'Server error', data: null } });
+        return route.fulfill({ json: historyMode === 'empty' ? emptyHistory : fixtures[pathname] });
+      }
       if (pathname in fixtures) return route.fulfill({ json: fixtures[pathname] });
       unmocked.push(pathname);
       return route.abort();
@@ -103,6 +108,25 @@ async function main() {
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('tab', { name: 'Today' }).click();
     await page.getByText('Greek yogurt', { exact: true }).first().waitFor();
+    // History: list, empty, error, then a day opened from a row. Range changes reuse the same tab.
+    await page.getByRole('tab', { name: 'History' }).click();
+    await page.getByTestId('history-chart').waitFor();
+    await page.screenshot({ path: join(OUT, 'history.png') });
+    await page.getByRole('button', { name: 'Open Sun 8 Nov' }).click();
+    await page.getByLabel(/calories remaining/).waitFor();
+    await page.screenshot({ path: join(OUT, 'day.png') });
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    historyMode = 'empty';
+    await page.getByRole('radio', { name: '30 days' }).click();
+    await page.getByText('Your history starts with your first log').waitFor();
+    await page.screenshot({ path: join(OUT, 'history-empty.png') });
+    historyMode = 'error';
+    await page.getByRole('radio', { name: '90 days' }).click();
+    await page.getByText("Couldn't load your history").waitFor();
+    await page.screenshot({ path: join(OUT, 'history-error.png') });
+    await page.getByRole('tab', { name: 'Today' }).click();
+    await page.getByText('Greek yogurt', { exact: true }).first().waitFor();
+
     // Quick Log flow: menu, search, then the portion confirm for the first result.
     await page.getByRole('button', { name: 'Log food', exact: true }).click();
     await page.getByText('Search foods', { exact: true }).first().waitFor();
