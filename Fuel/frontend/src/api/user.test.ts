@@ -1,5 +1,5 @@
 import { ApiError } from './errors';
-import { getBodyStats, getGoals, getProfile, putBodyStats, putProfile, putGoals, recalculateGoals, userKeys } from './user';
+import { deleteAccount, getBodyStats, getGoals, getProfile, putBodyStats, putProfile, putGoals, recalculateGoals, userKeys } from './user';
 
 const fetchMock = jest.fn();
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
@@ -80,5 +80,19 @@ describe('user api', () => {
     expect(userKeys.bodyStats).toEqual(['user', 'bodyStats']);
     expect(userKeys.goals).toEqual(['user', 'goals']);
     expect(userKeys.profile).toEqual(['user', 'profile']);
+  });
+
+  it('deleteAccount sends a DELETE with the confirmation body', async () => {
+    fetchMock.mockResolvedValue(reply(200, { data: null }));
+    await expect(deleteAccount({ password: 'pw' })).resolves.toBeNull();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/user/account');
+    expect(init.method).toBe('DELETE');
+    expect(JSON.parse(init.body)).toEqual({ password: 'pw' });
+  });
+
+  it('deleteAccount surfaces the status of a rejected confirmation', async () => {
+    fetchMock.mockResolvedValue(reply(400, { message: 'Use Sign in with Apple' }));
+    await expect(deleteAccount({ password: 'pw' })).rejects.toMatchObject({ status: 400 });
   });
 });

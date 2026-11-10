@@ -2,13 +2,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { NetworkError } from '@/api/errors';
-import { getBodyStats, getGoals, getProfile, userKeys, type BodyStats, type Goals, type UserProfile } from '@/api/user';
+import { deleteAccount, getBodyStats, getGoals, getProfile, userKeys, type BodyStats, type Goals, type UserProfile } from '@/api/user';
 
 import Profile from './profile';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
-jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), getGoals: jest.fn(), getProfile: jest.fn(), getBodyStats: jest.fn() }));
+const mockSignOut = jest.fn();
+jest.mock('@/session/SessionProvider', () => ({ useSession: () => ({ signOut: mockSignOut }) }));
+jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), getGoals: jest.fn(), getProfile: jest.fn(), getBodyStats: jest.fn(), deleteAccount: jest.fn() }));
+jest.mock('@/auth/oauthProviders', () => ({ signInWithGoogle: jest.fn(), signInWithApple: jest.fn() }));
 
 const mockGet = jest.mocked(getGoals);
 const mockProfile = jest.mocked(getProfile);
@@ -172,5 +175,43 @@ describe('Profile account card', () => {
     await renderScreen();
     expect(await screen.findByText("Couldn't load your profile.")).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
+  });
+});
+
+describe('Profile sign out and delete account', () => {
+  it('signs out with one tap and no confirmation', async () => {
+    await renderScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Delete account until the profile has loaded', async () => {
+    mockProfile.mockReturnValue(new Promise(() => undefined));
+    await renderScreen();
+    expect(screen.queryByRole('button', { name: 'Delete account' })).toBeNull();
+  });
+
+  it('opens the dialog, deletes with the password, then signs out once', async () => {
+    jest.mocked(deleteAccount).mockResolvedValue(null);
+    await renderScreen();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete account' }));
+    expect(screen.getByText('Delete your account?')).toBeTruthy();
+    expect(mockSignOut).not.toHaveBeenCalled();
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'pw-1');
+    const buttons = screen.getAllByRole('button', { name: 'Delete account' });
+    await fireEvent.press(buttons[buttons.length - 1]);
+    expect(deleteAccount).toHaveBeenCalledWith({ password: 'pw-1' });
+    await act(async () => undefined);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Delete your account?')).toBeNull();
+  });
+
+  it('does not sign out when the user cancels', async () => {
+    await renderScreen();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Delete account' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText('Delete your account?')).toBeNull();
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(deleteAccount).not.toHaveBeenCalled();
   });
 });
