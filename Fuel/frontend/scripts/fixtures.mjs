@@ -3,6 +3,22 @@ const ok = (data) => ({ status: 'SUCCESS', message: 'OK', data });
 const macro = (consumed, goal) => ({ consumed, goal, unit: 'g' });
 const at = (h, m) => new Date(Date.UTC(2026, 10, 9, h, m)).toISOString();
 
+const dayIso = (offset) => new Date(Date.UTC(2026, 10, 9 + offset)).toISOString().slice(0, 10);
+
+/** Newest first, ending 2026-11-09, with every third day unlogged (the server omits those). */
+function historyDays(count) {
+  const days = [];
+  for (let i = 0; i < count; i++) {
+    if (i % 3 === 2) continue;
+    const calories = 1500 + ((i * 337) % 900);
+    days.push({
+      date: dayIso(-i), calories, calorieGoal: 2200, protein: 100 + (i % 5) * 12, carbs: 160 + (i % 4) * 20,
+      fat: 50 + (i % 3) * 6, fiber: 20, entryCount: 3 + (i % 3),
+    });
+  }
+  return days;
+}
+
 export const fixtures = {
   '/api/auth/login': ok({
     accessToken: 'shot-access',
@@ -31,6 +47,7 @@ export const fixtures = {
     ],
     streak: { current: 5, longest: 9 },
   }),
+  '/api/tracking/history': ok(historyDays(7)),
   '/api/tracking/entries': ok([
     { id: 'e1', foodId: 'f2', foodName: 'Greek yogurt', source: 'USDA', mealLabel: 'breakfast', calories: 150, protein: 15, carbs: 8, fat: 4, loggedAt: at(8, 0), servingSize: 170, servingUnit: 'g', quantity: 1 },
     { id: 'e2', foodId: 'f4', foodName: 'Chicken salad', source: 'OFF', mealLabel: 'lunch', calories: 520, protein: 46, carbs: 12, fat: 5, loggedAt: at(12, 30), servingSize: 250, servingUnit: 'g', quantity: 1 },
@@ -61,3 +78,6 @@ fixtures['/api/food/c1'] = ok(fixtures['/api/food/custom'].data.content[0]);
 
 /** Same endpoint with no foods, for the My Foods empty state. */
 export const emptyCustomFoods = ok({ content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 });
+
+/** Same endpoint for a user who has never logged, for the History empty state. */
+export const emptyHistory = ok([]);

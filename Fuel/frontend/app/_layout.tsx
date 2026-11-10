@@ -23,6 +23,7 @@ function RootStack() {
           <Stack.Screen name="scan" />
           <Stack.Screen name="manual-entry" />
           <Stack.Screen name="my-foods" />
+          <Stack.Screen name="day" />
         </Stack.Protected>
         <Stack.Protected guard={status === 'signedOut'}>
           <Stack.Screen name="(auth)" />

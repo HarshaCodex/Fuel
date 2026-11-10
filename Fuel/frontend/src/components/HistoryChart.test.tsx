@@ -37,9 +37,20 @@ describe('HistoryChart', () => {
     expect(screen.getAllByTestId('bar-today')).toHaveLength(1);
     expect(screen.getByTestId('bar-today')).toHaveStyle({ height: 120 });
     expect(screen.getByTestId('bar')).toHaveStyle({ height: 60 });
-    expect(screen.getByTestId('bar-today')).toHaveStyle({ opacity: 1, backgroundColor: lightColors.accent });
-    expect(screen.getByTestId('bar')).toHaveStyle({ opacity: 0.55, backgroundColor: lightColors.accent });
+    expect(screen.getByTestId('bar-today')).toHaveStyle({ backgroundColor: lightColors.accent });
+    expect(screen.getByTestId('bar')).toHaveStyle({ backgroundColor: lightColors.accent });
+    expect(screen.getByTestId('bar')).not.toHaveStyle({ opacity: 0.55 });
+    expect(screen.getAllByTestId('today-cap')).toHaveLength(1);
+    expect(screen.getByTestId('today-cap')).toHaveStyle({ height: 2, backgroundColor: lightColors.text });
     expect(screen.getByTestId('goal-line')).toHaveStyle({ bottom: 120 });
+  });
+
+  it('shows axis labels, today and the goal value', async () => {
+    const bars = [bar('2026-11-09', 1100), bar('2026-11-10', 2200, { isToday: true })];
+    await render(<HistoryChart bars={bars} goal={2200} />);
+    expect(screen.getByText('9 Nov', { includeHiddenElements: true })).toBeOnTheScreen();
+    expect(screen.getByText('Today', { includeHiddenElements: true })).toBeOnTheScreen();
+    expect(screen.getByText('Goal 2,200')).toBeOnTheScreen();
   });
 
   it('grows the scale when a day is over goal', async () => {
@@ -59,6 +70,6 @@ describe('HistoryChart', () => {
     const thirty = Array.from({ length: 30 }, (_, i) => bar(`2026-10-${String(i + 1).padStart(2, '0')}`, 100));
     await render(<HistoryChart bars={thirty} goal={2000} />);
     expect(screen.getAllByTestId('bar')).toHaveLength(30);
-    expect(screen.getByTestId('history-chart').children[0]).toHaveStyle({ gap: 2 });
+    expect(screen.getByTestId('history-plot')).toHaveStyle({ gap: 2 });
   });
 });

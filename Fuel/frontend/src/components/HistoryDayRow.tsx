@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { HistoryDay } from '@/api/tracking';
@@ -50,12 +51,15 @@ export function HistoryDayRow({ day, onPress }: Props) {
         />
       </View>
       <View style={styles.head}>
-        <Text style={[type.caption, numeric, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
+        <Text style={[type.callout, numeric, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
           {macroLine(day.protein, day.carbs, day.fat)}
         </Text>
-        <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
-          {entriesLabel(day.entryCount)}
-        </Text>
+        <View style={styles.entries}>
+          <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
+            {entriesLabel(day.entryCount)}
+          </Text>
+          <Ionicons name="chevron-forward" size={sizing.icon} color={colors.textTertiary} accessibilityElementsHidden importantForAccessibility="no" />
+        </View>
       </View>
     </Pressable>
   );
@@ -66,10 +70,11 @@ const styles = StyleSheet.create({
     minHeight: sizing.touchMin,
     gap: space.sm,
     padding: space.lg,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: sizing.border,
   },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: space.md },
+  entries: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   track: { height: TRACK_HEIGHT, borderRadius: radius.full, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: radius.full },
 });
