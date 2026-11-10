@@ -2,11 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getGoals, getProfile, userKeys, type Goals } from '@/api/user';
+import { getBodyStats, getGoals, getProfile, userKeys, type Goals } from '@/api/user';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { FormScreen } from '@/components/FormScreen';
 import { classifyAuthError } from '@/lib/authErrors';
+import { activityLabel, BODY_STATS_UI, summarizeBodyStats } from '@/lib/bodyStatsForm';
 import { GOALS_MESSAGES, summarizeGoals } from '@/lib/goalsForm';
 import { PROFILE_MESSAGES } from '@/lib/profileForm';
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const goals = useQuery({ queryKey: userKeys.goals, queryFn: getGoals });
   const profile = useQuery({ queryKey: userKeys.profile, queryFn: getProfile });
+  const body = useQuery({ queryKey: userKeys.bodyStats, queryFn: getBodyStats });
   const account = profile.data;
   const data = goals.data;
   const calories = data ? `${Math.round(data.calorieGoal).toLocaleString('en-US')} kcal` : '';
@@ -87,6 +89,40 @@ export default function ProfileScreen() {
         ) : null}
         <View style={styles.cta}>
           <Text style={[type.callout, { color: colors.accentText }]}>Edit goals</Text>
+        </View>
+      </Pressable>
+      {body.isError && !body.data ? (
+        <Banner
+          variant="danger"
+          message={classifyAuthError(body.error).kind === 'offline' ? BODY_STATS_UI.offline : BODY_STATS_UI.loadFailed}
+          action={{ label: 'Retry', onPress: () => void body.refetch() }}
+        />
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={
+          body.data ? `Edit body stats. ${summarizeBodyStats(body.data)}. ${activityLabel(body.data.activityLevel)}` : body.data === null ? 'Add your body stats' : 'Edit body stats'
+        }
+        accessibilityState={{ disabled: body.data === undefined }}
+        disabled={body.data === undefined}
+        onPress={() => router.push('/edit-body-stats')}
+        style={({ pressed }) => [
+          styles.card,
+          shadow.sm,
+          { backgroundColor: pressed ? colors.surfaceMuted : colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[type.caption, { color: colors.textSecondary }]}>Body stats</Text>
+        {body.data ? (
+          <>
+            <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={2}>{summarizeBodyStats(body.data)}</Text>
+            <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>{activityLabel(body.data.activityLevel)}</Text>
+          </>
+        ) : body.isPending ? (
+          <Text style={[type.callout, { color: colors.textSecondary }]}>Loading body stats</Text>
+        ) : null}
+        <View style={styles.cta}>
+          <Text style={[type.callout, { color: colors.accentText }]}>{body.data === null ? 'Add your body stats' : 'Edit body stats'}</Text>
         </View>
       </Pressable>
       <Pressable

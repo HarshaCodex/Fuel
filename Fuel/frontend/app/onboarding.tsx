@@ -7,7 +7,6 @@ import {
   putBodyStats,
   recalculateGoals,
   userKeys,
-  type ActivityLevel,
   type GoalType,
   type RecalculatedGoals,
 } from '@/api/user';
@@ -20,9 +19,12 @@ import { Stepper } from '@/components/Stepper';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError } from '@/lib/authErrors';
 import {
+  ACTIVITIES,
   BODY_STATS_FIELDS,
   convertUnits,
   emptyBodyStatsForm,
+  GENDERS,
+  UNIT_OPTIONS,
   validateBodyStats,
   type BodyStatsField,
   type BodyStatsForm,
@@ -37,26 +39,11 @@ const GENERIC = "Couldn't calculate your goal. Try again.";
 const UNMATCHED = 'Some details were not accepted. Check your answers and try again.';
 const STEP1_FIELDS: readonly BodyStatsField[] = ['age', 'gender', 'height', 'weight'];
 
-const GENDERS = [
-  { value: 'MALE', label: 'Male' },
-  { value: 'FEMALE', label: 'Female' },
-] as const;
-const UNIT_OPTIONS = [
-  { value: 'metric', label: 'Metric' },
-  { value: 'imperial', label: 'Imperial' },
-] as const;
 const GOALS = [
   { value: 'LOSE', label: 'Lose' },
   { value: 'MAINTAIN', label: 'Maintain' },
   { value: 'GAIN', label: 'Gain' },
 ] as const;
-const ACTIVITIES: readonly { value: ActivityLevel; label: string; description: string }[] = [
-  { value: 'SEDENTARY', label: 'Sedentary', description: 'Little or no exercise, desk job' },
-  { value: 'LIGHT', label: 'Lightly active', description: 'Light exercise 1 to 3 days a week' },
-  { value: 'MODERATE', label: 'Moderately active', description: 'Moderate exercise 3 to 5 days a week' },
-  { value: 'ACTIVE', label: 'Active', description: 'Hard exercise 6 to 7 days a week' },
-  { value: 'VERY_ACTIVE', label: 'Very active', description: 'Hard daily exercise or a physical job' },
-];
 const TITLES = ['About you', 'How active are you?', 'Your goal'] as const;
 const DEFICIT = { min: 100, max: 1000, step: 50, initial: 500 } as const;
 

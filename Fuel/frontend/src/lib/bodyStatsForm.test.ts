@@ -1,4 +1,6 @@
 import {
+  activityLabel,
+  summarizeBodyStats,
   BODY_STATS_MESSAGES as M,
   convertUnits,
   emptyBodyStatsForm,
@@ -162,5 +164,17 @@ describe('formFromBodyStats', () => {
 
   it('seeded form validates', () => {
     expect(validateBodyStats(formFromBodyStats(saved, 'imperial')).input).toBeDefined();
+  });
+});
+
+describe('summarizeBodyStats and activityLabel', () => {
+  const stats = { height: 180.04, heightUnit: 'cm', weight: 80.5, weightUnit: 'kg', age: 30, gender: 'FEMALE', activityLevel: 'LIGHT', updatedAt: 'x' } as const;
+
+  it('summarizes metric values on one line', () => {
+    expect(summarizeBodyStats(stats)).toBe('180 cm, 80.5 kg, 30 years, Female');
+  });
+
+  it('labels activity levels', () => {
+    expect(activityLabel('VERY_ACTIVE')).toBe('Very active');
   });
 });
