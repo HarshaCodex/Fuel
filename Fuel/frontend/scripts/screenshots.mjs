@@ -38,6 +38,8 @@ async function main() {
   try {
     const base = `http://localhost:${server.address().port}`;
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, colorScheme: 'light' });
+    // Fixtures are pinned to 2026-11-09; freeze Date so screenshots never depend on the wall clock.
+    await context.clock.setFixedTime(new Date('2026-11-09T12:00:00'));
     const unmocked = [];
     let customEmpty = false;
     let historyMode = 'ok';
