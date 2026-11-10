@@ -2,15 +2,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { NetworkError } from '@/api/errors';
-import { getGoals, type Goals } from '@/api/user';
+import { getGoals, getProfile, type Goals, type UserProfile } from '@/api/user';
 
 import Profile from './profile';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
-jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), getGoals: jest.fn() }));
+jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), getGoals: jest.fn(), getProfile: jest.fn() }));
 
 const mockGet = jest.mocked(getGoals);
+const mockProfile = jest.mocked(getProfile);
+const PROFILE: UserProfile = {
+  userId: 'u1', email: 'sam@example.com', name: 'sam k', profilePhotoUrl: null, emailVerified: true,
+  authProvider: 'EMAIL', timezone: 'Europe/London', createdAt: '2026-11-01T00:00:00Z',
+};
 const GOALS: Goals = { calorieGoal: 2200, proteinGoal: 150, carbGoal: 250, fatGoal: 70.5, isAutoCalculated: false, updatedAt: '2026-11-01T00:00:00Z' };
 
 async function renderScreen() {
@@ -21,7 +26,10 @@ async function renderScreen() {
   );
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockProfile.mockResolvedValue(PROFILE);
+});
 
 describe('Profile goals card', () => {
   it('shows loading, then formatted goals set by the user', async () => {
@@ -74,5 +82,42 @@ describe('Profile goals card', () => {
     await renderScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'My Foods' }));
     expect(mockPush).toHaveBeenCalledWith('/my-foods');
+  });
+});
+
+describe('Profile account card', () => {
+  it('shows loading, then the name, email, timezone and initial', async () => {
+    mockGet.mockResolvedValue(GOALS);
+    await renderScreen();
+    expect(screen.getByText('Loading profile')).toBeTruthy();
+    expect(await screen.findByText('sam k')).toBeTruthy();
+    expect(screen.getByText('sam@example.com')).toBeTruthy();
+    expect(screen.getByText('Europe/London')).toBeTruthy();
+    expect(screen.getByText('S', { includeHiddenElements: true })).toBeTruthy();
+  });
+
+  it('opens the edit profile modal', async () => {
+    mockGet.mockResolvedValue(GOALS);
+    await renderScreen();
+    await screen.findByText('sam k');
+    await fireEvent.press(screen.getByRole('button', { name: 'Edit profile' }));
+    expect(mockPush).toHaveBeenCalledWith('/edit-profile');
+  });
+
+  it('shows an offline message with Retry that refetches the profile', async () => {
+    mockGet.mockResolvedValue(GOALS);
+    mockProfile.mockRejectedValueOnce(new NetworkError()).mockResolvedValue(PROFILE);
+    await renderScreen();
+    expect(await screen.findByText("You're offline. Check your connection and try again.")).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('sam k')).toBeTruthy();
+  });
+
+  it('shows a load error without an edit button', async () => {
+    mockGet.mockResolvedValue(GOALS);
+    mockProfile.mockRejectedValue(new Error('x'));
+    await renderScreen();
+    expect(await screen.findByText("Couldn't load your profile.")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
   });
 });

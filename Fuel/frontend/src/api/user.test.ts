@@ -1,5 +1,5 @@
 import { ApiError } from './errors';
-import { getBodyStats, getGoals, putBodyStats, putGoals, recalculateGoals, userKeys } from './user';
+import { getBodyStats, getGoals, getProfile, putBodyStats, putProfile, putGoals, recalculateGoals, userKeys } from './user';
 
 const fetchMock = jest.fn();
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
@@ -61,8 +61,24 @@ describe('user api', () => {
     expect(err.fieldErrors).toEqual([{ field: 'age', message: 'too low' }]);
   });
 
+  it('getProfile gets the profile', async () => {
+    await getProfile();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/user/profile');
+    expect(init.method).toBe('GET');
+  });
+
+  it('putProfile sends only the given fields', async () => {
+    await putProfile({ name: 'Sam' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/user/profile');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ name: 'Sam' });
+  });
+
   it('keeps query keys free of values', () => {
     expect(userKeys.bodyStats).toEqual(['user', 'bodyStats']);
     expect(userKeys.goals).toEqual(['user', 'goals']);
+    expect(userKeys.profile).toEqual(['user', 'profile']);
   });
 });

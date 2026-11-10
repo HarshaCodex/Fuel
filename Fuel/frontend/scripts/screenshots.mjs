@@ -79,6 +79,19 @@ async function main() {
     await page.screenshot({ path: join(OUT, 'edit-entry-error.png') });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: 'Save changes', exact: true }).waitFor({ state: 'detached' });
+    // Profile: account card, the edit modal, then its timezone picker.
+    await page.getByRole('tab', { name: 'Profile' }).click();
+    await page.getByText('shots@example.com', { exact: true }).waitFor();
+    await page.screenshot({ path: join(OUT, 'profile.png') });
+    await page.getByRole('button', { name: 'Edit profile', exact: true }).click();
+    await page.getByRole('button', { name: 'Timezone, America/New_York' }).waitFor();
+    await page.screenshot({ path: join(OUT, 'edit-profile.png') });
+    await page.getByRole('button', { name: 'Timezone, America/New_York' }).click();
+    await page.getByRole('textbox', { name: 'Search timezones' }).fill('lon');
+    await page.getByRole('button', { name: 'Europe/London', exact: true }).waitFor();
+    await page.screenshot({ path: join(OUT, 'edit-profile-timezone.png') });
+    await page.getByRole('button', { name: 'Back to profile', exact: true }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     // My Foods: empty first, then with foods, then the editor prefilled from a food.
     customEmpty = true;
     await page.getByRole('tab', { name: 'Profile' }).click();

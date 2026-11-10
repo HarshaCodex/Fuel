@@ -2,11 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getGoals, userKeys, type Goals } from '@/api/user';
+import { getGoals, getProfile, userKeys, type Goals } from '@/api/user';
 import { Banner } from '@/components/Banner';
+import { Button } from '@/components/Button';
 import { FormScreen } from '@/components/FormScreen';
 import { classifyAuthError } from '@/lib/authErrors';
 import { GOALS_MESSAGES, summarizeGoals } from '@/lib/goalsForm';
+import { PROFILE_MESSAGES } from '@/lib/profileForm';
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
 
 const noteFor = (g: Goals) =>
@@ -16,6 +18,8 @@ export default function ProfileScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const goals = useQuery({ queryKey: userKeys.goals, queryFn: getGoals });
+  const profile = useQuery({ queryKey: userKeys.profile, queryFn: getProfile });
+  const account = profile.data;
   const data = goals.data;
   const calories = data ? `${Math.round(data.calorieGoal).toLocaleString('en-US')} kcal` : '';
   const summary = data ? summarizeGoals(data) : '';
@@ -25,6 +29,33 @@ export default function ProfileScreen() {
       <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
         Profile
       </Text>
+      {profile.isError && !account ? (
+        <Banner
+          variant="danger"
+          message={classifyAuthError(profile.error).kind === 'offline' ? PROFILE_MESSAGES.offline : PROFILE_MESSAGES.loadFailed}
+          action={{ label: 'Retry', onPress: () => void profile.refetch() }}
+        />
+      ) : (
+        <View style={[styles.account, shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {account ? (
+            <>
+              <View style={styles.identity}>
+                <View style={[styles.avatar, { backgroundColor: colors.accentSoft }]} accessibilityElementsHidden importantForAccessibility="no">
+                  <Text style={[type.title2, { color: colors.accentText }]}>{account.name.trim().charAt(0).toUpperCase()}</Text>
+                </View>
+                <View style={styles.identityText}>
+                  <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={2}>{account.name}</Text>
+                  <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>{account.email}</Text>
+                  <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>{account.timezone}</Text>
+                </View>
+              </View>
+              <Button label="Edit profile" variant="secondary" size="md" onPress={() => router.push('/edit-profile')} />
+            </>
+          ) : (
+            <Text style={[type.callout, { color: colors.textSecondary }]}>Loading profile</Text>
+          )}
+        </View>
+      )}
       {goals.isError && !data ? (
         <Banner
           variant="danger"
@@ -79,6 +110,10 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  account: { borderRadius: radius.lg, borderWidth: sizing.border, padding: space.lg, gap: space.md },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  identityText: { flex: 1, gap: space.xs },
+  avatar: { width: sizing.avatar, height: sizing.avatar, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   card: { borderRadius: radius.lg, borderWidth: sizing.border, padding: space.lg, gap: space.xs, minHeight: sizing.touchMin },
   link: { minHeight: sizing.row, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, borderRadius: radius.lg, borderWidth: sizing.border },
   linkText: { flex: 1 },

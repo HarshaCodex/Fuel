@@ -17,6 +17,7 @@ function RootStack() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="edit-goals" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
           <Stack.Screen name="quick-log" options={{ presentation: 'modal' }} />
           <Stack.Screen name="search" />
           <Stack.Screen name="food-detail" />
