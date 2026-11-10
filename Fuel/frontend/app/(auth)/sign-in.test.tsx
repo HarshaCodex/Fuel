@@ -91,15 +91,23 @@ describe('SignIn', () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it('shows the same generic error for 401 and 403', async () => {
-    for (const status of [401, 403]) {
-      mockLogin.mockRejectedValueOnce(new ApiError(status, 'x'));
-      const view = await render(<SignIn />);
-      await fill();
-      await submit();
-      expect(await screen.findByText('Email or password is incorrect')).toBeTruthy();
-      await view.unmount();
-    }
+  it('shows the credentials error for 401', async () => {
+    mockLogin.mockRejectedValueOnce(new ApiError(401, 'x'));
+    await render(<SignIn />);
+    await fill();
+    await submit();
+    expect(await screen.findByText('Email or password is incorrect')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalledWith('/verify-email');
+  });
+
+  it('routes a 403 to verify-email with the typed email and no error', async () => {
+    mockLogin.mockRejectedValueOnce(new ApiError(403, 'x'));
+    await render(<SignIn />);
+    await fill(`  ${EMAIL} `);
+    await submit();
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/verify-email'));
+    expect(getPendingEmail()).toBe(EMAIL);
+    expect(screen.queryByText('Email or password is incorrect')).toBeNull();
   });
 
   it.each([
