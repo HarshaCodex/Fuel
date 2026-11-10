@@ -16,6 +16,13 @@ export type BodyStatsForm = {
 export type BodyStatsField = 'age' | 'gender' | 'height' | 'weight' | 'activityLevel';
 export const BODY_STATS_FIELDS: readonly BodyStatsField[] = ['age', 'gender', 'height', 'weight', 'activityLevel'];
 
+export const BODY_STATS_UI = {
+  offline: "You're offline. Check your connection and try again.",
+  generic: "Couldn't save your body stats. Try again.",
+  unmatched: 'Some details were not accepted. Check your answers and try again.',
+  loadFailed: "Couldn't load your body stats.",
+} as const;
+
 export const BODY_STATS_MESSAGES = {
   ageRequired: 'Enter your age',
   ageRange: 'Age must be a whole number from 13 to 120',
@@ -168,3 +175,27 @@ export function formFromBodyStats(stats: BodyStats, units: Units): BodyStatsForm
   };
   return convertUnits(metric, units);
 }
+
+export const GENDERS = [
+  { value: 'MALE', label: 'Male' },
+  { value: 'FEMALE', label: 'Female' },
+] as const;
+export const UNIT_OPTIONS = [
+  { value: 'metric', label: 'Metric' },
+  { value: 'imperial', label: 'Imperial' },
+] as const;
+export const ACTIVITIES: readonly { value: ActivityLevel; label: string; description: string }[] = [
+  { value: 'SEDENTARY', label: 'Sedentary', description: 'Little or no exercise, desk job' },
+  { value: 'LIGHT', label: 'Lightly active', description: 'Light exercise 1 to 3 days a week' },
+  { value: 'MODERATE', label: 'Moderately active', description: 'Moderate exercise 3 to 5 days a week' },
+  { value: 'ACTIVE', label: 'Active', description: 'Hard exercise 6 to 7 days a week' },
+  { value: 'VERY_ACTIVE', label: 'Very active', description: 'Hard daily exercise or a physical job' },
+];
+
+/** One line for the Profile card, e.g. "180 cm, 80 kg, 30 years". Always metric as stored. */
+export function summarizeBodyStats(stats: BodyStats): string {
+  const gender = stats.gender === 'MALE' ? 'Male' : 'Female';
+  return `${show(stats.height)} cm, ${show(stats.weight)} kg, ${stats.age} years, ${gender}`;
+}
+
+export const activityLabel = (level: ActivityLevel): string => ACTIVITIES.find((a) => a.value === level)?.label ?? level;

@@ -93,6 +93,13 @@ async function main() {
     await page.screenshot({ path: join(OUT, 'edit-profile-timezone.png') });
     await page.getByRole('button', { name: 'Back to profile', exact: true }).click();
     await page.getByRole('button', { name: 'Close', exact: true }).click();
+    // Body stats card on Profile, then its edit modal.
+    await page.getByRole('button', { name: /^Edit body stats/ }).waitFor();
+    await page.screenshot({ path: join(OUT, 'profile-body-stats.png') });
+    await page.getByRole('button', { name: /^Edit body stats/ }).click();
+    await page.getByLabel('Height (cm)', { exact: true }).waitFor();
+    await page.screenshot({ path: join(OUT, 'edit-body-stats.png') });
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
     // My Foods: empty first, then with foods, then the editor prefilled from a food.
     customEmpty = true;
     await page.getByRole('tab', { name: 'Profile' }).click();

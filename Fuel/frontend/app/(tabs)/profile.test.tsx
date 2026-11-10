@@ -2,16 +2,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { NetworkError } from '@/api/errors';
-import { getGoals, getProfile, userKeys, type Goals, type UserProfile } from '@/api/user';
+import { getBodyStats, getGoals, getProfile, userKeys, type BodyStats, type Goals, type UserProfile } from '@/api/user';
 
 import Profile from './profile';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
-jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), getGoals: jest.fn(), getProfile: jest.fn() }));
+jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), getGoals: jest.fn(), getProfile: jest.fn(), getBodyStats: jest.fn() }));
+
 
 const mockGet = jest.mocked(getGoals);
 const mockProfile = jest.mocked(getProfile);
+const mockBody = jest.mocked(getBodyStats);
+const BODY: BodyStats = { height: 180, heightUnit: 'cm', weight: 80.5, weightUnit: 'kg', age: 30, gender: 'MALE', activityLevel: 'MODERATE', updatedAt: 'x' };
 const PROFILE: UserProfile = {
   userId: 'u1', email: 'sam@example.com', name: 'sam k', profilePhotoUrl: null, emailVerified: true,
   authProvider: 'EMAIL', timezone: 'Europe/London', createdAt: '2026-11-01T00:00:00Z',
@@ -29,6 +32,36 @@ async function renderScreen() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockProfile.mockResolvedValue(PROFILE);
+  mockBody.mockResolvedValue(BODY);
+  mockGet.mockResolvedValue(GOALS);
+});
+
+describe('Profile body stats card', () => {
+  it('shows loading, then the saved stats, and opens the editor', async () => {
+    await renderScreen();
+    expect(screen.getByText('Loading body stats')).toBeTruthy();
+    expect(await screen.findByText('180 cm, 80.5 kg, 30 years, Male')).toBeTruthy();
+    expect(screen.getByText('Moderately active')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /^Edit body stats/ }));
+    expect(mockPush).toHaveBeenCalledWith('/edit-body-stats');
+  });
+
+  it('invites the user to add stats when none are saved', async () => {
+    mockBody.mockResolvedValue(null);
+    await renderScreen();
+    const add = await screen.findByRole('button', { name: 'Add your body stats' });
+    await fireEvent.press(add);
+    expect(mockPush).toHaveBeenCalledWith('/edit-body-stats');
+  });
+
+  it('shows an offline banner with Retry when loading fails', async () => {
+    mockBody.mockRejectedValueOnce(new NetworkError());
+    await renderScreen();
+    expect(await screen.findByText("You're offline. Check your connection and try again.")).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit body stats' }).props.accessibilityState.disabled).toBe(true);
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Retry' })));
+    expect(await screen.findByText('180 cm, 80.5 kg, 30 years, Male')).toBeTruthy();
+  });
 });
 
 describe('Profile goals card', () => {
