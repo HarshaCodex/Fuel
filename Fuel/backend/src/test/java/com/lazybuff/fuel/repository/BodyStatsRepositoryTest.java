@@ -29,7 +29,7 @@ class BodyStatsRepositoryTest {
     static final PostgreSQLContainer POSTGRES =
             // V6 builds a trigram index but no migration creates the extension (provisioned on the
             // hosted database), so a fresh container needs it up front.
-            new PostgreSQLContainer("postgres:16-alpine").withInitScript("pg-extensions.sql");
+            new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired private JdbcTemplate jdbc;
 

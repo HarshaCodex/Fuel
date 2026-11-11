@@ -28,7 +28,7 @@ class FoodItemRepositoryCustomFoodTest {
     @Container @ServiceConnection
     static final PostgreSQLContainer POSTGRES =
             // V6 builds a trigram index but no migration creates the extension.
-            new PostgreSQLContainer("postgres:16-alpine").withInitScript("pg-extensions.sql");
+            new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired private JdbcTemplate jdbc;
 
