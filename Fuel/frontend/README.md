@@ -47,6 +47,12 @@ cp .env.example .env
 | `npm run check` | Typecheck, lint and tests |
 | `npm run screenshots` | Export the web build and write PNGs for the main screens and their empty and error states to `screenshots/`; it signs in through the UI against a mocked `/api/auth/login`. Run `npx playwright install chromium` once first. |
 
+## Device tests (Maestro)
+
+`maestro/` holds end-to-end flows that drive a real Android build on an emulator against a local backend with
+seeded test data. Run them with `maestro test -e LAB_EMAIL=<email> -e LAB_PASSWORD=<password> maestro/` once the app
+is installed and the backend is up. Each flow signs in as the seeded test user, so the account must exist.
+
 ## Folder layout
 
 - `app/` Expo Router routes. `(tabs)/` holds the bottom tabs; `(auth)/` holds sign-in, register, verify-email, forgot-password and reset-password. Other screens sit directly in `app/`.
@@ -54,6 +60,7 @@ cp .env.example .env
 - `src/components/` shared components, for example form controls, dialogs and the dashboard and history widgets.
 - `src/lib/` helpers: `tokenStorage.ts`, `validation.ts` (form rules), `passwordRules.ts` (new-password rules), `authErrors.ts` (API error kinds, 429 text), `pendingEmail.ts` (in-memory email between auth screens), `useCooldown.ts` (resend countdown).
 - `src/config.ts` reads the API base URL.
+- `maestro/` Maestro device flows (see above).
 - `scripts/` screenshot script and its mocked API fixtures for the screens it covers.
 - `__tests__/app/` tests for the screens, mirroring `app/`. Never put test files in `app/`: Expo Router treats every file there as a route and bundles it into the phone app, where test code fails to build.
 
