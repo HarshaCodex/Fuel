@@ -20,7 +20,6 @@ name: Today date navigation
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 30000
-- assertVisible: "Today"
 - assertVisible:
     text: "Next day"
     enabled: false
@@ -35,8 +34,9 @@ name: Today date navigation
 - takeScreenshot: 02-yesterday
 - tapOn: "Next day"
 - extendedWaitUntil:
-    visible: "Today"
+    notVisible: "Yesterday"
     timeout: 15000
+- assertVisible: "kcal left"
 - assertVisible:
     text: "Next day"
     enabled: false

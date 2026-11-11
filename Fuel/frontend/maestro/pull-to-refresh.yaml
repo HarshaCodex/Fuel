@@ -1,4 +1,6 @@
-# Pulling down on Today and on History refreshes and leaves the data on screen.
+# Today: a food logged behind the app's back (through the backend API, by a host-side script) shows up only after
+# a pull down, so the gesture is proven to refetch. History: only checks that the gesture leaves the screen intact.
+# Needs the backend reachable from the host at API_BASE_URL (default http://localhost:8080).
 appId: com.harshacodex.fuel
 name: Pull to refresh
 ---
@@ -21,14 +23,25 @@ name: Pull to refresh
     visible: "kcal left"
     timeout: 30000
 - assertVisible: "Breakfast"
+- runScript:
+    file: scripts/add-probe-entry.js
+    env:
+      LAB_EMAIL: ${LAB_EMAIL}
+      LAB_PASSWORD: ${LAB_PASSWORD}
+- assertNotVisible: ${output.name}
 - swipe:
     start: 50%, 30%
     end: 50%, 80%
     duration: 600
-- extendedWaitUntil:
-    visible: "kcal left"
-    timeout: 15000
-- assertVisible: "Breakfast"
+- scrollUntilVisible:
+    element: ${output.name}
+- assertVisible: ${output.name}
+- runScript:
+    file: scripts/remove-probe-entry.js
+    env:
+      TOKEN: ${output.token}
+      ENTRY_ID: ${output.entryId}
+      FOOD_ID: ${output.foodId}
 - takeScreenshot: 01-today-refreshed
 - tapOn: "History"
 - extendedWaitUntil:

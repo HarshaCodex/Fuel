@@ -1,4 +1,6 @@
 # Editing name, body stats and goals saves and shows the new values; the flow restores the seeded values at the end.
+# If it fails midway the seeded user is left edited, so profile.yaml (runs next) also fails on the original values;
+# fix the first failure, then restore the seeded values (or reseed) before rerunning.
 appId: com.harshacodex.fuel
 name: Edit profile, body stats and goals
 ---

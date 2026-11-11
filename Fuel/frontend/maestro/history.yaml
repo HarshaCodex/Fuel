@@ -33,7 +33,7 @@ name: History and past days
 - assertVisible: ".*3 entries.*"
 - takeScreenshot: 01-history-7-days
 - scrollUntilVisible:
-    element: "History"
+    element: "7 days"
     direction: UP
 - tapOn: "30 days"
 - assertVisible:
@@ -54,7 +54,9 @@ name: History and past days
 - extendedWaitUntil:
     visible: "Meals"
     timeout: 15000
-- assertVisible: "Breakfast"
+# The day screen has a Back button and no range summary; History has neither the button nor "Meals".
+- assertVisible: "Back"
+- assertNotVisible: "Days on goal"
 - takeScreenshot: 04-past-day
 - tapOn: "Back"
 - extendedWaitUntil:
