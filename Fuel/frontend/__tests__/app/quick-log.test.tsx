@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getRecentFoods, type RecentFood } from '@/api/food';
 
@@ -30,9 +32,16 @@ let client: QueryClient;
 async function renderScreen() {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   await render(
-    <QueryClientProvider client={client}>
-      <QuickLog />
-    </QueryClientProvider>,
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: 390, height: 844 },
+        insets: { top: 47, left: 0, right: 0, bottom: 34 },
+      }}
+    >
+      <QueryClientProvider client={client}>
+        <QuickLog />
+      </QueryClientProvider>
+    </SafeAreaProvider>,
   );
 }
 
