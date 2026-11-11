@@ -35,6 +35,8 @@ name: Edit profile, body stats and goals
 - eraseText: 40
 - inputText: "Lab Tester"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "Lab Tester"
@@ -42,7 +44,7 @@ name: Edit profile, body stats and goals
 - takeScreenshot: 02-name-saved
 - tapOn: "Edit body stats.*"
 - extendedWaitUntil:
-    visible: "Save"
+    visible: "Activity level"
     timeout: 15000
 - takeScreenshot: 03-edit-body-stats
 - tapOn:
@@ -56,6 +58,8 @@ name: Edit profile, body stats and goals
 - eraseText: 8
 - inputText: "82"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "178 cm, 82 kg, 33 years, Male"
@@ -63,7 +67,7 @@ name: Edit profile, body stats and goals
 - takeScreenshot: 04-body-stats-saved
 - tapOn: "Edit goals.*"
 - extendedWaitUntil:
-    visible: "Save"
+    visible: "Protein (g)"
     timeout: 15000
 - takeScreenshot: 05-edit-goals
 - tapOn:
@@ -77,6 +81,8 @@ name: Edit profile, body stats and goals
 - eraseText: 8
 - inputText: "170"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "2,300 kcal"
@@ -86,7 +92,7 @@ name: Edit profile, body stats and goals
 # Restore the seeded values so later flows see the original data.
 - tapOn: "Edit goals.*"
 - extendedWaitUntil:
-    visible: "Save"
+    visible: "Protein (g)"
     timeout: 15000
 - tapOn:
     text: "Calories"
@@ -99,13 +105,15 @@ name: Edit profile, body stats and goals
 - eraseText: 8
 - inputText: "165"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "2,200 kcal"
     timeout: 15000
 - tapOn: "Edit body stats.*"
 - extendedWaitUntil:
-    visible: "Save"
+    visible: "Activity level"
     timeout: 15000
 - tapOn:
     text: "Age"
@@ -118,6 +126,8 @@ name: Edit profile, body stats and goals
 - eraseText: 8
 - inputText: "80"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "178 cm, 80 kg, 32 years, Male"
@@ -132,6 +142,8 @@ name: Edit profile, body stats and goals
 - eraseText: 40
 - inputText: "Lab User"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
     visible: "Lab User"
