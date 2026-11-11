@@ -1,6 +1,6 @@
 # Today: a food logged behind the app's back (through the backend API, by a host-side script) shows up only after
 # a pull down, so the gesture is proven to refetch. History: only checks that the gesture leaves the screen intact.
-# Needs the backend reachable from the host at API_BASE_URL (default http://localhost:8080).
+# Needs the backend reachable from the host at API_BASE_URL (default http://localhost:8090).
 appId: com.harshacodex.fuel
 name: Pull to refresh
 ---

@@ -1,6 +1,6 @@
 // Runs on the host (Maestro JS). Removes the entry and custom food made by add-probe-entry.js.
-// Inputs: TOKEN, ENTRY_ID, FOOD_ID, optional API_BASE_URL (default http://localhost:8080).
-var base = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:8080';
+// Inputs: TOKEN, ENTRY_ID, FOOD_ID, optional API_BASE_URL (default http://localhost:8090).
+var base = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:8090';
 var headers = { Authorization: 'Bearer ' + TOKEN };
 
 function remove(path) {

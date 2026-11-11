@@ -1,8 +1,8 @@
 // Runs on the host (Maestro JS), not on the device. Adds a uniquely named custom food and logs it for today
 // through the lab backend, so a flow can prove a pull-to-refresh really refetches.
-// Inputs: LAB_EMAIL, LAB_PASSWORD, optional API_BASE_URL (default http://localhost:8080).
+// Inputs: LAB_EMAIL, LAB_PASSWORD, optional API_BASE_URL (default http://localhost:8090).
 // Outputs: output.name, output.token, output.entryId, output.foodId.
-var base = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:8080';
+var base = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:8090';
 
 function call(path, body, token) {
   var headers = { 'Content-Type': 'application/json' };
