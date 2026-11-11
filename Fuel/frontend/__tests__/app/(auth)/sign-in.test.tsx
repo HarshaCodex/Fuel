@@ -21,6 +21,7 @@ jest.mock('@/auth/oauthProviders', () => ({
   signInWithGoogle: jest.fn(),
   signInWithApple: jest.fn(),
   isAppleSignInAvailable: jest.fn().mockResolvedValue(false),
+  isGoogleSignInAvailable: jest.fn().mockReturnValue(true),
 }));
 jest.mock('@/lib/tokenStorage');
 jest.mock('@/session/SessionProvider', () => ({ useSession: () => ({ signIn: mockSignIn }) }));

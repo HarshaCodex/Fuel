@@ -2,10 +2,22 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Platform } from 'react-native';
 
-import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from './oauthProviders';
+import { isAppleSignInAvailable, isGoogleSignInAvailable, signInWithApple, signInWithGoogle } from './oauthProviders';
+
+// Read through a getter: jest.mock is hoisted above this line, so the factory can't copy the value.
+let mockEnvironment = 'bare';
 
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: { configure: jest.fn(), hasPlayServices: jest.fn(), signIn: jest.fn() },
+}));
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    get executionEnvironment() {
+      return mockEnvironment;
+    },
+  },
+  ExecutionEnvironment: { Bare: 'bare', Standalone: 'standalone', StoreClient: 'storeClient' },
 }));
 jest.mock('expo-apple-authentication', () => ({
   signInAsync: jest.fn(),
@@ -19,6 +31,7 @@ const setOS = (os: string) => Object.defineProperty(Platform, 'OS', { get: () =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockEnvironment = 'bare';
   process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = 'web-id';
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID = 'ios-id';
 });
@@ -50,6 +63,23 @@ describe('signInWithGoogle', () => {
     setOS('android');
     await signInWithGoogle();
     expect(GoogleSignin.hasPlayServices).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('isGoogleSignInAvailable', () => {
+  it('is false in Expo Go and true in development and store builds', () => {
+    mockEnvironment = 'storeClient';
+    expect(isGoogleSignInAvailable()).toBe(false);
+    mockEnvironment = 'bare';
+    expect(isGoogleSignInAvailable()).toBe(true);
+    mockEnvironment = 'standalone';
+    expect(isGoogleSignInAvailable()).toBe(true);
+  });
+
+  it('makes signInWithGoogle fail in Expo Go without calling the native module', async () => {
+    mockEnvironment = 'storeClient';
+    await expect(signInWithGoogle()).rejects.toThrow('development build');
+    expect(signIn).not.toHaveBeenCalled();
   });
 });
 

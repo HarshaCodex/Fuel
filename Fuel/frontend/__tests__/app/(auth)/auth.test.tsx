@@ -16,6 +16,7 @@ jest.mock('@/auth/oauthProviders', () => ({
   signInWithGoogle: jest.fn(),
   signInWithApple: jest.fn(),
   isAppleSignInAvailable: jest.fn().mockResolvedValue(false),
+  isGoogleSignInAvailable: jest.fn().mockReturnValue(true),
 }));
 const mocked = jest.mocked(storage);
 

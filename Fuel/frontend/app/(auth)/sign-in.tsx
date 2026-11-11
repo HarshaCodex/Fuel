@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { login, oauthApple, oauthGoogle } from '@/api/auth';
-import { isAppleSignInAvailable, signInWithApple, signInWithGoogle } from '@/auth/oauthProviders';
+import { isAppleSignInAvailable, isGoogleSignInAvailable, signInWithApple, signInWithGoogle } from '@/auth/oauthProviders';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { FormScreen } from '@/components/FormScreen';
@@ -196,7 +196,7 @@ export default function SignInScreen() {
         onSubmitEditing={onSubmit}
       />
       <Button label="Sign in" loading={loading} onPress={onSubmit} />
-      <OAuthButtons disabled={loading} showApple={showApple} onGoogle={onGoogle} onApple={onApple} />
+      <OAuthButtons disabled={loading} showApple={showApple} showGoogle={isGoogleSignInAvailable()} onGoogle={onGoogle} onApple={onApple} />
       <View style={styles.links}>
         <Button variant="text" size="md" label="Forgot password?" onPress={() => router.push('/forgot-password')} />
         <Button variant="text" size="md" label="Create an account" onPress={() => router.push('/register')} />

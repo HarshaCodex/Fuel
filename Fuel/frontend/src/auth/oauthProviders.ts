@@ -1,5 +1,5 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 
 import { getGoogleClientIds } from '@/config';
@@ -12,8 +12,19 @@ export type AppleCredential = {
 
 let googleConfigured = false;
 
+/**
+ * Google sign-in is a native module that Expo Go doesn't include, so it works only in a development or store
+ * build. In Expo Go the button is hidden and the rest of the app still runs.
+ */
+export function isGoogleSignInAvailable(): boolean {
+  return Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
+}
+
 /** Resolves with the Google ID token, or null when the user cancels. Never logs the token. */
 export async function signInWithGoogle(): Promise<{ idToken: string } | null> {
+  if (!isGoogleSignInAvailable()) throw new Error('Google sign-in needs a development build, not Expo Go');
+  // Loaded on first use: importing it at startup crashes Expo Go, which lacks the native module.
+  const { GoogleSignin } = require('@react-native-google-signin/google-signin') as typeof import('@react-native-google-signin/google-signin');
   if (!googleConfigured) {
     const { webClientId, iosClientId } = getGoogleClientIds();
     GoogleSignin.configure({ webClientId, iosClientId });
