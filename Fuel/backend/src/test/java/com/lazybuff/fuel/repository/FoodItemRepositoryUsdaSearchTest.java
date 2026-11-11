@@ -27,8 +27,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 class FoodItemRepositoryUsdaSearchTest {
 
     @Container @ServiceConnection
-    static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer("postgres:16-alpine").withInitScript("pg-extensions.sql");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired private JdbcTemplate jdbc;
 

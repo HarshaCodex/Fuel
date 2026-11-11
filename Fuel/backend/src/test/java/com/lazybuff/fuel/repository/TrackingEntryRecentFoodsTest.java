@@ -33,8 +33,7 @@ class TrackingEntryRecentFoodsTest {
     private static final String BASE = "2026-01-10T12:00:00Z";
 
     @Container @ServiceConnection
-    static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer("postgres:16-alpine").withInitScript("pg-extensions.sql");
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired private JdbcTemplate jdbc;
 
