@@ -54,6 +54,20 @@ public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
             """)
     Optional<FoodItem> findLoggableById(@Param("id") UUID id, @Param("userId") UUID userId);
 
+    /**
+     * A food the caller may view, with its serving sizes: any shared food, or their own custom
+     * food. Another user's custom food is empty, the same as a missing one.
+     */
+    @EntityGraph(attributePaths = "servingSizes")
+    @Query(
+            """
+            SELECT f FROM FoodItem f LEFT JOIN f.user u
+            WHERE f.id = :id
+              AND (f.source <> com.lazybuff.fuel.util.FoodSource.USER OR u.id = :userId)
+            """)
+    Optional<FoodItem> findViewableWithServingSizesById(
+            @Param("id") UUID id, @Param("userId") UUID userId);
+
     Optional<FoodItem> findByIdAndSourceAndUser_Id(UUID id, FoodSource source, UUID userId);
 
     /**

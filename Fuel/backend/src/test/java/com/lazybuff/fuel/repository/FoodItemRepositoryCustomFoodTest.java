@@ -233,4 +233,41 @@ class FoodItemRepositoryCustomFoodTest {
 
         assertThat(foodItemRepository.findLoggableById(food, owner)).isEmpty();
     }
+
+    @Test
+    @DisplayName("findViewableWithServingSizesById returns a shared food to any user")
+    void shouldViewSharedFood() {
+        UUID shared = insertFood("shared", "USDA", null, "2026-01-01T00:00:00Z", null);
+
+        assertThat(foodItemRepository.findViewableWithServingSizesById(shared, insertUser()))
+                .isPresent();
+    }
+
+    @Test
+    @DisplayName("findViewableWithServingSizesById returns the caller's own custom food")
+    void shouldViewOwnCustomFood() {
+        UUID owner = insertUser();
+        UUID food = insertFood("mine", "USER", owner, "2026-01-01T00:00:00Z", null);
+
+        assertThat(foodItemRepository.findViewableWithServingSizesById(food, owner)).isPresent();
+    }
+
+    @Test
+    @DisplayName("findViewableWithServingSizesById is empty for another user's custom food")
+    void shouldNotViewAnotherUsersCustomFood() {
+        UUID food = insertFood("theirs", "USER", insertUser(), "2026-01-01T00:00:00Z", null);
+
+        assertThat(foodItemRepository.findViewableWithServingSizesById(food, insertUser()))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("findViewableWithServingSizesById is empty for a soft-deleted food")
+    void shouldNotViewSoftDeletedFood() {
+        UUID owner = insertUser();
+        UUID food =
+                insertFood("gone", "USER", owner, "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z");
+
+        assertThat(foodItemRepository.findViewableWithServingSizesById(food, owner)).isEmpty();
+    }
 }

@@ -148,12 +148,13 @@ public class FoodItemController {
                 description = "Missing or invalid access token"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "404",
-                description = "Food item not found")
+                description = "Food item not found, or another user's custom food")
     })
     @GetMapping(path = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponse<FoodItemDetail>> getFoodById(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<FoodItemDetail>> getFoodById(
+            @AuthenticationPrincipal String userId, @PathVariable UUID id) {
 
-        ApiResponse<FoodItemDetail> response = foodService.getFoodById(id);
+        ApiResponse<FoodItemDetail> response = foodService.getFoodById(id, UUID.fromString(userId));
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
