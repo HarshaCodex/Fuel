@@ -25,4 +25,13 @@ describe('TextField', () => {
     expect(onFocus).toHaveBeenCalled();
     expect(onBlur).toHaveBeenCalled();
   });
+  it('keeps the input frame as a real native view so focus styling cannot rebuild the input on Android', async () => {
+    await render(<TextField label="Email" />);
+    type Node = { type: string; props: Record<string, unknown>; children: (Node | string)[] | null };
+    const frame = (node: Node): Node | undefined =>
+      node.children?.some((c) => typeof c !== 'string' && c.props.accessibilityLabel === 'Email')
+        ? node
+        : node.children?.reduce<Node | undefined>((found, c) => found ?? (typeof c === 'string' ? undefined : frame(c)), undefined);
+    expect(frame(screen.toJSON() as Node)?.props.collapsable).toBe(false);
+  });
 });

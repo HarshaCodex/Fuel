@@ -1,0 +1,29 @@
+# Signs in as the seeded lab user and checks the Today screen shows their logged day.
+appId: com.harshacodex.fuel
+name: Sign in and see Today
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- takeScreenshot: 01-sign-in
+# Each label text also matches its input's accessibility label; index 1 is the input itself.
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- takeScreenshot: 02-filled
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- assertVisible: "Today"
+- assertVisible: "Breakfast"
+- assertVisible: ".*day streak.*"
+- takeScreenshot: 03-today

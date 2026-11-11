@@ -29,7 +29,10 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, Props>(funct
       <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
         {label}
       </Text>
+      {/* Focus changes this frame's border and shadow. Without collapsable={false}, Android's renderer can rebuild
+          the native input under it on focus, which drops focus and everything typed after the first letter. */}
       <View
+        collapsable={false}
         style={[
           styles.field,
           {
