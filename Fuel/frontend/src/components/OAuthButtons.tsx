@@ -6,13 +6,16 @@ import { sizing, space, type, useTheme } from '@/theme';
 type Props = {
   disabled?: boolean;
   showApple: boolean;
+  /** False in Expo Go, which can't run Google sign-in. */
+  showGoogle?: boolean;
   onGoogle: () => void;
   onApple: () => void;
 };
 
-/** "or" divider plus the provider buttons. The Apple button is rendered only when `showApple` is true. */
-export function OAuthButtons({ disabled = false, showApple, onGoogle, onApple }: Props) {
+/** "or" divider plus the provider buttons. Each button is rendered only when its provider is available. */
+export function OAuthButtons({ disabled = false, showApple, showGoogle = true, onGoogle, onApple }: Props) {
   const { colors } = useTheme();
+  if (!showGoogle && !showApple) return null;
   return (
     <View style={styles.wrap}>
       <View style={styles.divider} accessible={false} importantForAccessibility="no-hide-descendants">
@@ -22,7 +25,7 @@ export function OAuthButtons({ disabled = false, showApple, onGoogle, onApple }:
         </Text>
         <View style={[styles.line, { backgroundColor: colors.border }]} />
       </View>
-      <Button variant="secondary" label="Continue with Google" disabled={disabled} onPress={onGoogle} />
+      {showGoogle ? <Button variant="secondary" label="Continue with Google" disabled={disabled} onPress={onGoogle} /> : null}
       {showApple ? <Button variant="secondary" label="Continue with Apple" disabled={disabled} onPress={onApple} /> : null}
     </View>
   );
