@@ -35,7 +35,7 @@ name: Scan screen with camera denied
 - tapOn:
     text: "Or type the barcode"
     index: 1
-- inputText: "737628064502"
+- inputText: "5000159407236"
 - hideKeyboard
 # Dismiss the dev-build warnings toast, which can cover the bottom button.
 - runFlow:
