@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getRecentFoods, type RecentFood } from '@/api/food';
 
-import QuickLog from './quick-log';
+import QuickLog from '../../app/quick-log';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();

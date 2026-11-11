@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { ApiError, NetworkError } from '@/api/errors';
 import { getBodyStats, putBodyStats, userKeys, type BodyStats } from '@/api/user';
 
-import EditBodyStats from './edit-body-stats';
+import EditBodyStats from '../../app/edit-body-stats';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));

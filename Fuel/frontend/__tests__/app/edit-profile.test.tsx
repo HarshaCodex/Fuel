@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { ApiError, NetworkError } from '@/api/errors';
 import { getProfile, putProfile, userKeys, type UserProfile } from '@/api/user';
 
-import EditProfile from './edit-profile';
+import EditProfile from '../../app/edit-profile';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));

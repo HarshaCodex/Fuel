@@ -6,7 +6,7 @@ import { ApiError, NetworkError } from '@/api/errors';
 import { clearPendingEmail, setPendingEmail } from '@/lib/pendingEmail';
 import { darkColors } from '@/theme';
 
-import VerifyEmail from './verify-email';
+import VerifyEmail from '../../../app/(auth)/verify-email';
 
 const mockReplace = jest.fn();
 const mockSignIn = jest.fn();

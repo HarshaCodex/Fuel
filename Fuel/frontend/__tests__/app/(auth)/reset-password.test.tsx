@@ -5,7 +5,7 @@ import { forgotPassword, resetPassword } from '@/api/auth';
 import { ApiError, NetworkError } from '@/api/errors';
 import { clearPendingEmail, getPendingEmail, setPendingEmail } from '@/lib/pendingEmail';
 
-import ResetPassword from './reset-password';
+import ResetPassword from '../../../app/(auth)/reset-password';
 
 const mockReplace = jest.fn();
 const mockRouter = { replace: mockReplace };

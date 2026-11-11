@@ -2,14 +2,14 @@ import { renderRouter, screen } from 'expo-router/testing-library';
 
 import * as storage from '@/lib/tokenStorage';
 
-import RootLayout from '../_layout';
-import TabsLayout from '../(tabs)/_layout';
-import History from '../(tabs)/history';
-import Today from '../(tabs)/index';
-import Profile from '../(tabs)/profile';
-import NotFound from '../+not-found';
-import AuthLayout from './_layout';
-import SignIn from './sign-in';
+import RootLayout from '../../../app/_layout';
+import TabsLayout from '../../../app/(tabs)/_layout';
+import History from '../../../app/(tabs)/history';
+import Today from '../../../app/(tabs)/index';
+import Profile from '../../../app/(tabs)/profile';
+import NotFound from '../../../app/+not-found';
+import AuthLayout from '../../../app/(auth)/_layout';
+import SignIn from '../../../app/(auth)/sign-in';
 
 jest.mock('@/lib/tokenStorage');
 jest.mock('@/auth/oauthProviders', () => ({

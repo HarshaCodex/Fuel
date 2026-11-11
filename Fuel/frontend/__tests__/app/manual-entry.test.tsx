@@ -5,7 +5,7 @@ import { ApiError, NetworkError } from '@/api/errors';
 import { createCustomFood, foodKeys, getFood, updateCustomFood, type Food } from '@/api/food';
 import { createEntry, trackingKeys } from '@/api/tracking';
 
-import ManualEntry from './manual-entry';
+import ManualEntry from '../../app/manual-entry';
 
 const mockDismissAll = jest.fn();
 const mockBack = jest.fn();

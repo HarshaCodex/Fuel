@@ -55,6 +55,7 @@ cp .env.example .env
 - `src/lib/` helpers: `tokenStorage.ts`, `validation.ts` (form rules), `passwordRules.ts` (new-password rules), `authErrors.ts` (API error kinds, 429 text), `pendingEmail.ts` (in-memory email between auth screens), `useCooldown.ts` (resend countdown).
 - `src/config.ts` reads the API base URL.
 - `scripts/` screenshot script and its mocked API fixtures for the screens it covers.
+- `__tests__/app/` tests for the screens, mirroring `app/`. Never put test files in `app/`: Expo Router treats every file there as a route and bundles it into the phone app, where test code fails to build.
 
 ## Theme rule
 

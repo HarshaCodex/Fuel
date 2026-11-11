@@ -6,7 +6,7 @@ import { putBodyStats, recalculateGoals } from '@/api/user';
 
 import { setOnboardingSkipped } from '@/lib/tokenStorage';
 
-import Onboarding from './onboarding';
+import Onboarding from '../../app/onboarding';
 
 jest.mock('@/lib/tokenStorage');
 

@@ -5,7 +5,7 @@ import { forgotPassword } from '@/api/auth';
 import { ApiError, NetworkError } from '@/api/errors';
 import { clearPendingEmail, getPendingEmail } from '@/lib/pendingEmail';
 
-import ForgotPassword from './forgot-password';
+import ForgotPassword from '../../../app/(auth)/forgot-password';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();

@@ -7,7 +7,7 @@ import { SwipeDirection } from 'react-native-gesture-handler/ReanimatedSwipeable
 import { ApiError, NetworkError } from '@/api/errors';
 import { deleteCustomFood, foodKeys, getCustomFoodPage, type Food, type FoodPage } from '@/api/food';
 
-import MyFoods from './my-foods';
+import MyFoods from '../../app/my-foods';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();

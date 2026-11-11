@@ -1,7 +1,7 @@
 import { renderRouter, screen, within } from 'expo-router/testing-library';
 
-import TabsLayout from './_layout';
-import History from './history';
+import TabsLayout from '../../../app/(tabs)/_layout';
+import History from '../../../app/(tabs)/history';
 
 describe('tab bar', () => {
   it('shows exactly Today, History, Profile in order with Today selected', async () => {

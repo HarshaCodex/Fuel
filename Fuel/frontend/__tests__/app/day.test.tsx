@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ApiError, NetworkError } from '@/api/errors';
 import { getDashboard, type Dashboard } from '@/api/tracking';
 
-import Day from './day';
+import Day from '../../app/day';
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),

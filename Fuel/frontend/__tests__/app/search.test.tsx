@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getFoodPage, type Food, type FoodPage } from '@/api/food';
 
-import Search from './search';
+import Search from '../../app/search';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
