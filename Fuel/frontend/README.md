@@ -51,7 +51,7 @@ cp .env.example .env
 
 `maestro/` holds end-to-end flows that drive a real Android build on an emulator against a local backend with
 seeded test data. Run them with `maestro test -e LAB_EMAIL=<email> -e LAB_PASSWORD=<password> maestro/` once the app
-is installed and the backend is up. Each flow signs in as the seeded test user, so the account must exist.
+is installed and the backend is up. Most flows start by signing in as the seeded test user, so that account must exist; the auth flows (register, forgot password, wrong password, sign out) start signed out and use their own steps.
 
 ## Folder layout
 

@@ -1,0 +1,45 @@
+# Pulling down on Today and on History refreshes and leaves the data on screen.
+appId: com.harshacodex.fuel
+name: Pull to refresh
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- assertVisible: "Breakfast"
+- swipe:
+    start: 50%, 30%
+    end: 50%, 80%
+    duration: 600
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 15000
+- assertVisible: "Breakfast"
+- takeScreenshot: 01-today-refreshed
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: "Days on goal"
+    timeout: 15000
+- swipe:
+    start: 50%, 30%
+    end: 50%, 80%
+    duration: 600
+- extendedWaitUntil:
+    visible: "Days on goal"
+    timeout: 15000
+- assertNotVisible: "Couldn't load your history"
+- takeScreenshot: 02-history-refreshed

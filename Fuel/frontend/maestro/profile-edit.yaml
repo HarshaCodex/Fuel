@@ -1,0 +1,139 @@
+# Editing name, body stats and goals saves and shows the new values; the flow restores the seeded values at the end.
+appId: com.harshacodex.fuel
+name: Edit profile, body stats and goals
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Lab User"
+    timeout: 15000
+- tapOn: "Edit profile"
+- extendedWaitUntil:
+    visible: "Save"
+    timeout: 15000
+- takeScreenshot: 01-edit-profile
+- tapOn:
+    text: "Name"
+    index: 1
+- eraseText: 40
+- inputText: "Lab Tester"
+- hideKeyboard
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Lab Tester"
+    timeout: 15000
+- takeScreenshot: 02-name-saved
+- tapOn: "Edit body stats.*"
+- extendedWaitUntil:
+    visible: "Save"
+    timeout: 15000
+- takeScreenshot: 03-edit-body-stats
+- tapOn:
+    text: "Age"
+    index: 1
+- eraseText: 5
+- inputText: "33"
+- tapOn:
+    text: "Weight (kg)"
+    index: 1
+- eraseText: 8
+- inputText: "82"
+- hideKeyboard
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "178 cm, 82 kg, 33 years, Male"
+    timeout: 15000
+- takeScreenshot: 04-body-stats-saved
+- tapOn: "Edit goals.*"
+- extendedWaitUntil:
+    visible: "Save"
+    timeout: 15000
+- takeScreenshot: 05-edit-goals
+- tapOn:
+    text: "Calories"
+    index: 1
+- eraseText: 8
+- inputText: "2300"
+- tapOn:
+    text: "Protein (g)"
+    index: 1
+- eraseText: 8
+- inputText: "170"
+- hideKeyboard
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "2,300 kcal"
+    timeout: 15000
+- assertVisible: "Protein 170 g, Carbs 250 g, Fat 70 g"
+- takeScreenshot: 06-goals-saved
+# Restore the seeded values so later flows see the original data.
+- tapOn: "Edit goals.*"
+- extendedWaitUntil:
+    visible: "Save"
+    timeout: 15000
+- tapOn:
+    text: "Calories"
+    index: 1
+- eraseText: 8
+- inputText: "2200"
+- tapOn:
+    text: "Protein (g)"
+    index: 1
+- eraseText: 8
+- inputText: "165"
+- hideKeyboard
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "2,200 kcal"
+    timeout: 15000
+- tapOn: "Edit body stats.*"
+- extendedWaitUntil:
+    visible: "Save"
+    timeout: 15000
+- tapOn:
+    text: "Age"
+    index: 1
+- eraseText: 5
+- inputText: "32"
+- tapOn:
+    text: "Weight (kg)"
+    index: 1
+- eraseText: 8
+- inputText: "80"
+- hideKeyboard
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "178 cm, 80 kg, 32 years, Male"
+    timeout: 15000
+- tapOn: "Edit profile"
+- extendedWaitUntil:
+    visible: "Save"
+    timeout: 15000
+- tapOn:
+    text: "Name"
+    index: 1
+- eraseText: 40
+- inputText: "Lab User"
+- hideKeyboard
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Lab User"
+    timeout: 15000
+- takeScreenshot: 07-restored
