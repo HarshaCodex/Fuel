@@ -6,7 +6,7 @@ import { ApiError, NetworkError } from '@/api/errors';
 import { getPendingEmail } from '@/lib/pendingEmail';
 import { darkColors } from '@/theme';
 
-import Register from './register';
+import Register from '../../../app/(auth)/register';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();

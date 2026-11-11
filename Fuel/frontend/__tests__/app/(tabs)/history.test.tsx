@@ -6,7 +6,7 @@ import { getHistory, type HistoryDay } from '@/api/tracking';
 import { addDays, isoDate } from '@/lib/dashboardView';
 import { dayLabel } from '@/lib/historyView';
 
-import History from './history';
+import History from '../../../app/(tabs)/history';
 
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();

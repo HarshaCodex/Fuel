@@ -5,7 +5,7 @@ import { Linking } from 'react-native';
 import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getFoodByBarcode, type Food } from '@/api/food';
 
-import Scan from './scan';
+import Scan from '../../app/scan';
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();

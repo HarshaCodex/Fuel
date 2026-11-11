@@ -7,7 +7,7 @@ import { ApiError, NetworkError } from '@/api/errors';
 import { clearPendingEmail, getPendingEmail, setPendingEmail } from '@/lib/pendingEmail';
 import { darkColors } from '@/theme';
 
-import SignIn from './sign-in';
+import SignIn from '../../../app/(auth)/sign-in';
 
 const mockPush = jest.fn();
 const mockSignIn = jest.fn();

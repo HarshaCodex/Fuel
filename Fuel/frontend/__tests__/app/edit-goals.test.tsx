@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { ApiError, NetworkError } from '@/api/errors';
 import { getGoals, putGoals, userKeys, type Goals } from '@/api/user';
 
-import EditGoals from './edit-goals';
+import EditGoals from '../../app/edit-goals';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack }) }));

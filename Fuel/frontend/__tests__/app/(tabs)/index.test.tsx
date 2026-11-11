@@ -6,7 +6,7 @@ import { deleteEntry, getDashboard, getEntries, updateEntry, type CreatedEntry, 
 import { UNDO_MS } from '@/lib/usePendingDeletes';
 import { addDays } from '@/lib/dashboardView';
 
-import Today from './index';
+import Today from '../../../app/(tabs)/index';
 
 // Gestures cannot run in Jest, so Swipeable is replaced by a pass-through.
 jest.mock('react-native-safe-area-context', () => ({
