@@ -1,0 +1,64 @@
+# Search "chicken", open a result, set the amount and meal, log it, and see it on Today with the calories updated.
+appId: com.harshacodex.fuel
+name: Log a food from search
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- copyTextFrom:
+    text: ".* of .* eaten"
+- evalScript: ${output.eatenBefore = maestro.copiedText}
+- takeScreenshot: 01-today-before
+- tapOn: "Log food"
+- tapOn: "Search foods"
+- extendedWaitUntil:
+    visible: "Type at least 2 characters to search foods."
+    timeout: 15000
+- takeScreenshot: 02-search-empty
+- tapOn:
+    text: "Search foods"
+    index: 1
+- inputText: "chicken"
+- extendedWaitUntil:
+    visible: "Chicken breast, roasted"
+    timeout: 30000
+- assertVisible: "Chicken thigh, roasted"
+- takeScreenshot: 03-search-results
+- tapOn: "Chicken breast, roasted"
+- extendedWaitUntil:
+    visible: "Amount"
+    timeout: 15000
+- tapOn:
+    text: "Amount"
+    index: 1
+- eraseText: 10
+- inputText: "200"
+- hideKeyboard
+- tapOn: "Dinner"
+- assertVisible: "Log 330 kcal"
+- takeScreenshot: 04-food-detail
+- tapOn: "Log 330 kcal"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- assertVisible: "Chicken breast, roasted"
+- assertVisible: "Dinner"
+- copyTextFrom:
+    text: ".* of .* eaten"
+- assertTrue: ${maestro.copiedText != output.eatenBefore}
+- takeScreenshot: 05-today-after

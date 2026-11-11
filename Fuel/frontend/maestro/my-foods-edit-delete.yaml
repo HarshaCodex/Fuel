@@ -1,0 +1,106 @@
+# Create a custom food from My Foods, edit it, then delete it through the confirmation dialog.
+appId: com.harshacodex.fuel
+name: My Foods edit and delete
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Log food"
+- tapOn: "My Foods"
+- extendedWaitUntil:
+    visible: "New food"
+    timeout: 15000
+- assertVisible: "Lab overnight oats"
+- takeScreenshot: 01-my-foods
+- tapOn: "New food"
+- extendedWaitUntil:
+    visible: "Save food"
+    timeout: 15000
+- tapOn:
+    text: "Name"
+    index: 1
+- inputText: "Lab edit bar"
+- tapOn:
+    text: "Serving size"
+    index: 1
+- inputText: "40"
+- tapOn:
+    text: "Calories"
+    index: 1
+- inputText: "180"
+- tapOn:
+    text: "Protein"
+    index: 1
+- inputText: "10"
+- tapOn:
+    text: "Carbs"
+    index: 1
+- inputText: "20"
+- tapOn:
+    text: "Fat"
+    index: 1
+- inputText: "6"
+- hideKeyboard
+- tapOn: "Save food"
+- extendedWaitUntil:
+    visible: "Lab edit bar"
+    timeout: 15000
+- takeScreenshot: 02-created
+- tapOn: "More actions for Lab edit bar"
+- takeScreenshot: 03-row-menu
+- tapOn: "Edit Lab edit bar"
+- extendedWaitUntil:
+    visible: "Edit food"
+    timeout: 15000
+- takeScreenshot: 04-edit-form
+- tapOn:
+    text: "Name"
+    index: 1
+- eraseText: 30
+- inputText: "Lab edited bar"
+- tapOn:
+    text: "Calories"
+    index: 1
+- eraseText: 10
+- inputText: "190"
+- hideKeyboard
+- tapOn: "Save changes"
+- extendedWaitUntil:
+    visible: "Lab edited bar"
+    timeout: 15000
+- assertNotVisible: "Lab edit bar"
+- takeScreenshot: 05-edited
+- tapOn: "More actions for Lab edited bar"
+- tapOn: "Delete Lab edited bar"
+- extendedWaitUntil:
+    visible: "Delete Lab edited bar?"
+    timeout: 15000
+- takeScreenshot: 06-confirm-delete
+- tapOn: "Cancel"
+- assertVisible: "Lab edited bar"
+- tapOn: "More actions for Lab edited bar"
+- tapOn: "Delete Lab edited bar"
+- extendedWaitUntil:
+    visible: "Delete Lab edited bar?"
+    timeout: 15000
+- tapOn: "Delete"
+- extendedWaitUntil:
+    notVisible: "Lab edited bar"
+    timeout: 15000
+- assertVisible: "Lab overnight oats"
+- takeScreenshot: 07-deleted
