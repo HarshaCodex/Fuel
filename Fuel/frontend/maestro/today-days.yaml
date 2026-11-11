@@ -1,0 +1,44 @@
+# The date chevrons on Today move to yesterday and back; Next is disabled on today.
+appId: com.harshacodex.fuel
+name: Today date navigation
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- assertVisible:
+    text: "Next day"
+    enabled: false
+- takeScreenshot: 01-today
+- tapOn: "Previous day"
+- extendedWaitUntil:
+    visible: "Yesterday"
+    timeout: 15000
+- assertVisible:
+    text: "Next day"
+    enabled: true
+- takeScreenshot: 02-yesterday
+- tapOn: "Next day"
+- extendedWaitUntil:
+    notVisible: "Yesterday"
+    timeout: 15000
+- assertVisible: "kcal left"
+- assertVisible:
+    text: "Next day"
+    enabled: false
+- assertVisible: "kcal left"
+- takeScreenshot: 03-back-on-today

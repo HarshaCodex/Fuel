@@ -1,0 +1,68 @@
+# History lists the seeded days, switches range, opens a day and comes back with the range kept.
+appId: com.harshacodex.fuel
+name: History and past days
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: "Days on goal"
+    timeout: 15000
+- assertVisible: "Avg kcal per logged day"
+- assertVisible: "7 days"
+- assertVisible: "30 days"
+- assertVisible: "90 days"
+- scrollUntilVisible:
+    element: "Open.*"
+- assertVisible: ".*3 entries.*"
+- takeScreenshot: 01-history-7-days
+- scrollUntilVisible:
+    element: "7 days"
+    direction: UP
+- tapOn: "30 days"
+- assertVisible:
+    text: "30 days"
+    selected: true
+- assertVisible: "Days on goal"
+- takeScreenshot: 02-history-30-days
+- tapOn: "90 days"
+- assertVisible:
+    text: "90 days"
+    selected: true
+- assertVisible: "Days on goal"
+- takeScreenshot: 03-history-90-days
+- tapOn: "30 days"
+- scrollUntilVisible:
+    element: "Open.*"
+- tapOn: "Open.*"
+- extendedWaitUntil:
+    visible: "Meals"
+    timeout: 15000
+# The day screen has a Back button and no range summary; History has neither the button nor "Meals".
+- assertVisible: "Back"
+- assertNotVisible: "Days on goal"
+- takeScreenshot: 04-past-day
+- tapOn: "Back"
+- extendedWaitUntil:
+    visible: "Days on goal"
+    timeout: 15000
+- assertVisible:
+    text: "30 days"
+    selected: true
+- takeScreenshot: 05-back-range-kept

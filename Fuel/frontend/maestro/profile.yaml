@@ -1,0 +1,32 @@
+# Profile shows the seeded account, goals and body stats.
+appId: com.harshacodex.fuel
+name: Profile shows goals and body stats
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Lab User"
+    timeout: 15000
+- assertVisible: ${LAB_EMAIL}
+- assertVisible: "2,200 kcal"
+- assertVisible: "Protein 165 g, Carbs 250 g, Fat 70 g"
+- assertVisible: "178 cm, 80 kg, 32 years, Male"
+- assertVisible: "Moderately active"
+- takeScreenshot: 01-profile
