@@ -52,13 +52,21 @@ name: Log a food from search
 - tapOn: "Dinner"
 - assertVisible: "Log 330 kcal"
 - takeScreenshot: 04-food-detail
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Log 330 kcal"
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 30000
-- assertVisible: "Chicken breast, roasted"
-- assertVisible: "Dinner"
 - copyTextFrom:
     text: ".* of .* eaten"
+- scrollUntilVisible:
+    element: "Dinner"
+- assertVisible: "Chicken breast, roasted"
 - assertTrue: ${maestro.copiedText != output.eatenBefore}
 - takeScreenshot: 05-today-after

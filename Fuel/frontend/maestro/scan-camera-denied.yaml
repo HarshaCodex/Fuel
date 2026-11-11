@@ -1,0 +1,51 @@
+# The scan screen opens from Quick Log; with camera access denied it explains why and still lets the user type the barcode.
+appId: com.harshacodex.fuel
+name: Scan screen with camera denied
+---
+- launchApp:
+    clearState: true
+    permissions:
+      camera: deny
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Log food"
+- extendedWaitUntil:
+    visible: "Scan barcode"
+    timeout: 15000
+- tapOn: "Scan barcode"
+- extendedWaitUntil:
+    visible: "Or type the barcode"
+    timeout: 15000
+- takeScreenshot: 01-scan-camera-denied
+- assertNotVisible: "Point at a barcode"
+- tapOn:
+    text: "Or type the barcode"
+    index: 1
+- inputText: "737628064502"
+- hideKeyboard
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- tapOn: "Look up"
+- extendedWaitUntil:
+    visible: "Amount"
+    timeout: 20000
+- takeScreenshot: 02-food-from-typed-barcode

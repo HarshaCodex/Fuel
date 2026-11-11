@@ -29,7 +29,7 @@ name: My Foods edit and delete
 - takeScreenshot: 01-my-foods
 - tapOn: "New food"
 - extendedWaitUntil:
-    visible: "Save food"
+    visible: "Serving size"
     timeout: 15000
 - tapOn:
     text: "Name"
@@ -39,24 +39,53 @@ name: My Foods edit and delete
     text: "Serving size"
     index: 1
 - inputText: "40"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Calories"
+    timeout: 15000
 - tapOn:
     text: "Calories"
     index: 1
 - inputText: "180"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Protein"
+    timeout: 15000
 - tapOn:
     text: "Protein"
     index: 1
 - inputText: "10"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Carbs"
+    timeout: 15000
 - tapOn:
     text: "Carbs"
     index: 1
 - inputText: "20"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Fat"
+    timeout: 15000
 - tapOn:
     text: "Fat"
     index: 1
 - inputText: "6"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save food"
+    timeout: 15000
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Save food"
+- extendedWaitUntil:
+    notVisible: "Save food"
+    timeout: 15000
 - extendedWaitUntil:
     visible: "Lab edit bar"
     timeout: 15000
@@ -73,13 +102,30 @@ name: My Foods edit and delete
     index: 1
 - eraseText: 30
 - inputText: "Lab edited bar"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Calories"
+    timeout: 15000
 - tapOn:
     text: "Calories"
     index: 1
 - eraseText: 10
 - inputText: "190"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save changes"
+    timeout: 15000
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Save changes"
+- extendedWaitUntil:
+    notVisible: "Edit food"
+    timeout: 15000
 - extendedWaitUntil:
     visible: "Lab edited bar"
     timeout: 15000

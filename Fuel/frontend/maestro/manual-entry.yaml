@@ -30,31 +30,58 @@ name: Manual entry saves to My Foods
     text: "Name"
     index: 1
 - inputText: "Lab manual bar"
+- hideKeyboard
 - tapOn:
     text: "Serving size"
     index: 1
 - inputText: "50"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Calories"
+    timeout: 15000
 - tapOn:
     text: "Calories"
     index: 1
 - inputText: "210"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Protein"
+    timeout: 15000
 - tapOn:
     text: "Protein"
     index: 1
 - inputText: "12"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Carbs"
+    timeout: 15000
 - tapOn:
     text: "Carbs"
     index: 1
 - inputText: "22"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Fat"
+    timeout: 15000
 - tapOn:
     text: "Fat"
     index: 1
 - inputText: "8"
 - hideKeyboard
+- scrollUntilVisible:
+    element: "Save to My Foods only"
+    timeout: 15000
 - takeScreenshot: 02-manual-filled
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Save to My Foods only"
 - extendedWaitUntil:
-    visible: "Log food"
+    visible: "Search foods"
     timeout: 15000
 - tapOn: "My Foods"
 - extendedWaitUntil:

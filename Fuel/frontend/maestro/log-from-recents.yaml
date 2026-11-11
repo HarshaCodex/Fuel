@@ -35,12 +35,20 @@ name: Log a food from recents
     timeout: 15000
 - tapOn: "Snack"
 - takeScreenshot: 02-food-detail
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Log .* kcal"
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 30000
-- assertVisible: "Snack"
 - copyTextFrom:
     text: ".* of .* eaten"
+- scrollUntilVisible:
+    element: "Rice, white, cooked"
 - assertTrue: ${maestro.copiedText != output.eatenBefore}
 - takeScreenshot: 03-today-after

@@ -40,11 +40,19 @@ name: Edit and delete a logged meal
 - inputText: "100"
 - hideKeyboard
 - tapOn: "Snack"
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Log 89 kcal"
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 30000
-- assertVisible: "Banana, raw"
+- scrollUntilVisible:
+    element: "Banana, raw"
 - takeScreenshot: 01-logged
 - tapOn: "More actions for Banana, raw"
 - takeScreenshot: 02-row-menu
@@ -59,6 +67,13 @@ name: Edit and delete a logged meal
 - eraseText: 10
 - inputText: "200"
 - hideKeyboard
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Save changes"
 - extendedWaitUntil:
     visible: "Banana, raw"
