@@ -1,0 +1,91 @@
+# Create a custom food by hand with the numeric fields, save it, and find it in My Foods.
+appId: com.harshacodex.fuel
+name: Manual entry saves to My Foods
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Log food"
+- tapOn: "Enter manually"
+- extendedWaitUntil:
+    visible: "Enter a food"
+    timeout: 15000
+- takeScreenshot: 01-manual-empty
+- tapOn:
+    text: "Name"
+    index: 1
+- inputText: "Lab manual bar"
+- hideKeyboard
+- tapOn:
+    text: "Serving size"
+    index: 1
+- inputText: "50"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Calories"
+    timeout: 15000
+- tapOn:
+    text: "Calories"
+    index: 1
+- inputText: "210"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Protein"
+    timeout: 15000
+- tapOn:
+    text: "Protein"
+    index: 1
+- inputText: "12"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Carbs"
+    timeout: 15000
+- tapOn:
+    text: "Carbs"
+    index: 1
+- inputText: "22"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Fat"
+    timeout: 15000
+- tapOn:
+    text: "Fat"
+    index: 1
+- inputText: "8"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Save to My Foods only"
+    timeout: 15000
+- takeScreenshot: 02-manual-filled
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- tapOn: "Save to My Foods only"
+- extendedWaitUntil:
+    visible: "Search foods"
+    timeout: 15000
+- tapOn: "My Foods"
+- extendedWaitUntil:
+    visible: "Lab manual bar"
+    timeout: 15000
+- assertVisible: "Lab overnight oats"
+- takeScreenshot: 03-my-foods

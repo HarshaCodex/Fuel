@@ -1,0 +1,94 @@
+# Log a banana, edit its amount from Today, then delete it.
+appId: com.harshacodex.fuel
+name: Edit and delete a logged meal
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Log food"
+- tapOn: "Search foods"
+- tapOn:
+    text: "Search foods"
+    index: 1
+- inputText: "banana"
+- extendedWaitUntil:
+    visible: "Banana, raw"
+    timeout: 30000
+- tapOn: "Banana, raw"
+- extendedWaitUntil:
+    visible: "Amount"
+    timeout: 15000
+- tapOn:
+    text: "Amount"
+    index: 1
+- eraseText: 10
+- inputText: "100"
+- hideKeyboard
+- tapOn: "Snack"
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- tapOn: "Log 89 kcal"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- scrollUntilVisible:
+    element: "Banana, raw"
+- takeScreenshot: 01-logged
+- tapOn: "More actions for Banana, raw"
+- takeScreenshot: 02-row-menu
+- tapOn: "Edit Banana, raw"
+- extendedWaitUntil:
+    visible: "Save changes"
+    timeout: 15000
+- takeScreenshot: 03-edit-sheet
+- tapOn:
+    text: "Amount"
+    index: 1
+- eraseText: 10
+- inputText: "200"
+- hideKeyboard
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- tapOn: "Save changes"
+- extendedWaitUntil:
+    visible: "Banana, raw"
+    timeout: 15000
+- extendedWaitUntil:
+    visible: ".*178 calories.*"
+    timeout: 15000
+- takeScreenshot: 04-edited
+- tapOn: "More actions for Banana, raw"
+- tapOn: "Delete Banana, raw"
+- extendedWaitUntil:
+    visible: "Banana, raw deleted"
+    timeout: 15000
+- assertNotVisible: "Banana, raw"
+- takeScreenshot: 05-deleted
+- extendedWaitUntil:
+    notVisible: "Banana, raw deleted"
+    timeout: 20000

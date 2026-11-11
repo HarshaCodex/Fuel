@@ -1,0 +1,54 @@
+# Log a food from the Recent list in Quick Log.
+appId: com.harshacodex.fuel
+name: Log a food from recents
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- copyTextFrom:
+    text: ".* of .* eaten"
+- evalScript: ${output.eatenBefore = maestro.copiedText}
+- tapOn: "Log food"
+- extendedWaitUntil:
+    visible: "Recent"
+    timeout: 15000
+- assertVisible: "Rice, white, cooked"
+- takeScreenshot: 01-quick-log-recents
+- tapOn: "Rice, white, cooked"
+- extendedWaitUntil:
+    visible: "Amount"
+    timeout: 15000
+- tapOn: "Snack"
+- takeScreenshot: 02-food-detail
+# Dismiss the dev-build warnings toast, which can cover the bottom button.
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- tapOn: "Log .* kcal"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- copyTextFrom:
+    text: ".* of .* eaten"
+- scrollUntilVisible:
+    element: "Rice, white, cooked"
+- assertTrue: ${maestro.copiedText != output.eatenBefore}
+- takeScreenshot: 03-today-after

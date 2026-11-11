@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { foodKeys, getRecentFoods, type RecentFood } from '@/api/food';
 import { NetworkError } from '@/api/errors';
@@ -46,6 +47,7 @@ function RecentsSkeleton() {
 export default function QuickLogScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const recents = useQuery({ queryKey: foodKeys.recent, queryFn: () => getRecentFoods(5) });
   const offline = recents.error instanceof NetworkError;
@@ -56,7 +58,7 @@ export default function QuickLogScreen() {
   };
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.bg }]}>
+    <View style={[styles.flex, { backgroundColor: colors.bg, paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
