@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
+import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { Appearance, Text } from 'react-native';
 
@@ -9,6 +10,7 @@ import * as storage from '@/lib/tokenStorage';
 import { SessionProvider, useSession } from './SessionProvider';
 
 jest.mock('@/lib/tokenStorage');
+jest.mock('expo-secure-store', () => ({ deleteItemAsync: jest.fn(), getItem: jest.fn(), setItem: jest.fn() }));
 const mocked = jest.mocked(storage);
 const fetchMock = jest.fn();
 
@@ -81,6 +83,7 @@ describe('SessionProvider', () => {
     await act(() => latest.session!.signOut());
     expect(screen.getByText('signedOut')).toBeTruthy();
     expect(setScheme).not.toHaveBeenCalled();
+    expect(SecureStore.deleteItemAsync).not.toHaveBeenCalledWith('fuel.appearance');
     setScheme.mockRestore();
   });
 

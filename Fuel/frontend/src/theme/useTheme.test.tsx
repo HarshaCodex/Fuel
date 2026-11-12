@@ -1,5 +1,4 @@
 import { renderHook } from '@testing-library/react-native';
-import { useColorScheme } from 'react-native';
 
 import { darkColors, lightColors, useTheme } from '@/theme';
 
@@ -13,7 +12,6 @@ describe('useTheme', () => {
     [null, 'light', lightColors],
   ] as const)('maps scheme %s to %s', async (input, scheme, colors) => {
     mockScheme.mockReturnValue(input);
-    expect(useColorScheme).toBeDefined();
     const { result } = await renderHook(() => useTheme());
     expect(result.current.scheme).toBe(scheme);
     expect(result.current.colors).toBe(colors);
