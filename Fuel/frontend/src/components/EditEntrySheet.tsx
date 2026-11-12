@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoider } from '@/components/KeyboardAvoider';
 import { NetworkError } from '@/api/errors';
 import { getEntries, trackingKeys, type CreatedEntry, type DashboardEntry, type MealLabel, type UpdateEntryBody } from '@/api/tracking';
 import { MEAL_OPTIONS } from '@/lib/mealLabel';
@@ -117,7 +118,7 @@ export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Prop
 
   return (
     <Modal visible={entry !== null} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider>
         <Pressable accessibilityLabel="Close edit" onPress={onClose} style={[styles.scrim, { backgroundColor: colors.scrim }]} />
         <View
           accessibilityViewIsModal
@@ -134,7 +135,7 @@ export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Prop
           />
           {body}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Modal>
   );
 }

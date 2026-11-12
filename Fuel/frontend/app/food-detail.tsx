@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getFood, type Food } from '@/api/food';
 import { createEntry, trackingKeys, type FoodSource, type MealLabel } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
+import { KeyboardAvoider } from '@/components/KeyboardAvoider';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { StateBlock } from '@/components/StateBlock';
 import { Stepper } from '@/components/Stepper';
@@ -83,7 +84,7 @@ function Confirm({ food }: { food: Food }) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoider>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} numberOfLines={3} maxFontSizeMultiplier={2}>
           {food.name}
@@ -154,7 +155,7 @@ function Confirm({ food }: { food: Food }) {
           disabled={amount === null}
         />
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
 import { useEffect, useRef, useState, type ComponentProps, type ComponentRef } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '@/api/errors';
@@ -11,6 +11,7 @@ import { createEntry, trackingKeys } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { KeyboardAvoider } from '@/components/KeyboardAvoider';
 import { StateBlock } from '@/components/StateBlock';
 import { TextField } from '@/components/TextField';
 import { UnitPicker } from '@/components/UnitPicker';
@@ -216,7 +217,7 @@ export default function ManualEntryScreen() {
           </View>
         )
       ) : (
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider>
         <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
             {editing ? 'Edit food' : createOnly ? 'New food' : 'Enter a food'}
@@ -271,7 +272,7 @@ export default function ManualEntryScreen() {
             </>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
       )}
       <ConfirmDialog
         visible={confirmDiscard}
