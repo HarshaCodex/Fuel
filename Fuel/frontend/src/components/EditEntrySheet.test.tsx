@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import { StyleSheet } from 'react-native';
+
 import { ApiError } from '@/api/errors';
 import { getEntries, type CreatedEntry, type DashboardEntry } from '@/api/tracking';
 
@@ -44,6 +46,12 @@ beforeEach(() => {
 });
 
 describe('EditEntrySheet', () => {
+  it('pins the sheet to the bottom of the modal', async () => {
+    await setup();
+    const root = screen.toJSON() as unknown as { children: { props: { style: object } }[] };
+    expect(StyleSheet.flatten(root.children[0].props.style as never)).toMatchObject({ flex: 1, justifyContent: 'flex-end' });
+  });
+
   it('does not fetch or show anything while closed', async () => {
     await setup(null);
     expect(mockGet).not.toHaveBeenCalled();

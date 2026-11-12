@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
 import { useEffect, useRef, useState, type ComponentProps, type ComponentRef } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '@/api/errors';
@@ -11,6 +11,7 @@ import { createEntry, trackingKeys } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { KeyboardAvoider, useKeyboardHeight } from '@/components/KeyboardAvoider';
 import { StateBlock } from '@/components/StateBlock';
 import { TextField } from '@/components/TextField';
 import { UnitPicker } from '@/components/UnitPicker';
@@ -67,16 +68,7 @@ export default function ManualEntryScreen() {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const leaveRepeat = useRef<(() => void) | null>(null);
   const [leaving, setLeaving] = useState(false);
-  const [keyboardUp, setKeyboardUp] = useState(false);
-  useEffect(() => {
-    const ios = Platform.OS === 'ios';
-    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardUp(true));
-    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardUp(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
+  const keyboardUp = useKeyboardHeight() > 0;
   const dirty = isDirty(values, initial);
   const sending = useRef(false);
   const intentLogs = useRef(!createOnly);
@@ -216,7 +208,7 @@ export default function ManualEntryScreen() {
           </View>
         )
       ) : (
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider>
         <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
             {editing ? 'Edit food' : createOnly ? 'New food' : 'Enter a food'}
@@ -271,7 +263,7 @@ export default function ManualEntryScreen() {
             </>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
       )}
       <ConfirmDialog
         visible={confirmDiscard}

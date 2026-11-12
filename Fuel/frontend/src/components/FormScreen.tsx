@@ -1,16 +1,14 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
+import { KeyboardAvoider } from '@/components/KeyboardAvoider';
 import { space, useTheme } from '@/theme';
 
 /** Shared scroll + keyboard-avoiding container for form screens. */
 export function FormScreen({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
   return (
-    <KeyboardAvoidingView
-      style={[styles.flex, { backgroundColor: colors.bg }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoider style={{ backgroundColor: colors.bg }}>
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.content}
@@ -19,7 +17,7 @@ export function FormScreen({ children }: { children: ReactNode }) {
       >
         {children}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

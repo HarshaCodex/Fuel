@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { Dimensions, Keyboard, Linking, Platform, StyleSheet } from 'react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getFoodByBarcode, type Food } from '@/api/food';
@@ -187,6 +187,31 @@ describe('scanning', () => {
     await renderScreen();
     await scan('12345678');
     expect(screen.getByText("Couldn't look this up")).toBeTruthy();
+  });
+});
+
+describe('keyboard', () => {
+  const original = Platform.OS;
+  afterEach(() => {
+    Platform.OS = original;
+    jest.restoreAllMocks();
+  });
+  const bottomPadding = () => StyleSheet.flatten(screen.getByTestId('manual-entry-field').props.style).paddingBottom;
+
+  it('keeps the safe-area gap below the field while closed and drops it once the keyboard lifts the field (iOS)', async () => {
+    Platform.OS = 'ios';
+    const handlers: Record<string, ((e: { endCoordinates: { height: number; screenY: number } }) => void)[]> = {};
+    jest.spyOn(Keyboard, 'addListener').mockImplementation(((name: string, fn: never) => {
+      (handlers[name] ??= []).push(fn);
+      return { remove: jest.fn() };
+    }) as never);
+    await renderScreen();
+    expect(bottomPadding()).toBe(34);
+    const windowHeight = Dimensions.get('window').height;
+    await act(async () => handlers.keyboardWillChangeFrame.forEach((h) => h({ endCoordinates: { height: 300, screenY: windowHeight - 300 } })));
+    expect(bottomPadding()).toBeLessThan(34);
+    const root = screen.toJSON() as unknown as { props: { style: object } };
+    expect(StyleSheet.flatten(root.props.style as never).paddingBottom).toBe(300);
   });
 });
 

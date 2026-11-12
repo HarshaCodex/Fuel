@@ -3,12 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getFoodByBarcode } from '@/api/food';
 import { Button } from '@/components/Button';
+import { KeyboardAvoider, useKeyboardHeight } from '@/components/KeyboardAvoider';
 import { StateBlock } from '@/components/StateBlock';
 import { TextField } from '@/components/TextField';
 import { BARCODE_TYPES, normalizeBarcode } from '@/lib/barcode';
@@ -21,6 +22,7 @@ export default function ScanScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<Status>('scanning');
   const [code, setCode] = useState('');
@@ -69,7 +71,7 @@ export default function ScanScreen() {
   };
 
   const manualField = (
-    <View style={[styles.manual, { paddingBottom: Math.max(insets.bottom, space.lg) }]}>
+    <View testID="manual-entry-field" style={[styles.manual, { paddingBottom: keyboardHeight > 0 ? space.lg : Math.max(insets.bottom, space.lg) }]}>
       <TextField
         label="Or type the barcode"
         value={manual}
@@ -174,16 +176,13 @@ export default function ScanScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={[styles.flex, { backgroundColor: colors.bg, paddingTop: insets.top }]}
-    >
+    <KeyboardAvoider style={{ backgroundColor: colors.bg, paddingTop: insets.top }}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
         <Ionicons name="chevron-back" size={sizing.icon} color={colors.text} />
       </Pressable>
       <View style={styles.flex}>{body}</View>
       {manualField}
-    </KeyboardAvoidingView>
+    </KeyboardAvoider>
   );
 }
 

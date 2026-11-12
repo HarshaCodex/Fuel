@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardAvoider, useKeyboardHeight } from '@/components/KeyboardAvoider';
 import { NetworkError } from '@/api/errors';
 import { getEntries, trackingKeys, type CreatedEntry, type DashboardEntry, type MealLabel, type UpdateEntryBody } from '@/api/tracking';
 import { MEAL_OPTIONS } from '@/lib/mealLabel';
@@ -75,6 +76,7 @@ function Form({ current, onClose, onSave }: { current: CreatedEntry; onClose: ()
 export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const keyboardUp = useKeyboardHeight() > 0;
   // Cached rows from an earlier open are untrusted until the refetch lands, so the form never prefills
   // from them. Focus/reconnect refetches are off so a refetch cannot remount the form mid-edit.
   const list = useQuery({
@@ -117,14 +119,14 @@ export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Prop
 
   return (
     <Modal visible={entry !== null} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoider style={styles.flex}>
         <Pressable accessibilityLabel="Close edit" onPress={onClose} style={[styles.scrim, { backgroundColor: colors.scrim }]} />
         <View
           accessibilityViewIsModal
           style={[
             styles.sheet,
             shadow.lg,
-            { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: Math.max(insets.bottom, space.lg) },
+            { backgroundColor: colors.surface, borderColor: colors.border, paddingBottom: keyboardUp ? space.lg : Math.max(insets.bottom, space.lg) },
           ]}
         >
           <View
@@ -134,13 +136,13 @@ export function EditEntrySheet({ entry, date, onClose, onMissing, onSave }: Prop
           />
           {body}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, justifyContent: 'flex-end' },
+  flex: { justifyContent: 'flex-end' },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   sheet: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: sizing.border, maxHeight: '90%' },
   grabber: { width: 36, height: 4, borderRadius: radius.full, alignSelf: 'center', marginTop: space.sm, marginBottom: space.xs },
