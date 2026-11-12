@@ -1,0 +1,53 @@
+# Appearance: switch to Dark, check it sticks across a relaunch, then go back to System.
+appId: com.harshacodex.fuel
+name: Appearance
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Appearance. System"
+    timeout: 15000
+- tapOn: "Appearance. System"
+- extendedWaitUntil:
+    visible: "Dark.*"
+    timeout: 10000
+- tapOn: "Dark.*"
+- assertVisible:
+    text: "Dark.*"
+    selected: true
+- takeScreenshot: 01-dark-picker
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Appearance. Dark"
+    timeout: 10000
+- takeScreenshot: 02-dark-profile
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 60000
+- tapOn: "Profile"
+- assertVisible: "Appearance. Dark"
+- takeScreenshot: 03-dark-after-relaunch
+- tapOn: "Appearance. Dark"
+- tapOn: "System.*"
+- tapOn: "Close"
+- assertVisible: "Appearance. System"
+- takeScreenshot: 04-system

@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
+import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
-import { Text } from 'react-native';
+import { Appearance, Text } from 'react-native';
 
 import { apiClient } from '@/api/client';
 import * as storage from '@/lib/tokenStorage';
@@ -9,6 +10,7 @@ import * as storage from '@/lib/tokenStorage';
 import { SessionProvider, useSession } from './SessionProvider';
 
 jest.mock('@/lib/tokenStorage');
+jest.mock('expo-secure-store', () => ({ deleteItemAsync: jest.fn(), getItem: jest.fn(), setItem: jest.fn() }));
 const mocked = jest.mocked(storage);
 const fetchMock = jest.fn();
 
@@ -70,6 +72,19 @@ describe('SessionProvider', () => {
     expect(mocked.clearTokens).toHaveBeenCalled();
     expect(qc.getQueryData(['meals'])).toBeUndefined();
     expect(screen.getByText('signedOut')).toBeTruthy();
+  });
+
+  it('signOut leaves the appearance override alone', async () => {
+    mocked.getTokens.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
+    fetchMock.mockRejectedValue(new TypeError('offline'));
+    const setScheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => undefined);
+    await mount();
+    await screen.findByText('signedIn');
+    await act(() => latest.session!.signOut());
+    expect(screen.getByText('signedOut')).toBeTruthy();
+    expect(setScheme).not.toHaveBeenCalled();
+    expect(SecureStore.deleteItemAsync).not.toHaveBeenCalledWith('fuel.appearance');
+    setScheme.mockRestore();
   });
 
   it('signOut does not wait for a hanging logout request', async () => {
