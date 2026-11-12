@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import { useEffect } from 'react';
-import { Text } from 'react-native';
+import { Appearance, Text } from 'react-native';
 
 import { apiClient } from '@/api/client';
 import * as storage from '@/lib/tokenStorage';
@@ -70,6 +70,18 @@ describe('SessionProvider', () => {
     expect(mocked.clearTokens).toHaveBeenCalled();
     expect(qc.getQueryData(['meals'])).toBeUndefined();
     expect(screen.getByText('signedOut')).toBeTruthy();
+  });
+
+  it('signOut leaves the appearance override alone', async () => {
+    mocked.getTokens.mockResolvedValue({ accessToken: 'a', refreshToken: 'r' });
+    fetchMock.mockRejectedValue(new TypeError('offline'));
+    const setScheme = jest.spyOn(Appearance, 'setColorScheme').mockImplementation(() => undefined);
+    await mount();
+    await screen.findByText('signedIn');
+    await act(() => latest.session!.signOut());
+    expect(screen.getByText('signedOut')).toBeTruthy();
+    expect(setScheme).not.toHaveBeenCalled();
+    setScheme.mockRestore();
   });
 
   it('signOut does not wait for a hanging logout request', async () => {
