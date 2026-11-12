@@ -7,7 +7,12 @@ import { deleteAccount, getBodyStats, getGoals, getProfile, userKeys, type BodyS
 import Profile from '../../../app/(tabs)/profile';
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+  useFocusEffect: (cb: () => void) => jest.requireActual('react').useEffect(cb, [cb]),
+}));
+const mockAppearance = jest.fn(() => 'system');
+jest.mock('@/lib/appearance', () => ({ ...jest.requireActual('@/lib/appearance'), getAppearance: () => mockAppearance() }));
 const mockSignOut = jest.fn();
 jest.mock('@/session/SessionProvider', () => ({ useSession: () => ({ signOut: mockSignOut }) }));
 jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), getGoals: jest.fn(), getProfile: jest.fn(), getBodyStats: jest.fn(), deleteAccount: jest.fn() }));
@@ -213,5 +218,20 @@ describe('Profile sign out and delete account', () => {
     expect(screen.queryByText('Delete your account?')).toBeNull();
     expect(mockSignOut).not.toHaveBeenCalled();
     expect(deleteAccount).not.toHaveBeenCalled();
+  });
+});
+
+describe('Profile appearance row', () => {
+  it('shows System by default and opens the picker', async () => {
+    mockAppearance.mockReturnValue('system');
+    await renderScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Appearance. System' }));
+    expect(mockPush).toHaveBeenCalledWith('/appearance');
+  });
+
+  it('shows the stored choice', async () => {
+    mockAppearance.mockReturnValue('dark');
+    await renderScreen();
+    expect(screen.getByRole('button', { name: 'Appearance. Dark' })).toBeTruthy();
   });
 });

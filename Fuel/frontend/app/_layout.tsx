@@ -4,8 +4,12 @@ import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { applyStoredAppearance } from '@/lib/appearance';
 import { FirstRunGate } from '@/session/FirstRunGate';
 import { SessionProvider, useSession } from '@/session/SessionProvider';
+
+// Set the saved light/dark override before anything renders, so there is no flash of the wrong theme.
+applyStoredAppearance();
 
 function RootStack() {
   const { status } = useSession();
@@ -17,6 +21,7 @@ function RootStack() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="onboarding" />
           <Stack.Screen name="edit-goals" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="appearance" options={{ presentation: 'modal' }} />
           <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
           <Stack.Screen name="edit-body-stats" options={{ presentation: 'modal' }} />
           <Stack.Screen name="quick-log" options={{ presentation: 'modal' }} />
