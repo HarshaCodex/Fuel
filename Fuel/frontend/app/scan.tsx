@@ -158,17 +158,17 @@ export default function ScanScreen() {
           barcodeScannerSettings={{ barcodeTypes: [...BARCODE_TYPES] }}
           onBarcodeScanned={status === 'scanning' ? ({ data }) => accept(data) : undefined}
         />
-        <View style={[styles.guide, { borderColor: colors.onAccent }]} />
+        <View style={[styles.guide, { borderColor: colors.onScrim }]} />
         {status === 'scanning' ? (
           <View style={[styles.hint, { backgroundColor: colors.scrim }]}>
-            <Text style={[type.callout, { color: colors.onAccent }]} maxFontSizeMultiplier={2}>
+            <Text style={[type.callout, { color: colors.onScrim }]} maxFontSizeMultiplier={2}>
               Point at a barcode
             </Text>
           </View>
         ) : null}
         {status === 'looking' ? (
           <View accessibilityLiveRegion="polite" style={[styles.overlay, { backgroundColor: colors.scrim }]}>
-            <ActivityIndicator accessibilityLabel="Looking up barcode" color={colors.onAccent} />
+            <ActivityIndicator accessibilityLabel="Looking up barcode" color={colors.onScrim} />
           </View>
         ) : null}
       </View>

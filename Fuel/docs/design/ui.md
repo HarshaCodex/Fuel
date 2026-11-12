@@ -7,7 +7,7 @@ the token names below (they are the keys to use in code).
 
 ## Principles
 1. One purpose per screen. Each screen below states its single job; anything else moves elsewhere.
-2. Warm and calm: paper-like neutrals, one indigo accent, generous whitespace, no promotional content.
+2. Warm and calm: paper-like neutrals, one deep green accent, generous whitespace, no promotional content.
 3. Numbers are the hero. Calories and macros use large, tabular figures; chrome stays quiet.
 4. Honest data: every food shows where its numbers came from (trust badge).
 5. Motion only confirms an action or shows loading. No decorative animation.
@@ -44,6 +44,7 @@ Text pairs below are at least 4.5:1 on the surface named; UI shapes (borders of 
 | caution / cautionSoft | #92400E / #FEF3C7 | #FCD34D / #3A2A0A | Over-goal note, offline banner, estimates (later phases) |
 | danger / dangerSoft | #B42318 / #FDECEA | #FF8A80 / #3A1714 | Errors, destructive actions (6.2:1 on bg light) |
 | scrim | rgba(31,27,22,0.45) | rgba(0,0,0,0.6) | Behind sheets |
+| onScrim | #FFFFFF | #FFFFFF | Text and icons over the camera feed or a scrim |
 | track | #EEEAE4 | #2A2724 | Generic unfilled track |
 | divider | #F0ECE6 | rgba(255,255,255,0.06) | Row and table separators |
 | verified | #2F6B4F | #7DCBA4 | "Verified" check and label |

@@ -151,7 +151,7 @@ export default function OnboardingScreen() {
         accessibilityRole="progressbar"
       >
         {TITLES.map((t, i) => (
-          <View key={t} style={[styles.dot, { backgroundColor: i <= step ? colors.accent : colors.border }]} />
+          <View key={t} style={[styles.dot, { backgroundColor: i <= step ? colors.accent : colors.track }]} />
         ))}
       </View>
       <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>

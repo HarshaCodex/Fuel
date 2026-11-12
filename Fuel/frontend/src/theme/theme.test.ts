@@ -51,6 +51,9 @@ describe('theme tokens', () => {
       it.each(textPairs)(`${name}: %s on %s is at least 4.5:1`, (fg, bg) => {
         expect(ratio(c[fg], c[bg])).toBeGreaterThanOrEqual(4.5);
       });
+      it(`${name}: onScrim is at least 4.5:1 over the scrim on black`, () => {
+        expect(ratio(c.onScrim, '#000000')).toBeGreaterThanOrEqual(4.5);
+      });
       it.each(graphics)(`${name}: %s on surface is at least 3:1`, (fg) => {
         expect(ratio(c[fg], c.surface)).toBeGreaterThanOrEqual(3);
         expect(ratio(c[fg], c.bg)).toBeGreaterThanOrEqual(3);

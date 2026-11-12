@@ -3,14 +3,12 @@ import { render } from '@testing-library/react-native';
 import RootLayout, { ThemedStatusBar } from '../../app/_layout';
 
 const mockUseFonts = jest.fn();
-jest.mock('@expo-google-fonts/manrope', () => ({
-  useFonts: (...args: unknown[]) => mockUseFonts(...args),
-  Manrope_400Regular: 1,
-  Manrope_500Medium: 2,
-  Manrope_600SemiBold: 3,
-  Manrope_700Bold: 4,
-  Manrope_800ExtraBold: 5,
-}));
+jest.mock('@expo-google-fonts/manrope', () => ({ useFonts: (...args: unknown[]) => mockUseFonts(...args) }));
+jest.mock('@expo-google-fonts/manrope/400Regular', () => ({ Manrope_400Regular: 1 }));
+jest.mock('@expo-google-fonts/manrope/500Medium', () => ({ Manrope_500Medium: 2 }));
+jest.mock('@expo-google-fonts/manrope/600SemiBold', () => ({ Manrope_600SemiBold: 3 }));
+jest.mock('@expo-google-fonts/manrope/700Bold', () => ({ Manrope_700Bold: 4 }));
+jest.mock('@expo-google-fonts/manrope/800ExtraBold', () => ({ Manrope_800ExtraBold: 5 }));
 const mockHide = jest.fn(() => Promise.resolve());
 jest.mock('expo-router', () => ({
   SplashScreen: { preventAutoHideAsync: jest.fn(() => Promise.resolve()), hideAsync: () => mockHide() },
