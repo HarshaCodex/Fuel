@@ -71,7 +71,7 @@ export default function ScanScreen() {
   };
 
   const manualField = (
-    <View style={[styles.manual, { paddingBottom: keyboardHeight > 0 ? space.lg : Math.max(insets.bottom, space.lg) }]}>
+    <View testID="manual-entry-field" style={[styles.manual, { paddingBottom: keyboardHeight > 0 ? space.lg : Math.max(insets.bottom, space.lg) }]}>
       <TextField
         label="Or type the barcode"
         value={manual}

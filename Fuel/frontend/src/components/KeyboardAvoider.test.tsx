@@ -1,9 +1,9 @@
 import { act, render, screen } from '@testing-library/react-native';
-import { Keyboard, Platform, StyleSheet, Text } from 'react-native';
+import { Dimensions, Keyboard, Platform, StyleSheet, Text } from 'react-native';
 
 import { KeyboardAvoider } from '@/components/KeyboardAvoider';
 
-type Handler = (e: { endCoordinates: { height: number } }) => void;
+type Handler = (e: { endCoordinates: { height: number; screenY: number } }) => void;
 
 function mockKeyboard() {
   const handlers: Record<string, Handler> = {};
@@ -33,21 +33,25 @@ describe('KeyboardAvoider', () => {
     </KeyboardAvoider>
   );
 
-  it('lifts content by the keyboard height on iOS and drops it when the keyboard hides', async () => {
+  it('follows the keyboard frame on iOS and drops the padding when it hides', async () => {
     Platform.OS = 'ios';
     const { handlers } = mockKeyboard();
+    const windowHeight = Dimensions.get('window').height;
     await render(ui);
-    await act(async () => handlers.keyboardWillShow({ endCoordinates: { height: 300 } }));
+    await act(async () => handlers.keyboardWillChangeFrame({ endCoordinates: { height: 300, screenY: windowHeight - 300 } }));
     expect(paddingBottom()).toBe(300);
-    await act(async () => handlers.keyboardWillHide({ endCoordinates: { height: 0 } }));
+    await act(async () => handlers.keyboardWillChangeFrame({ endCoordinates: { height: 340, screenY: windowHeight - 340 } }));
+    expect(paddingBottom()).toBe(340);
+    await act(async () => handlers.keyboardWillHide({ endCoordinates: { height: 340, screenY: windowHeight } }));
     expect(paddingBottom()).toBe(0);
   });
 
-  it('does not listen to the keyboard on Android, which resizes the window itself', async () => {
+  it('adds no padding on Android, which resizes the window itself', async () => {
     Platform.OS = 'android';
-    mockKeyboard();
+    const { handlers } = mockKeyboard();
     await render(ui);
-    expect(Keyboard.addListener).not.toHaveBeenCalled();
+    await act(async () => handlers.keyboardDidShow({ endCoordinates: { height: 300, screenY: 0 } }));
+    expect(paddingBottom()).toBe(0);
   });
 
   it('removes its listeners on unmount', async () => {
