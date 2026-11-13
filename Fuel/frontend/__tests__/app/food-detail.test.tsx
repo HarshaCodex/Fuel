@@ -5,6 +5,8 @@ import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getFood, type Food } from '@/api/food';
 import { createEntry, trackingKeys } from '@/api/tracking';
 
+import { hapticLight } from '@/lib/haptics';
+
 import FoodDetail from '../../app/food-detail';
 
 const mockDismissAll = jest.fn();
@@ -19,6 +21,8 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@/api/food', () => ({ ...jest.requireActual('@/api/food'), getFood: jest.fn() }));
 jest.mock('@/api/tracking', () => ({ ...jest.requireActual('@/api/tracking'), createEntry: jest.fn() }));
 
+jest.mock('@/lib/haptics', () => ({ hapticLight: jest.fn() }));
+const mockLight = jest.mocked(hapticLight);
 const mockGetFood = jest.mocked(getFood);
 const mockCreate = jest.mocked(createEntry);
 
@@ -156,6 +160,26 @@ describe('Food detail screen', () => {
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: trackingKeys.all });
     expect(invalidate.mock.invocationCallOrder[0]).toBeLessThan(mockDismissAll.mock.invocationCallOrder[0]);
+  });
+
+  it('gives one light haptic after a successful log, even if Log is tapped repeatedly', async () => {
+    let resolve!: (v: never) => void;
+    mockCreate.mockReturnValue(new Promise((r) => (resolve = r)));
+    await renderScreen();
+    await fireEvent.press(logButton());
+    await fireEvent.press(logButton());
+    expect(mockLight).not.toHaveBeenCalled();
+    await act(async () => resolve({} as never));
+    await waitFor(() => expect(mockDismissAll).toHaveBeenCalledTimes(1));
+    expect(mockLight).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives no haptic when logging fails', async () => {
+    mockCreate.mockRejectedValueOnce(new ApiError(400, 'Serving size is too large'));
+    await renderScreen();
+    await fireEvent.press(logButton());
+    await screen.findByText('Serving size is too large');
+    expect(mockLight).not.toHaveBeenCalled();
   });
 
   it('sends one POST when Log is tapped repeatedly', async () => {

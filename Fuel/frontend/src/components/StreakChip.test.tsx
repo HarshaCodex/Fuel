@@ -4,13 +4,13 @@ import { StreakChip } from './StreakChip';
 
 describe('StreakChip', () => {
   it.each([
-    [12, '12 day streak'],
-    [1, '1 day streak'],
-    [1234, '1,234 day streak'],
-  ])('shows %s as "%s" with a matching label', async (current, text) => {
+    [12, '12 days', '12 day streak'],
+    [1, '1 day', '1 day streak'],
+    [1234, '1,234 days', '1,234 day streak'],
+  ])('shows %s as "%s" with the label "%s"', async (current, text, label) => {
     await render(<StreakChip current={current} />);
     expect(screen.getByText(text)).toBeOnTheScreen();
-    expect(screen.getByLabelText(text)).toBeOnTheScreen();
+    expect(screen.getByLabelText(label)).toBeOnTheScreen();
   });
 
   it.each([0, -3])('renders nothing for %s', async (current) => {

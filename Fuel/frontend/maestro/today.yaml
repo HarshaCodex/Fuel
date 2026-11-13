@@ -27,3 +27,7 @@ name: Sign in and see Today
 - assertVisible: "Breakfast"
 - assertVisible: "[0-9]+ days?"
 - takeScreenshot: 03-today
+- assertVisible: "Log food"
+- assertVisible: "Protein"
+- assertVisible: "Carbs"
+- assertVisible: "Fat"
