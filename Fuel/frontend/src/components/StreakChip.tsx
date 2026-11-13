@@ -13,7 +13,7 @@ export function StreakChip({ current }: { current: number }) {
   const n = current.toLocaleString('en-US');
   const text = `${n} ${current === 1 ? 'day' : 'days'}`;
   return (
-    <View accessible accessibilityLabel={`${n} day streak`} style={[styles.root, card]}>
+    <View accessible accessibilityLabel={`Streak, ${text}`} style={[styles.root, card]}>
       <Ionicons name="flame" size={16} color={colors.protein} accessibilityElementsHidden importantForAccessibility="no" />
       <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={1.3}>
         {text}

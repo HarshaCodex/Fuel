@@ -63,6 +63,7 @@ export default function TodayScreen() {
   // Remember the server's today so it survives while another day is selected (state adjusted during render).
   if (todayFromServer && todayFromServer !== serverToday) setServerToday(todayFromServer);
   const today = todayFromServer ?? serverToday;
+  const shown = selected ?? q.data?.date ?? today;
   const goTo = (target: string) => setSelected(target === today ? null : target);
   const qc = useQueryClient();
   const dashKey = trackingKeys.dashboard(date);
@@ -153,7 +154,7 @@ export default function TodayScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         <Text style={[type.caption, styles.dateLabel, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
-          {(selected ?? data?.date ?? today) ? longDateLabel((selected ?? data?.date ?? today) as string) : ' '}
+          {shown ? longDateLabel(shown) : ' '}
         </Text>
         <View style={styles.header}>
           <View style={styles.titleRow}>

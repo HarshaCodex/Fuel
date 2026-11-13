@@ -85,3 +85,12 @@ describe('useCountUp', () => {
     expect(queued).toBeNull();
   });
 });
+
+describe('useCountUp startAt', () => {
+  it('starts at startAt and reaches the target after 400ms', async () => {
+    const { result } = await renderHook(() => useCountUp(100, false, 0));
+    expect(result.current).toBe(0);
+    await advance(motion.slow);
+    expect(result.current).toBe(100);
+  });
+});

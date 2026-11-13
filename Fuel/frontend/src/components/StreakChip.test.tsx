@@ -4,9 +4,9 @@ import { StreakChip } from './StreakChip';
 
 describe('StreakChip', () => {
   it.each([
-    [12, '12 days', '12 day streak'],
-    [1, '1 day', '1 day streak'],
-    [1234, '1,234 days', '1,234 day streak'],
+    [12, '12 days', 'Streak, 12 days'],
+    [1, '1 day', 'Streak, 1 day'],
+    [1234, '1,234 days', 'Streak, 1,234 days'],
   ])('shows %s as "%s" with the label "%s"', async (current, text, label) => {
     await render(<StreakChip current={current} />);
     expect(screen.getByText(text)).toBeOnTheScreen();

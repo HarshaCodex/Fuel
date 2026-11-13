@@ -21,9 +21,11 @@ export function CalorieRing({ consumed, goal, loading, hero }: Props) {
   const { colors } = useTheme();
   const m = ringModel({ consumed, goal });
   const target = loading ? 0 : m.fraction;
-  const [progress] = useState(() => new Animated.Value(target));
+  const [progress] = useState(() => new Animated.Value(hero ? 0 : target));
   const reduceMotion = useReduceMotion();
-  const centreValue = useCountUp(hero && !loading ? Math.abs(Math.round(m.over ? consumed - goal : Math.max(goal - consumed, 0))) : 0, reduceMotion);
+  const centreTarget = hero && !loading ? Math.abs(Math.round(m.over ? consumed - goal : Math.max(goal - consumed, 0))) : 0;
+  // The hero card plays its fill and count-up from empty when it first mounts.
+  const centreValue = useCountUp(centreTarget, reduceMotion, hero ? 0 : centreTarget);
 
   useEffect(() => {
     if (reduceMotion) {

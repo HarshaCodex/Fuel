@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 
 import { motion } from '@/theme';
 
-/** Counts from the value on screen to `target` over 400ms; a new target restarts from where it is. Instant if reduced. */
-export function useCountUp(target: number, reduceMotion: boolean): number {
-  const [value, setValue] = useState(target);
-  const current = useRef(target);
+/** Counts from the value on screen (first `startAt`) to `target` over 400ms; a new target restarts from where it is. Instant if reduced. */
+export function useCountUp(target: number, reduceMotion: boolean, startAt: number = target): number {
+  const [value, setValue] = useState(startAt);
+  const current = useRef(startAt);
   useEffect(() => {
     if (reduceMotion || current.current === target) {
       current.current = target;

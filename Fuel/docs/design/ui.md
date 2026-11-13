@@ -141,7 +141,7 @@ Badge is informational, not a button, but tapping the meal row shows the source 
 
 **Bottom sheet.** `surface`, top radius `xl`, grabber 36 x 4 `borderStrong`, `shadow.lg`, `scrim` behind. Slides up `base`. Tap scrim, swipe down or the Close button dismisses it.
 
-**Tab bar.** Exactly three tabs, left to right: Today, History, Profile. Height 56 plus safe area, `surface`, top hairline `divider`. Each tab fills a third of the width (min 44 high), icon 24 above `caption` label. Active: icon and label `accent` (dark `accentText`), icon filled. Inactive: `textTertiary`, outline icon. Icons: circle (Today), bars (History), person (Profile). No badges, no fourth tab. Hidden on Quick Log, Search, Scan, Manual Entry, Food detail and Edit entry (modal stack screens).
+**Tab bar.** Exactly three tabs, left to right: Today, History, Profile. Height 56 plus safe area, `surface`, top hairline `divider`. Each tab fills a third of the width (min 44 high), icon 24 above `caption` label. Active: icon and label `accentText` (both modes), icon filled. Inactive: `textTertiary`, outline icon. Icons: circle (Today), bars (History), person (Profile). No badges, no fourth tab. Hidden on Quick Log, Search, Scan, Manual Entry, Food detail and Edit entry (modal stack screens).
 
 **Log food pill (Today only).** Replaces the round FAB. `accent` pill, min height 56, plus icon and "Log food" in `headline` with `onAccent`, `shadow.lg` in light mode, bottom right, `lg` from the edge. Springs to 0.98 while pressed. Content has bottom padding so it never covers the last row.
 

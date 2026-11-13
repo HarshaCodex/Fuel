@@ -6,6 +6,7 @@ import {
   formatTime,
   isFutureDate,
   isoDate,
+  longDateLabel,
   groupByMeal,
   macroLine,
   macroModel,
@@ -145,5 +146,15 @@ describe('groupByMeal', () => {
   });
   it('returns nothing for no entries', () => {
     expect(groupByMeal([])).toEqual([]);
+  });
+});
+
+describe('longDateLabel', () => {
+  it('formats weekday, day and month in capitals with a comma', () => {
+    expect(longDateLabel('2026-11-11')).toBe('WEDNESDAY, 11 NOVEMBER');
+  });
+  it('handles a month end and a past day', () => {
+    expect(longDateLabel('2026-02-28')).toBe('SATURDAY, 28 FEBRUARY');
+    expect(longDateLabel('2025-12-31')).toBe('WEDNESDAY, 31 DECEMBER');
   });
 });
