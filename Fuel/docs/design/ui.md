@@ -7,7 +7,7 @@ the token names below (they are the keys to use in code).
 
 ## Principles
 1. One purpose per screen. Each screen below states its single job; anything else moves elsewhere.
-2. Warm and calm: paper-like neutrals, one indigo accent, generous whitespace, no promotional content.
+2. Warm and calm: paper-like neutrals, one deep green accent, generous whitespace, no promotional content.
 3. Numbers are the hero. Calories and macros use large, tabular figures; chrome stays quiet.
 4. Honest data: every food shows where its numbers came from (trust badge).
 5. Motion only confirms an action or shows loading. No decorative animation.
@@ -20,40 +20,45 @@ Text pairs below are at least 4.5:1 on the surface named; UI shapes (borders of 
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| bg | #FAF8F5 | #14120F | Screen background |
-| surface | #FFFFFF | #1E1B17 | Cards, sheets, inputs, tab bar |
-| surfaceMuted | #F3F0EB | #28241F | Chips, pressed rows, skeletons, segmented control track |
-| border | #E6E1D9 | #38332C | Dividers, card outlines (decorative) |
+| bg | #F5F3EF | #121110 | Screen background |
+| surface | #FFFFFF | #1C1A18 | Cards, sheets, inputs, tab bar |
+| surfaceMuted | #F0ECE6 | #2A2724 | Chips, pressed rows, skeletons, segmented control track |
+| border | #E6E1D9 | rgba(255,255,255,0.06) | Dividers, outlines (decorative). Light cards use shadow, not a border; dark uses this hairline |
 | borderStrong | #7A7266 | #7A7266 | Input and checkbox outlines (3.6:1 or better) |
-| text | #1F1B16 | #F5F1EA | Primary text (16:1) |
-| textSecondary | #5E574D | #B8B0A3 | Supporting text (6.3:1 light, 8:1 dark) |
+| text | #1D1B18 | #F3F0EA | Primary text |
+| textSecondary | #6B665E | #A8A196 | Supporting text |
 | textTertiary | #6F675C | #A39B8E | Captions, inactive tab (5.3:1 light, 6.2:1 dark) |
 | placeholder | #7A7266 | #A39B8E | Input placeholder (4.7:1 on surface) |
-| accent | #4F46E5 | #5B52EC | Primary button fill, active tab icon, ring progress |
-| accentPressed | #4338CA | #4F46E5 | Pressed primary |
-| accentText | #4F46E5 | #A5A0FA | Links and text buttons (5.9:1 on bg light, 8:1 dark) |
-| accentSoft | #EEEDFC | #2A2753 | Selected chip, user-entered badge background |
-| onAccent | #FFFFFF | #FFFFFF | Text on accent (6.3:1 or better) |
-| ringTrack | #E4E0F7 | #35314F | Unfilled ring (decorative; the number carries meaning) |
-| protein | #D04A1F | #F08A63 | Protein bar and dot |
-| carbs | #A5660A | #E3A94A | Carbs bar and dot |
-| fat | #0B8576 | #3CC4AE | Fat bar and dot |
-| barTrack | #ECE7DF | #3A352E | Unfilled macro bar (bar fills are 3.6:1 or better on it) |
+| accent | #1F5C4A | #6CC3A3 | Primary button fill, active tab icon, ring progress |
+| accentPressed | #174637 | #8FD6BC | Pressed primary |
+| accentText | #1F5C4A | #6CC3A3 | Links and text buttons |
+| accentSoft | #E5EEEA | #1A2B25 | Selected chip, user-entered badge background |
+| onAccent | #FFFFFF | #0F1A16 | Text on accent |
+| ringTrack | #EEEAE4 | #2A2724 | Unfilled ring (decorative; the number carries meaning) |
+| protein | #B4532A | #F08A63 | Protein bar and dot |
+| carbs | #9A7414 | #E3B65A | Carbs bar and dot only (graphic, never text: 4.3:1 on surface in light) |
+| fat | #2F6F8F | #6FB3D6 | Fat bar and dot |
+| barTrack | #EFEBE5 | #2A2724 | Unfilled macro bar |
 | success / successSoft | #166534 / #DCFCE7 | #86EFAC / #14301F | "USDA Verified" badge, success toast |
 | info / infoSoft | #1D4ED8 / #DBEAFE | #93C5FD / #14233F | "Manufacturer Label" badge |
 | caution / cautionSoft | #92400E / #FEF3C7 | #FCD34D / #3A2A0A | Over-goal note, offline banner, estimates (later phases) |
 | danger / dangerSoft | #B42318 / #FDECEA | #FF8A80 / #3A1714 | Errors, destructive actions (6.2:1 on bg light) |
 | scrim | rgba(31,27,22,0.45) | rgba(0,0,0,0.6) | Behind sheets |
+| onScrim | #FFFFFF | #FFFFFF | Text and icons over the camera feed or a scrim |
+| track | #EEEAE4 | #2A2724 | Generic unfilled track |
+| divider | #F0ECE6 | rgba(255,255,255,0.06) | Row and table separators |
+| verified | #2F6B4F | #7DCBA4 | "Verified" check and label |
 
 Rule: meaning is never colour alone. Badges carry an icon and a label, errors carry an icon and text, over-goal carries words.
 
 ### 1.2 Type (`type.*`)
-One family: the platform system font (`System`: SF Pro on iOS, Roboto on Android). No custom font download. Hierarchy comes from
-size and weight. Use tabular figures (`fontVariant: ['tabular-nums']`) for every number.
+One family: Manrope, loaded with `expo-font` (`@expo-google-fonts/manrope`); the splash is held until it is ready and the
+system font is used if loading fails. Android needs one family per weight, so every `type.*` token carries a `fontFamily`
+(no `fontWeight`). Use tabular figures (`fontVariant: ['tabular-nums']`) for every number.
 
 | Token | Size / line | Weight | Use |
 |---|---|---|---|
-| display | 44 / 48 | 700 | Ring centre number |
+| display | 44 / 48 | 800 | Ring centre number |
 | title1 | 28 / 34 | 700 | Screen titles |
 | title2 | 22 / 28 | 600 | Section titles, sheet titles |
 | headline | 17 / 24 | 600 | Row titles, button labels, card titles |
@@ -71,7 +76,7 @@ Gap between sections `xl` (24). Inside cards `lg` (16). Minimum gap between tapp
 `sm 8` (badges, chips inside rows), `md 12` (buttons, inputs, toasts), `lg 16` (cards, ring card), `xl 24` (top corners of sheets),
 `full 999` (pills, FAB, avatar, progress bars).
 
-### 1.5 Shadow (`shadow.*`, light theme; dark uses a 1pt `border` outline instead)
+### 1.5 Shadow (`shadow.*`, light theme; dark has no shadow and uses a 1pt `border` hairline instead)
 Shadow colour is the warm `#1F1B16`, never pure black.
 
 | Token | Offset / blur / opacity / Android elevation | Use |

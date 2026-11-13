@@ -70,7 +70,7 @@ export function HistoryChart({ bars, goal }: Props) {
             {shortDate(first.date)}
           </Text>
           <Text
-            style={[type.caption, { color: last.isToday ? colors.text : colors.textSecondary, fontWeight: last.isToday ? '700' : '500' }]}
+            style={[type.caption, { color: last.isToday ? colors.text : colors.textSecondary, fontFamily: last.isToday ? 'Manrope_700Bold' : 'Manrope_500Medium' }]}
             maxFontSizeMultiplier={1.5}
           >
             {last.isToday ? 'Today' : shortDate(last.endDate)}

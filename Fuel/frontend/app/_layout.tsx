@@ -1,6 +1,12 @@
+import { useFonts } from '@expo-google-fonts/manrope';
+import { Manrope_400Regular } from '@expo-google-fonts/manrope/400Regular';
+import { Manrope_500Medium } from '@expo-google-fonts/manrope/500Medium';
+import { Manrope_600SemiBold } from '@expo-google-fonts/manrope/600SemiBold';
+import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
+import { Manrope_800ExtraBold } from '@expo-google-fonts/manrope/800ExtraBold';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { SplashScreen, Stack } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StatusBar, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -11,6 +17,9 @@ import { useTheme } from '@/theme';
 
 // Set the saved light/dark override before anything renders, so there is no flash of the wrong theme.
 applyStoredAppearance();
+
+// Keep the splash up until the fonts are ready, so text never flashes in the system font.
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 /** Status bar icons follow the resolved scheme (the in-app choice may differ from the OS). */
 export function ThemedStatusBar() {
@@ -49,9 +58,22 @@ function RootStack() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+  });
+  const fontsDone = fontsLoaded || fontError !== null;
+  useEffect(() => {
+    // On a load error the system font is used instead (unknown fontFamily falls back).
+    if (fontsDone) void SplashScreen.hideAsync().catch(() => {});
+  }, [fontsDone]);
   const [client] = useState(
     () => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } }),
   );
+  if (!fontsDone) return null;
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={client}>
