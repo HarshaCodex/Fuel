@@ -21,7 +21,7 @@ name: Log a food from recents
     visible: "kcal left"
     timeout: 30000
 - copyTextFrom:
-    text: ".* of .* eaten"
+    text: ".* of .* eaten.*"
 - evalScript: ${output.eatenBefore = maestro.copiedText}
 - tapOn: "Log food"
 - extendedWaitUntil:
@@ -47,7 +47,7 @@ name: Log a food from recents
     visible: "kcal left"
     timeout: 30000
 - copyTextFrom:
-    text: ".* of .* eaten"
+    text: ".* of .* eaten.*"
 - scrollUntilVisible:
     element: "Rice, white, cooked"
 - assertTrue: ${maestro.copiedText != output.eatenBefore}
