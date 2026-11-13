@@ -150,11 +150,11 @@ describe('Today screen', () => {
     expect(screen.getByText('Greek yogurt')).toBeTruthy();
   });
 
-  it('goes to the previous day with an explicit date and disables Next on today', async () => {
+  it('goes to the previous day with an explicit date and hides Next on today', async () => {
     mockGet.mockResolvedValue(DAY);
     await renderScreen();
     await screen.findByText('Greek yogurt');
-    expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
     const yesterday = addDays(DAY.date, -1);
     await waitFor(() => expect(mockGet).toHaveBeenCalledWith(yesterday));
@@ -169,13 +169,13 @@ describe('Today screen', () => {
     });
     afterEach(() => jest.useRealTimers());
 
-    it('requests without a date, labels the server day Today and blocks Next', async () => {
+    it('requests without a date, labels the server day Today and hides Next', async () => {
       mockGet.mockResolvedValue(DAY);
       await renderScreen();
       await screen.findByText('Greek yogurt');
       expect(mockGet).toHaveBeenCalledWith(undefined);
       expect(screen.getByText('Today')).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     });
 
     it('steps back from the server date and returns to server today without a date', async () => {
@@ -188,15 +188,15 @@ describe('Today screen', () => {
       mockGet.mockClear();
       await fireEvent.press(screen.getByRole('button', { name: 'Next day' }));
       expect(await screen.findByText('Today')).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
       expect(mockGet.mock.calls.every(([d]) => d === undefined)).toBe(true);
     });
 
-    it('disables both arrows until the server date is known', async () => {
+    it('disables Previous and hides Next until the server date is known', async () => {
       mockGet.mockReturnValue(new Promise(() => {}));
       await renderScreen();
       expect(screen.getByRole('button', { name: 'Previous day' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     });
   });
 

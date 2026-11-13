@@ -39,9 +39,9 @@ function DateButton({ icon, label, disabled, onPress }: { icon: 'chevron-back' |
       disabled={disabled}
       onPress={onPress}
       hitSlop={4}
-      style={styles.dateButton}
+      style={[styles.dateButton, disabled ? styles.dateButtonDisabled : null]}
     >
-      <Ionicons name={icon} size={sizing.icon} color={disabled ? colors.textTertiary : colors.text} />
+      <Ionicons name={icon} size={sizing.icon} color={colors.text} />
     </Pressable>
   );
 }
@@ -158,21 +158,23 @@ export default function TodayScreen() {
         </Text>
         <View style={styles.header}>
           <View style={styles.titleRow}>
+            <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
+              {selected && today ? dateTitle(selected, today) : 'Today'}
+            </Text>
             <DateButton
               icon="chevron-back"
               label="Previous day"
               disabled={!today}
               onPress={() => today && goTo(addDays(selected ?? today, -1))}
             />
-            <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
-              {selected && today ? dateTitle(selected, today) : 'Today'}
-            </Text>
-            <DateButton
-              icon="chevron-forward"
-              label="Next day"
-              disabled={!today || isToday || isFutureDate(addDays(selected, 1), today)}
-              onPress={() => today && selected && goTo(addDays(selected, 1))}
-            />
+            {isToday ? null : (
+              <DateButton
+                icon="chevron-forward"
+                label="Next day"
+                disabled={!today || isFutureDate(addDays(selected, 1), today)}
+                onPress={() => today && selected && goTo(addDays(selected, 1))}
+              />
+            )}
           </View>
           {data ? <StreakChip current={data.streak.current} /> : null}
         </View>
@@ -204,7 +206,7 @@ export default function TodayScreen() {
           <>
             <HeroCard calories={data.calories} protein={data.macros.protein} carbs={data.macros.carbs} fat={data.macros.fat} />
             <View style={styles.meals}>
-              <Text accessibilityRole="header" style={[type.title2, { color: colors.text }]} maxFontSizeMultiplier={2}>
+              <Text accessibilityRole="header" style={[type.title2, styles.mealsTitle, { color: colors.text }]} maxFontSizeMultiplier={2}>
                 Meals
               </Text>
               {data.entries.length === 0 ? (
@@ -239,12 +241,17 @@ export default function TodayScreen() {
   );
 }
 
+/** Page margin shared by the header, cards and the Log food pill. */
+const PAGE_MARGIN = 20;
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { padding: space.lg, paddingTop: space.xxxl, paddingBottom: sizing.fab + space.lg + space.xxxl + space.xl, gap: space.lg },
+  content: { padding: PAGE_MARGIN, paddingTop: space.xxxl, paddingBottom: sizing.fab + space.lg + space.xxxl + space.xl, gap: space.lg },
+  mealsTitle: { fontFamily: 'Manrope_700Bold', paddingHorizontal: space.xs },
   meals: { gap: space.md, marginTop: space.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
   dateLabel: { textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: -space.sm },
+  dateButtonDisabled: { opacity: 0.4 },
   dateButton: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
 });

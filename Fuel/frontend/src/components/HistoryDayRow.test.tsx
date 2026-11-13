@@ -22,7 +22,7 @@ describe('HistoryDayRow', () => {
     await render(<HistoryDayRow day={day()} onPress={jest.fn()} />);
     expect(screen.getByText('Mon 9 Nov')).toBeOnTheScreen();
     expect(screen.getByText('1,450 kcal')).toBeOnTheScreen();
-    expect(screen.getByText('P 120 - C 140 - F 45.3')).toBeOnTheScreen();
+    expect(screen.getByText('P 120 · C 140 · F 45.3')).toBeOnTheScreen();
     expect(screen.getByText('4 entries')).toBeOnTheScreen();
   });
 

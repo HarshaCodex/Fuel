@@ -22,7 +22,7 @@ describe('MealRow', () => {
     expect(
       screen.getByLabelText('Chicken breast, lunch, 248 calories, USDA Verified, 12:30 PM'),
     ).toBeTruthy();
-    expect(screen.getByText('P 46 - C 0 - F 5')).toBeTruthy();
+    expect(screen.getByText('P 46 · C 0 · F 5')).toBeTruthy();
     expect(screen.getByText('USDA Verified')).toBeTruthy();
     expect(screen.getByText('12:30 PM')).toBeTruthy();
     expect(screen.getByText('248')).toBeTruthy();

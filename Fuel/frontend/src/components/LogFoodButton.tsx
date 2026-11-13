@@ -27,7 +27,7 @@ export function LogFoodButton({ onPress }: { onPress: () => void }) {
 const styles = StyleSheet.create({
   pill: {
     position: 'absolute',
-    right: space.lg,
+    right: 20,
     bottom: space.lg,
     borderRadius: radius.full,
   },

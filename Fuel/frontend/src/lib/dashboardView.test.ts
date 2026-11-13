@@ -124,7 +124,7 @@ describe('formatTime', () => {
 
 describe('macroLine and sourceLabel', () => {
   it('formats grams and names sources', () => {
-    expect(macroLine(46, 0, 5.04)).toBe('P 46 - C 0 - F 5');
+    expect(macroLine(46, 0, 5.04)).toBe('P 46 · C 0 · F 5');
     expect(sourceLabel('USDA')).toBe('USDA Verified');
     expect(sourceLabel('OFF')).toBe('Manufacturer Label');
     expect(sourceLabel('USER')).toBe('You Entered');

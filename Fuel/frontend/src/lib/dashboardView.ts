@@ -99,7 +99,7 @@ export function formatTime(iso: string): string {
 }
 
 export const macroLine = (protein: number, carbs: number, fat: number): string =>
-  `P ${formatGrams(protein)} - C ${formatGrams(carbs)} - F ${formatGrams(fat)}`;
+  `P ${formatGrams(protein)} · C ${formatGrams(carbs)} · F ${formatGrams(fat)}`;
 
 const SOURCE_LABELS: Record<FoodSource, string> = {
   USDA: 'USDA Verified',

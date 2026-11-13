@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { formatGrams, macroModel, type MacroName } from '@/lib/dashboardView';
+import { macroModel, type MacroName } from '@/lib/dashboardView';
 import { numeric, radius, space, type, useTheme } from '@/theme';
 
 type Macro = { consumed: number; goal: number };
@@ -24,18 +24,21 @@ export function NutrientTable(props: Props) {
           </Text>
         ))}
       </View>
-      {ROWS.map(([name, key]) => {
+      {ROWS.map(([name, key], index) => {
         const { consumed, goal } = props[key];
         const m = macroModel(name, { consumed, goal });
-        const left = Math.max(0, goal - consumed);
+        const eaten = Math.round(consumed);
+        const goalG = Math.round(goal);
+        const left = Math.max(0, Math.round(goal - consumed));
+        const overBy = Math.round(consumed - goal);
         const over = m.over;
-        const leftText = over ? `${formatGrams(consumed - goal)} over` : `${formatGrams(left)} g`;
+        const leftText = over ? `${overBy} over` : `${left} g`;
         return (
           <View
             key={key}
             accessible
-            accessibilityLabel={`${name}, ${m.value} of ${m.goal} grams, ${over ? `${formatGrams(consumed - goal)} over` : `${formatGrams(left)} left`}`}
-            style={[styles.row, { borderBottomColor: colors.divider }]}
+            accessibilityLabel={`${name}, ${eaten} of ${goalG} grams, ${over ? `${overBy} over` : `${left} left`}`}
+            style={[styles.row, index < ROWS.length - 1 ? { borderBottomWidth: 1, borderBottomColor: colors.divider } : null]}
           >
             <View style={styles.line}>
               <View style={[styles.name, styles.nameCell]}>
@@ -45,10 +48,10 @@ export function NutrientTable(props: Props) {
                 </Text>
               </View>
               <Text style={[type.headline, numeric, styles.num, { color: colors.text }]} maxFontSizeMultiplier={1.5}>
-                {`${m.value} g`}
+                {`${eaten} g`}
               </Text>
               <Text style={[type.body, numeric, styles.num, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
-                {`${m.goal} g`}
+                {`${goalG} g`}
               </Text>
               <Text style={[type.headline, numeric, styles.num, { color: over ? colors.caution : colors.accentText }]} maxFontSizeMultiplier={1.5}>
                 {leftText}
@@ -70,7 +73,7 @@ export function NutrientTable(props: Props) {
 const styles = StyleSheet.create({
   line: { flexDirection: 'row', alignItems: 'center' },
   head: { paddingBottom: space.sm, borderBottomWidth: 1 },
-  row: { paddingVertical: space.md, borderBottomWidth: 1, gap: space.sm },
+  row: { paddingVertical: space.md, gap: space.sm },
   name: { flex: 1.4 },
   nameCell: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   num: { flex: 1, textAlign: 'right' },

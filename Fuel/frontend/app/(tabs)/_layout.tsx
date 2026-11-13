@@ -8,9 +8,9 @@ import { sizing, type, useTheme } from '@/theme';
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const TABS: { name: string; title: string; filled: IconName; outline: IconName }[] = [
-  { name: 'index', title: 'Today', filled: 'ellipse', outline: 'ellipse-outline' },
-  { name: 'history', title: 'History', filled: 'bar-chart', outline: 'bar-chart-outline' },
-  { name: 'profile', title: 'Profile', filled: 'person', outline: 'person-outline' },
+  { name: 'index', title: 'Today', filled: 'ellipse-outline', outline: 'ellipse-outline' },
+  { name: 'history', title: 'History', filled: 'stats-chart-outline', outline: 'stats-chart-outline' },
+  { name: 'profile', title: 'Profile', filled: 'person-outline', outline: 'person-outline' },
 ];
 
 export default function TabsLayout() {
@@ -22,8 +22,8 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.accentText,
         tabBarInactiveTintColor: colors.textTertiary,
-        tabBarLabel: ({ children, color }) => (
-          <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={[type.caption, { color }]}>
+        tabBarLabel: ({ children, color, focused }) => (
+          <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={[type.caption, focused ? { fontFamily: 'Manrope_600SemiBold' } : null, { color }]}>
             {children}
           </Text>
         ),

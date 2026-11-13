@@ -26,10 +26,10 @@ const styles = StyleSheet.create({
   root: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     gap: space.xs,
-    minHeight: 32,
-    paddingHorizontal: space.md,
+    minHeight: 36,
+    paddingHorizontal: 14,
     borderRadius: radius.full,
   },
 });
