@@ -27,6 +27,7 @@ import {
   type FormValues,
 } from '@/lib/customFoodForm';
 import { mapFieldErrors } from '@/lib/fieldErrors';
+import { hapticLight } from '@/lib/haptics';
 import { mealForHour } from '@/lib/mealLabel';
 import { sizing, space, type, useTheme } from '@/theme';
 
@@ -137,6 +138,7 @@ export default function ManualEntryScreen() {
       mealLabel: mealForHour(new Date().getHours()),
     });
     await queryClient.invalidateQueries({ queryKey: trackingKeys.all });
+    hapticLight();
     router.dismissAll();
   };
 

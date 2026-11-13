@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { deleteEntry, getDashboard, getEntries, updateEntry, type CreatedEntry, type Dashboard } from '@/api/tracking';
+import { hapticLight, hapticSelect } from '@/lib/haptics';
 import { UNDO_MS } from '@/lib/usePendingDeletes';
 import { addDays } from '@/lib/dashboardView';
 
@@ -23,6 +24,10 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   });
   return { __esModule: true, default: Swipeable, SwipeDirection: { LEFT: 'left', RIGHT: 'right' } };
 });
+
+jest.mock('@/lib/haptics', () => ({ hapticLight: jest.fn(), hapticSelect: jest.fn() }));
+const mockLight = jest.mocked(hapticLight);
+const mockSelect = jest.mocked(hapticSelect);
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -66,8 +71,8 @@ describe('Today screen', () => {
     expect(screen.getByLabelText('Loading your day')).toBeTruthy();
     await act(async () => resolve(DAY));
     expect(await screen.findByLabelText('750 calories remaining. 1,450 of 2,200 eaten.')).toBeTruthy();
-    expect(screen.getByLabelText('Protein, 120 of 165 grams')).toBeTruthy();
-    expect(screen.getByText('5 day streak')).toBeTruthy();
+    expect(screen.getByLabelText('Protein, 120 of 165 grams, 45 left')).toBeTruthy();
+    expect(screen.getByText('5 days')).toBeTruthy();
     expect(screen.getByText('Greek yogurt')).toBeTruthy();
     expect(screen.getByText('Today')).toBeTruthy();
     expect(screen.getByText('Meals')).toBeTruthy();
@@ -117,6 +122,23 @@ describe('Today screen', () => {
     await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
   });
 
+  it('ticks once on pull to refresh and not on plain taps', async () => {
+    mockGet.mockResolvedValue(DAY);
+    await renderScreen();
+    await screen.findByText('Greek yogurt');
+    await fireEvent.press(screen.getByRole('button', { name: 'Log food' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
+    await screen.findByText('Yesterday');
+    await fireEvent.press(screen.getByRole('button', { name: 'Next day' }));
+    expect(mockSelect).not.toHaveBeenCalled();
+    expect(mockLight).not.toHaveBeenCalled();
+    await act(async () => {
+      screen.getByTestId('today-scroll').props.refreshControl.props.onRefresh();
+    });
+    expect(mockSelect).toHaveBeenCalledTimes(1);
+    expect(mockLight).not.toHaveBeenCalled();
+  });
+
   it('keeps stale data and shows a banner when a refetch fails', async () => {
     mockGet.mockResolvedValueOnce(DAY).mockRejectedValue(new NetworkError());
     await renderScreen();
@@ -128,11 +150,11 @@ describe('Today screen', () => {
     expect(screen.getByText('Greek yogurt')).toBeTruthy();
   });
 
-  it('goes to the previous day with an explicit date and disables Next on today', async () => {
+  it('goes to the previous day with an explicit date and hides Next on today', async () => {
     mockGet.mockResolvedValue(DAY);
     await renderScreen();
     await screen.findByText('Greek yogurt');
-    expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
     const yesterday = addDays(DAY.date, -1);
     await waitFor(() => expect(mockGet).toHaveBeenCalledWith(yesterday));
@@ -147,13 +169,13 @@ describe('Today screen', () => {
     });
     afterEach(() => jest.useRealTimers());
 
-    it('requests without a date, labels the server day Today and blocks Next', async () => {
+    it('requests without a date, labels the server day Today and hides Next', async () => {
       mockGet.mockResolvedValue(DAY);
       await renderScreen();
       await screen.findByText('Greek yogurt');
       expect(mockGet).toHaveBeenCalledWith(undefined);
       expect(screen.getByText('Today')).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     });
 
     it('steps back from the server date and returns to server today without a date', async () => {
@@ -166,15 +188,15 @@ describe('Today screen', () => {
       mockGet.mockClear();
       await fireEvent.press(screen.getByRole('button', { name: 'Next day' }));
       expect(await screen.findByText('Today')).toBeTruthy();
-      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
       expect(mockGet.mock.calls.every(([d]) => d === undefined)).toBe(true);
     });
 
-    it('disables both arrows until the server date is known', async () => {
+    it('disables Previous and hides Next until the server date is known', async () => {
       mockGet.mockReturnValue(new Promise(() => {}));
       await renderScreen();
       expect(screen.getByRole('button', { name: 'Previous day' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Next day' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     });
   });
 
@@ -204,6 +226,21 @@ describe('Today screen', () => {
       expect(screen.getByText('Toast deleted')).toBeTruthy();
       expect(screen.getByLabelText('850 calories remaining. 1,350 of 2,200 eaten.')).toBeTruthy();
       expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it('gives one light haptic on delete and one on Undo, and none when the window just expires', async () => {
+      mockGet.mockResolvedValue(TWO);
+      await renderScreen();
+      await screen.findByText('Toast');
+      await del('Toast');
+      expect(mockLight).toHaveBeenCalledTimes(1);
+      await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+      expect(mockLight).toHaveBeenCalledTimes(2);
+      expect(mockSelect).not.toHaveBeenCalled();
+      await del('Toast');
+      expect(mockLight).toHaveBeenCalledTimes(3);
+      await act(async () => void jest.advanceTimersByTime(UNDO_MS));
+      expect(mockLight).toHaveBeenCalledTimes(3);
     });
 
     it('Undo restores the row and totals and never calls the server', async () => {

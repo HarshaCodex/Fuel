@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
-import { ringModel } from '@/lib/dashboardView';
+import { formatKcal, ringModel } from '@/lib/dashboardView';
+import { useCountUp } from '@/lib/useCountUp';
+import { useReduceMotion } from '@/lib/useReduceMotion';
 import { motion, numeric, radius, space, type, useTheme } from '@/theme';
 
-type Props = { consumed: number; goal: number; loading?: boolean };
+/** `hero` is the Today card: slower fill, count-up number, and no eaten line (the card shows it itself). */
+type Props = { consumed: number; goal: number; loading?: boolean; hero?: boolean };
 
 const SIZE = 200;
 const STROKE = 14;
@@ -14,25 +17,15 @@ const C = 2 * Math.PI * R;
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /** Calories remaining as a ring: starts at 12 o'clock, fills clockwise. */
-export function CalorieRing({ consumed, goal, loading }: Props) {
+export function CalorieRing({ consumed, goal, loading, hero }: Props) {
   const { colors } = useTheme();
   const m = ringModel({ consumed, goal });
   const target = loading ? 0 : m.fraction;
-  const [progress] = useState(() => new Animated.Value(target));
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    // If the setting cannot be read, fall back to animating.
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((on) => alive && setReduceMotion(on))
-      .catch(() => alive && setReduceMotion(false));
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => {
-      alive = false;
-      sub.remove();
-    };
-  }, []);
+  const [progress] = useState(() => new Animated.Value(hero ? 0 : target));
+  const reduceMotion = useReduceMotion();
+  const centreTarget = hero && !loading ? Math.abs(Math.round(m.over ? consumed - goal : Math.max(goal - consumed, 0))) : 0;
+  // The hero card plays its fill and count-up from empty when it first mounts.
+  const centreValue = useCountUp(centreTarget, reduceMotion, hero ? 0 : centreTarget);
 
   useEffect(() => {
     if (reduceMotion) {
@@ -41,13 +34,13 @@ export function CalorieRing({ consumed, goal, loading }: Props) {
     }
     const anim = Animated.timing(progress, {
       toValue: target,
-      duration: motion.slow,
+      duration: hero ? motion.ring : motion.slow,
       easing: Easing.bezier(...motion.easing),
       useNativeDriver: false,
     });
     anim.start();
     return () => anim.stop();
-  }, [target, reduceMotion, progress]);
+  }, [target, reduceMotion, progress, hero]);
 
   const offset = progress.interpolate({ inputRange: [0, 1], outputRange: [C, 0] });
   // A round cap draws a dot even for a zero-length dash, so hide the arc at 0.
@@ -87,7 +80,7 @@ export function CalorieRing({ consumed, goal, loading }: Props) {
                 style={[type.display, numeric, { color: m.over ? colors.caution : colors.text }]}
                 maxFontSizeMultiplier={1.3}
               >
-                {m.centre}
+                {hero ? formatKcal(centreValue) : m.centre}
               </Text>
               <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.3}>
                 {m.caption}
@@ -96,7 +89,7 @@ export function CalorieRing({ consumed, goal, loading }: Props) {
           )}
         </View>
       </View>
-      {loading ? (
+      {hero ? null : loading ? (
         <View style={[styles.bone, styles.eaten, { width: 140, height: 14, backgroundColor: colors.barTrack }]} />
       ) : (
         <Text

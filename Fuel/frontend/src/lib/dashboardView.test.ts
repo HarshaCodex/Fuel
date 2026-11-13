@@ -6,6 +6,7 @@ import {
   formatTime,
   isFutureDate,
   isoDate,
+  longDateLabel,
   groupByMeal,
   macroLine,
   macroModel,
@@ -123,7 +124,7 @@ describe('formatTime', () => {
 
 describe('macroLine and sourceLabel', () => {
   it('formats grams and names sources', () => {
-    expect(macroLine(46, 0, 5.04)).toBe('P 46 - C 0 - F 5');
+    expect(macroLine(46, 0, 5.04)).toBe('P 46 · C 0 · F 5');
     expect(sourceLabel('USDA')).toBe('USDA Verified');
     expect(sourceLabel('OFF')).toBe('Manufacturer Label');
     expect(sourceLabel('USER')).toBe('You Entered');
@@ -145,5 +146,15 @@ describe('groupByMeal', () => {
   });
   it('returns nothing for no entries', () => {
     expect(groupByMeal([])).toEqual([]);
+  });
+});
+
+describe('longDateLabel', () => {
+  it('formats weekday, day and month in capitals with a comma', () => {
+    expect(longDateLabel('2026-11-11')).toBe('WEDNESDAY, 11 NOVEMBER');
+  });
+  it('handles a month end and a past day', () => {
+    expect(longDateLabel('2026-02-28')).toBe('SATURDAY, 28 FEBRUARY');
+    expect(longDateLabel('2025-12-31')).toBe('WEDNESDAY, 31 DECEMBER');
   });
 });

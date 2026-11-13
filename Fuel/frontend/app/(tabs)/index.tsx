@@ -15,18 +15,19 @@ import {
   type UpdateEntryBody,
 } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
-import { CalorieRing } from '@/components/CalorieRing';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { EditEntrySheet } from '@/components/EditEntrySheet';
-import { MacroPills } from '@/components/MacroPills';
-import { MealList } from '@/components/MealList';
+import { HeroCard } from '@/components/HeroCard';
+import { LogFoodButton } from '@/components/LogFoodButton';
+import { MealCard } from '@/components/MealCard';
 import { StateBlock } from '@/components/StateBlock';
 import { StreakChip } from '@/components/StreakChip';
 import { UndoToast } from '@/components/UndoToast';
 import { editFactor, withEditedEntry, withoutEntries } from '@/lib/dashboardTotals';
-import { addDays, dateTitle, isFutureDate } from '@/lib/dashboardView';
+import { addDays, dateTitle, groupByMeal, isFutureDate, longDateLabel } from '@/lib/dashboardView';
+import { hapticLight, hapticSelect } from '@/lib/haptics';
 import { usePendingDeletes } from '@/lib/usePendingDeletes';
-import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
+import { sizing, space, type, useTheme } from '@/theme';
 
 function DateButton({ icon, label, disabled, onPress }: { icon: 'chevron-back' | 'chevron-forward'; label: string; disabled?: boolean; onPress: () => void }) {
   const { colors } = useTheme();
@@ -38,9 +39,9 @@ function DateButton({ icon, label, disabled, onPress }: { icon: 'chevron-back' |
       disabled={disabled}
       onPress={onPress}
       hitSlop={4}
-      style={styles.dateButton}
+      style={[styles.dateButton, disabled ? styles.dateButtonDisabled : null]}
     >
-      <Ionicons name={icon} size={sizing.icon} color={disabled ? colors.textTertiary : colors.text} />
+      <Ionicons name={icon} size={sizing.icon} color={colors.text} />
     </Pressable>
   );
 }
@@ -62,6 +63,7 @@ export default function TodayScreen() {
   // Remember the server's today so it survives while another day is selected (state adjusted during render).
   if (todayFromServer && todayFromServer !== serverToday) setServerToday(todayFromServer);
   const today = todayFromServer ?? serverToday;
+  const shown = selected ?? q.data?.date ?? today;
   const goTo = (target: string) => setSelected(target === today ? null : target);
   const qc = useQueryClient();
   const dashKey = trackingKeys.dashboard(date);
@@ -121,13 +123,20 @@ export default function TodayScreen() {
   const data = useMemo(() => (q.data ? withoutEntries(q.data, pending.ids) : undefined), [q.data, pending.ids]);
   const onDeleteEntry = (entry: DashboardEntry) => {
     setDeleteError(null);
+    hapticLight();
     pending.schedule(entry);
   };
   const offline = q.error instanceof NetworkError;
   const retry = () => void q.refetch();
   const logFood = () => router.push('/quick-log');
 
+  const onUndo = () => {
+    hapticLight();
+    pending.undo();
+  };
+
   const onRefresh = async () => {
+    hapticSelect();
     setRefreshing(true);
     try {
       await q.refetch();
@@ -144,25 +153,31 @@ export default function TodayScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
+        <Text style={[type.caption, styles.dateLabel, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
+          {shown ? longDateLabel(shown) : ' '}
+        </Text>
         <View style={styles.header}>
-          <DateButton
-            icon="chevron-back"
-            label="Previous day"
-            disabled={!today}
-            onPress={() => today && goTo(addDays(selected ?? today, -1))}
-          />
-          <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
-            {selected && today ? dateTitle(selected, today) : 'Today'}
-          </Text>
-          <DateButton
-            icon="chevron-forward"
-            label="Next day"
-            disabled={!today || isToday || isFutureDate(addDays(selected, 1), today)}
-            onPress={() => today && selected && goTo(addDays(selected, 1))}
-          />
+          <View style={styles.titleRow}>
+            <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
+              {selected && today ? dateTitle(selected, today) : 'Today'}
+            </Text>
+            <DateButton
+              icon="chevron-back"
+              label="Previous day"
+              disabled={!today}
+              onPress={() => today && goTo(addDays(selected ?? today, -1))}
+            />
+            {isToday ? null : (
+              <DateButton
+                icon="chevron-forward"
+                label="Next day"
+                disabled={!today || isFutureDate(addDays(selected, 1), today)}
+                onPress={() => today && selected && goTo(addDays(selected, 1))}
+              />
+            )}
+          </View>
+          {data ? <StreakChip current={data.streak.current} /> : null}
         </View>
-
-        {data ? <StreakChip current={data.streak.current} /> : null}
 
         {q.isError && data ? (
           <Banner
@@ -189,12 +204,9 @@ export default function TodayScreen() {
 
         {data ? (
           <>
-            <View style={[styles.ringCard, shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <CalorieRing consumed={data.calories.consumed} goal={data.calories.goal} />
-            </View>
-            <MacroPills protein={data.macros.protein} carbs={data.macros.carbs} fat={data.macros.fat} />
+            <HeroCard calories={data.calories} protein={data.macros.protein} carbs={data.macros.carbs} fat={data.macros.fat} />
             <View style={styles.meals}>
-              <Text accessibilityRole="header" style={[type.title2, { color: colors.text }]} maxFontSizeMultiplier={2}>
+              <Text accessibilityRole="header" style={[type.title2, styles.mealsTitle, { color: colors.text }]} maxFontSizeMultiplier={2}>
                 Meals
               </Text>
               {data.entries.length === 0 ? (
@@ -206,7 +218,9 @@ export default function TodayScreen() {
                   onAction={logFood}
                 />
               ) : (
-                <MealList entries={data.entries} onDeleteEntry={onDeleteEntry} onEditEntry={onEditEntry} />
+                groupByMeal(data.entries).map((g) => (
+                  <MealCard key={g.key} title={g.title} entries={g.entries} onDeleteEntry={onDeleteEntry} onEditEntry={onEditEntry} />
+                ))
               )}
             </View>
           </>
@@ -220,39 +234,24 @@ export default function TodayScreen() {
         onSave={onSaveEdit}
       />
       {pending.last ? (
-        <UndoToast message={`${pending.last.foodName} deleted`} actionLabel="Undo" onAction={pending.undo} />
+        <UndoToast message={`${pending.last.foodName} deleted`} actionLabel="Undo" onAction={onUndo} />
       ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Log food"
-        onPress={logFood}
-        style={({ pressed }) => [
-          styles.fab,
-          shadow.lg,
-          { backgroundColor: pressed ? colors.accentPressed : colors.accent },
-        ]}
-      >
-        <Ionicons name="add" size={28} color={colors.onAccent} />
-      </Pressable>
+      <LogFoodButton onPress={logFood} />
     </View>
   );
 }
 
+/** Page margin shared by the header, cards and the Log food pill. */
+const PAGE_MARGIN = 20;
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { padding: space.lg, paddingTop: space.xxxl, paddingBottom: sizing.fab + space.xxxl, gap: space.md },
-  meals: { gap: space.sm, marginTop: space.md },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  content: { padding: PAGE_MARGIN, paddingTop: space.xxxl, paddingBottom: sizing.fab + space.lg + space.xxxl + space.xl, gap: space.lg },
+  mealsTitle: { fontFamily: 'Manrope_700Bold', paddingHorizontal: space.xs },
+  meals: { gap: space.md, marginTop: space.md },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  titleRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
+  dateLabel: { textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: -space.sm },
+  dateButtonDisabled: { opacity: 0.4 },
   dateButton: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
-  ringCard: { alignItems: 'center', padding: space.xl, borderRadius: radius.lg, borderWidth: 1 },
-  fab: {
-    position: 'absolute',
-    right: space.lg,
-    bottom: space.lg,
-    width: sizing.fab,
-    height: sizing.fab,
-    borderRadius: radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 });

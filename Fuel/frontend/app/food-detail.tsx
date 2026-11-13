@@ -17,6 +17,7 @@ import { Stepper } from '@/components/Stepper';
 import { TextField } from '@/components/TextField';
 import { TrustBadge } from '@/components/TrustBadge';
 import { formatGrams, formatKcal } from '@/lib/dashboardView';
+import { hapticLight } from '@/lib/haptics';
 import { MEAL_OPTIONS, mealForHour } from '@/lib/mealLabel';
 import { MAX_QUANTITY, amountError, parseAmount, portionMacros } from '@/lib/portion';
 import { radius, sizing, space, type, useTheme } from '@/theme';
@@ -69,6 +70,7 @@ function Confirm({ food }: { food: Food }) {
     mutationFn: createEntry,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: trackingKeys.all });
+      hapticLight();
       router.dismissAll();
     },
     onSettled: () => {

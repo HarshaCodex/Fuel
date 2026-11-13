@@ -5,6 +5,8 @@ import { ApiError, NetworkError } from '@/api/errors';
 import { createCustomFood, foodKeys, getFood, updateCustomFood, type Food } from '@/api/food';
 import { createEntry, trackingKeys } from '@/api/tracking';
 
+import { hapticLight } from '@/lib/haptics';
+
 import ManualEntry from '../../app/manual-entry';
 
 const mockDismissAll = jest.fn();
@@ -39,6 +41,8 @@ jest.mock('@/api/food', () => ({
 }));
 jest.mock('@/api/tracking', () => ({ ...jest.requireActual('@/api/tracking'), createEntry: jest.fn() }));
 
+jest.mock('@/lib/haptics', () => ({ hapticLight: jest.fn() }));
+const mockLight = jest.mocked(hapticLight);
 const mockCreate = jest.mocked(createCustomFood);
 const mockEntry = jest.mocked(createEntry);
 const mockUpdate = jest.mocked(updateCustomFood);
@@ -98,6 +102,34 @@ describe('Manual entry screen', () => {
     expect(mockEntry).toHaveBeenCalledWith({ foodId: 'c1', servingSize: 40, servingUnit: 'g', quantity: 1, mealLabel: 'breakfast' });
     expect(spy).toHaveBeenCalledWith({ queryKey: foodKeys.custom });
     expect(spy).toHaveBeenCalledWith({ queryKey: trackingKeys.all });
+  });
+
+  it('gives one light haptic when the food is logged', async () => {
+    await renderScreen();
+    await fillValid();
+    await press('Log food');
+    await waitFor(() => expect(mockDismissAll).toHaveBeenCalled());
+    expect(mockLight).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives no haptic when saving without logging or when logging fails', async () => {
+    await renderScreen();
+    await fillValid();
+    await press('Save to My Foods only');
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockLight).not.toHaveBeenCalled();
+  });
+
+  it('gives no haptic until a failed log is retried and succeeds', async () => {
+    mockEntry.mockRejectedValueOnce(new ApiError(500, 'boom', []));
+    await renderScreen();
+    await fillValid();
+    await press('Log food');
+    await screen.findByText(/Saved to My Foods, but couldn't log it/);
+    expect(mockLight).not.toHaveBeenCalled();
+    await press('Retry');
+    await waitFor(() => expect(mockDismissAll).toHaveBeenCalled());
+    expect(mockLight).toHaveBeenCalledTimes(1);
   });
 
   it('saves without logging', async () => {

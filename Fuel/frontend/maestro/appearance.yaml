@@ -43,6 +43,7 @@ name: Appearance
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 60000
+- takeScreenshot: 02b-dark-today
 - tapOn: "Profile"
 - assertVisible: "Appearance. Dark"
 - takeScreenshot: 03-dark-after-relaunch

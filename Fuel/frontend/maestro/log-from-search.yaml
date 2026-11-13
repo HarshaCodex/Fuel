@@ -21,7 +21,7 @@ name: Log a food from search
     visible: "kcal left"
     timeout: 30000
 - copyTextFrom:
-    text: ".* of .* eaten"
+    text: ".* of .* eaten.*"
 - evalScript: ${output.eatenBefore = maestro.copiedText}
 - takeScreenshot: 01-today-before
 - tapOn: "Log food"
@@ -64,7 +64,7 @@ name: Log a food from search
     visible: "kcal left"
     timeout: 30000
 - copyTextFrom:
-    text: ".* of .* eaten"
+    text: ".* of .* eaten.*"
 - scrollUntilVisible:
     element: "Dinner"
 - assertVisible: "Chicken breast, roasted"

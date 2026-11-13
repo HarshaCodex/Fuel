@@ -3,15 +3,19 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { radius, space, type, useTheme } from '@/theme';
 
+import { useCardStyle } from './cardStyle';
+
 /** Quiet streak pill. Hidden at zero so a broken streak is never shown as a failure. */
 export function StreakChip({ current }: { current: number }) {
   const { colors } = useTheme();
+  const card = useCardStyle();
   if (!(current > 0)) return null;
-  const text = `${current.toLocaleString('en-US')} day streak`;
+  const n = current.toLocaleString('en-US');
+  const text = `${n} ${current === 1 ? 'day' : 'days'}`;
   return (
-    <View accessible accessibilityLabel={text} style={[styles.root, { backgroundColor: colors.surfaceMuted }]}>
-      <Ionicons name="flame" size={16} color={colors.textSecondary} accessibilityElementsHidden importantForAccessibility="no" />
-      <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.3}>
+    <View accessible accessibilityLabel={`Streak, ${text}`} style={[styles.root, card]}>
+      <Ionicons name="flame" size={16} color={colors.protein} accessibilityElementsHidden importantForAccessibility="no" />
+      <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={1.3}>
         {text}
       </Text>
     </View>
@@ -22,10 +26,10 @@ const styles = StyleSheet.create({
   root: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     gap: space.xs,
-    minHeight: 32,
-    paddingHorizontal: space.md,
+    minHeight: 36,
+    paddingHorizontal: 14,
     borderRadius: radius.full,
   },
 });

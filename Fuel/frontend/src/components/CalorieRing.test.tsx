@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react-native';
-import { AccessibilityInfo, processColor } from 'react-native';
+import { AccessibilityInfo, Animated, processColor } from 'react-native';
 
 import { CalorieRing } from './CalorieRing';
 import { lightColors } from '@/theme';
@@ -79,5 +79,47 @@ describe('CalorieRing arc', () => {
     });
     expect(offsetOf()).toBeCloseTo(0, 3);
     jest.useRealTimers();
+  });
+});
+
+describe('CalorieRing hero animation', () => {
+  let now = 1000;
+  let queued: (() => void) | null = null;
+  const advance = (ms: number) =>
+    act(() => {
+      now += ms;
+      const cb = queued;
+      queued = null;
+      cb?.();
+    });
+
+  beforeEach(() => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    now = 1000;
+    queued = null;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    jest.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(((cb: () => void) => {
+      queued = cb;
+      return 1;
+    }) as never);
+    jest.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation((() => {
+      queued = null;
+    }) as never);
+  });
+
+  it('fills over 700ms and counts the centre up from zero on first mount', async () => {
+    // Stubbed so Animated's own frame requests do not collide with the hand-driven count-up frame.
+    const timing = jest.spyOn(Animated, 'timing').mockReturnValue({ start: jest.fn(), stop: jest.fn() } as never);
+    await render(<CalorieRing hero consumed={1450} goal={2200} />);
+    expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ duration: 700 }));
+    expect(screen.queryByText('750')).toBeNull();
+    await advance(400);
+    expect(screen.getByText('750')).toBeTruthy();
+  });
+
+  it('keeps the 400ms fill for the non-hero ring', async () => {
+    const timing = jest.spyOn(Animated, 'timing');
+    await render(<CalorieRing consumed={1450} goal={2200} />);
+    expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ duration: 400 }));
   });
 });

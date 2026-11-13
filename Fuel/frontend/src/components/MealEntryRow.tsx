@@ -7,15 +7,16 @@ import type { DashboardEntry } from '@/api/tracking';
 import { sizing, space, type, useTheme } from '@/theme';
 
 import { MealRow } from './MealRow';
+import { PressableScale } from './PressableScale';
 import { RowMenu, type RowMenuAction } from './RowMenu';
 
-type Props = { entry: DashboardEntry; onDelete: () => void; onEdit?: () => void };
+type Props = { entry: DashboardEntry; onDelete: () => void; onEdit?: () => void; scale?: boolean };
 
 /**
  * A logged meal: the shared MealRow plus swipe left to delete and a 44pt menu button, which is the accessible path.
- * The swipe closes itself first, because the row leaves the list behind an undo toast.
+ * `scale` springs the row to 0.98 while pressed (Today). The swipe closes itself first, because the row leaves the list behind an undo toast.
  */
-export function MealEntryRow({ entry, onDelete, onEdit }: Props) {
+export function MealEntryRow({ entry, onDelete, onEdit, scale }: Props) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
   const swipe = useRef<SwipeableMethods>(null);
@@ -23,6 +24,7 @@ export function MealEntryRow({ entry, onDelete, onEdit }: Props) {
     swipe.current?.close();
     onDelete();
   };
+  const Hold = scale ? PressableScale : Pressable;
   const actions: RowMenuAction[] = [];
   if (onEdit) actions.push({ label: 'Edit', icon: 'create-outline', onPress: onEdit });
   actions.push({ label: 'Delete', icon: 'trash-outline', danger: true, onPress: onDelete });
@@ -49,7 +51,7 @@ export function MealEntryRow({ entry, onDelete, onEdit }: Props) {
       )}
     >
       <View style={[styles.row, { backgroundColor: colors.surface }]}>
-        <Pressable style={styles.meal} onLongPress={onEdit} accessible={false}>
+        <Hold style={styles.meal} onLongPress={onEdit} accessible={false}>
           <MealRow
             name={entry.foodName}
             source={entry.source}
@@ -61,7 +63,7 @@ export function MealEntryRow({ entry, onDelete, onEdit }: Props) {
             mealLabel={entry.mealLabel}
             accessibilityHint={onEdit ? 'Long press to edit' : undefined}
           />
-        </Pressable>
+        </Hold>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`More actions for ${entry.foodName}`}

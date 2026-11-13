@@ -99,7 +99,7 @@ export function formatTime(iso: string): string {
 }
 
 export const macroLine = (protein: number, carbs: number, fat: number): string =>
-  `P ${formatGrams(protein)} - C ${formatGrams(carbs)} - F ${formatGrams(fat)}`;
+  `P ${formatGrams(protein)} · C ${formatGrams(carbs)} · F ${formatGrams(fat)}`;
 
 const SOURCE_LABELS: Record<FoodSource, string> = {
   USDA: 'USDA Verified',
@@ -127,4 +127,14 @@ export function groupByMeal<T extends { mealLabel: string | null }>(entries: T[]
     (groups.find((g) => g.key === label) ?? other).entries.push(e);
   }
   return groups.filter((g) => g.entries.length > 0);
+}
+
+/** "WEDNESDAY, 11 NOVEMBER" for the small label above the Today title. */
+export function longDateLabel(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d, 12)
+    .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+    .replace(',', '')
+    .toUpperCase()
+    .replace(/^(\S+) /, '$1, ');
 }
