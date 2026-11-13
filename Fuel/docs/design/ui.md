@@ -87,8 +87,9 @@ Shadow colour is the warm `#1F1B16`, never pure black.
 | lg | 0,8 / 24 / 0.14 / 8 | FAB, bottom sheets |
 
 ### 1.6 Motion (`motion.*`)
-Easing `cubic-bezier(0.2, 0, 0, 1)`. `fast 120ms` press feedback; `base 200ms` sheet, toast, state swap; `slow 400ms` ring and bar
-fill, played once when data first arrives or changes after a log. Skeleton shimmer 1200ms loop while loading only.
+Easing `cubic-bezier(0.2, 0, 0, 1)`. `fast 120ms` press feedback; `base 200ms` sheet, toast, state swap; `slow 400ms` bar fill and the kcal count-up; `ring 700ms` ring fill (Today hero), all played once when data first
+arrives or changes after a log. Pressed meal rows and Log food spring to scale 0.98. Haptics (light impact on log success,
+delete and undo; selection on pull-to-refresh) and nowhere else. Skeleton shimmer 1200ms loop while loading only.
 With Reduce Motion on: no fills or slides, use an instant swap or a 120ms fade.
 
 ### 1.7 Sizing
@@ -140,9 +141,9 @@ Badge is informational, not a button, but tapping the meal row shows the source 
 
 **Bottom sheet.** `surface`, top radius `xl`, grabber 36 x 4 `borderStrong`, `shadow.lg`, `scrim` behind. Slides up `base`. Tap scrim, swipe down or the Close button dismisses it.
 
-**Tab bar.** Exactly three tabs, left to right: Today, History, Profile. Height 56 plus safe area, `surface`, top hairline `border` (light also `shadow.md`). Each tab fills a third of the width (min 44 high), icon 24 above `caption` label. Active: icon and label `accent` (dark `accentText`), icon filled. Inactive: `textTertiary`, outline icon. Icons: sun-horizon (Today), calendar (History), person (Profile). No badges, no fourth tab. Hidden on Quick Log, Search, Scan, Manual Entry, Food detail and Edit entry (modal stack screens).
+**Tab bar.** Exactly three tabs, left to right: Today, History, Profile. Height 56 plus safe area, `surface`, top hairline `divider`. Each tab fills a third of the width (min 44 high), icon 24 above `caption` label. Active: icon and label `accent` (dark `accentText`), icon filled. Inactive: `textTertiary`, outline icon. Icons: circle (Today), bars (History), person (Profile). No badges, no fourth tab. Hidden on Quick Log, Search, Scan, Manual Entry, Food detail and Edit entry (modal stack screens).
 
-**FAB (Today only).** 56 circle, `accent`, white plus icon 28, `shadow.lg`, bottom right, `lg` from the edge and `lg` above the tab bar. Label "Log food". Hides while scrolling down, returns on scroll up (`base`). Never overlaps the last row: list has bottom padding 96.
+**Log food pill (Today only).** Replaces the round FAB. `accent` pill, min height 56, plus icon and "Log food" in `headline` with `onAccent`, `shadow.lg` in light mode, bottom right, `lg` from the edge. Springs to 0.98 while pressed. Content has bottom padding so it never covers the last row.
 
 **Toast.** Pill-shaped card, `radius md`, `shadow.md`, bottom `lg` above tab bar, text `callout`, optional text button ("Undo"). Variants by leading icon and tint: success (`successSoft`), error (`dangerSoft`), info (`surface`). Visible 4s (5s with an action), pauses while a screen reader is focused on it; announced as a live region.
 
@@ -183,8 +184,8 @@ Purpose: set a starting calorie and macro goal. Three short steps with a progres
 
 ### S05 Dashboard / Today (`dashboard`)
 Purpose: show how today is going and what has been eaten.
-Layout, top to bottom: header row (date title "Today", chevrons to step to a previous day, streak chip "12 day streak" with flame icon at right); ring card (calorie ring); macro pill row; section "Meals" with `title2`; meal rows grouped under small `caption` headings Breakfast, Lunch, Dinner, Snack (and "Other" for unlabelled), only for groups that have entries; FAB.
-Interactions: pull to refresh (system spinner, `accent`); swipe a row to delete; long press to edit portion; the row "more" button does both without gestures; tap row for Food detail (read-only with source); tap FAB opens Quick Log; day chevrons change date, future days disabled.
+Layout, top to bottom: small uppercase date label; header row (title "Today" with the previous and next day chevrons beside it, streak chip "12 days" with flame at right); hero card (calorie ring with count-up kcal left, "eaten" and "goal" totals, then the nutrient table: dot, name, eaten, goal, left, with a 4px bar under each row; left turns `caution` as "N over" past goal); section "Meals" with `title2`; one card per meal (Breakfast, Lunch, Dinner, Snack, "Other"), only for groups that have entries; "Log food" pill. Cards are shadow in light mode, hairline and no shadow in dark.
+Interactions: pull to refresh (system spinner, `accent`); swipe a row to delete; long press to edit portion; the row "more" button does both without gestures; tap row for Food detail (read-only with source); tap the Log food pill opens Quick Log; day chevrons change date, future days disabled.
 States: loading (skeleton ring card, pills, three rows); empty (ring shows full goal, Meals section shows empty state "Nothing logged yet" with button "Log your first food"); error (full-screen error if first load fails, otherwise toast and stale data kept); offline (banner, cached last view stays visible, Retry); over goal (ring turns `caution`, see component).
 
 ### S06 Quick Log menu (`quick-log`)

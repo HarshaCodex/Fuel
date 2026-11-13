@@ -128,3 +128,13 @@ export function groupByMeal<T extends { mealLabel: string | null }>(entries: T[]
   }
   return groups.filter((g) => g.entries.length > 0);
 }
+
+/** "WEDNESDAY, 11 NOVEMBER" for the small label above the Today title. */
+export function longDateLabel(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d, 12)
+    .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+    .replace(',', '')
+    .toUpperCase()
+    .replace(/^(\S+) /, '$1, ');
+}

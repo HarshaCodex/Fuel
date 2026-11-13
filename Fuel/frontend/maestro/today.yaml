@@ -25,5 +25,5 @@ name: Sign in and see Today
     timeout: 30000
 - assertVisible: "Today"
 - assertVisible: "Breakfast"
-- assertVisible: ".*day streak.*"
+- assertVisible: "[0-9]+ days?"
 - takeScreenshot: 03-today

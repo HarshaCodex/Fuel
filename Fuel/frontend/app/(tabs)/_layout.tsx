@@ -7,21 +7,20 @@ import { sizing, type, useTheme } from '@/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-// Ionicons has no sun-horizon glyph, so Today uses sunny.
 const TABS: { name: string; title: string; filled: IconName; outline: IconName }[] = [
-  { name: 'index', title: 'Today', filled: 'sunny', outline: 'sunny-outline' },
-  { name: 'history', title: 'History', filled: 'calendar', outline: 'calendar-outline' },
+  { name: 'index', title: 'Today', filled: 'ellipse', outline: 'ellipse-outline' },
+  { name: 'history', title: 'History', filled: 'bar-chart', outline: 'bar-chart-outline' },
   { name: 'profile', title: 'Profile', filled: 'person', outline: 'person-outline' },
 ];
 
 export default function TabsLayout() {
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
   const { bottom } = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: scheme === 'dark' ? colors.accentText : colors.accent,
+        tabBarActiveTintColor: colors.accentText,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarLabel: ({ children, color }) => (
           <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={[type.caption, { color }]}>
@@ -30,7 +29,7 @@ export default function TabsLayout() {
         ),
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          borderTopColor: colors.divider,
           borderTopWidth: 1,
           height: sizing.tabBar + bottom,
         },
