@@ -53,8 +53,6 @@ name: Edit and delete a logged meal
     timeout: 30000
 - scrollUntilVisible:
     element: "Banana, raw"
-# Scroll the row clear of the floating Log food button before tapping its menu.
-- scroll
 - takeScreenshot: 01-logged
 - tapOn: "More actions for Banana, raw"
 - takeScreenshot: 02-row-menu

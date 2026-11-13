@@ -240,7 +240,7 @@ export default function TodayScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { padding: space.lg, paddingTop: space.xxxl, paddingBottom: sizing.fab + space.xxxl, gap: space.lg },
+  content: { padding: space.lg, paddingTop: space.xxxl, paddingBottom: sizing.fab + space.lg + space.xxxl + space.xl, gap: space.lg },
   meals: { gap: space.md, marginTop: space.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
