@@ -25,7 +25,7 @@ name: Log a food from recents
 - evalScript: ${output.eatenBefore = maestro.copiedText}
 - tapOn: "Log food"
 - extendedWaitUntil:
-    visible: "Recent"
+    visible: "(?i)recent"
     timeout: 15000
 - assertVisible: "Rice, white, cooked"
 - takeScreenshot: 01-quick-log-recents
