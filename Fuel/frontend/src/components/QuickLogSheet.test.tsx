@@ -6,6 +6,7 @@ import { DISMISS_DISTANCE, DISMISS_VELOCITY, QuickLogSheet } from './QuickLogShe
 type PanConfig = { onDeactivate: (e: { translationY: number; velocityY: number }) => void };
 let mockPan: PanConfig;
 let mockReduce = false;
+let mockFocused = true;
 
 jest.mock('react-native-reanimated', () => {
   const { View } = jest.requireActual('react-native');
@@ -31,6 +32,10 @@ jest.mock('react-native-gesture-handler', () => ({
     return cfg;
   },
 }));
+jest.mock('expo-router', () => ({
+  useFocusEffect: (cb: () => void | (() => void)) =>
+    jest.requireActual('react').useEffect(() => (mockFocused ? cb() : undefined), [cb]),
+}));
 jest.mock('react-native-worklets', () => ({ scheduleOnRN: (fn: (...a: unknown[]) => void, ...a: unknown[]) => fn(...a) }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }) }));
 jest.mock('@/lib/useReduceMotion', () => ({ useReduceMotion: () => mockReduce }));
@@ -46,6 +51,7 @@ const renderSheet = () =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockReduce = false;
+  mockFocused = true;
 });
 
 describe('QuickLogSheet', () => {
@@ -81,6 +87,13 @@ describe('QuickLogSheet', () => {
     });
     expect(result).toBe(true);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not listen for Android back while another screen is on top', async () => {
+    mockFocused = false;
+    const add = jest.spyOn(BackHandler, 'addEventListener');
+    await renderSheet();
+    expect(add).not.toHaveBeenCalled();
   });
 
   it('closes on a long drag', async () => {

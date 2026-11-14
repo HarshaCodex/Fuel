@@ -95,7 +95,7 @@ describe('Quick Log browse state', () => {
     expect(screen.getByText('Recent')).toBeTruthy();
     expect(mockRecent).toHaveBeenCalledWith(5);
     expect(screen.getAllByText('100 g · P 31 · C 0 · F 3.6')).toHaveLength(2);
-    expect(screen.getByText('Packaged')).toBeTruthy();
+    expect(screen.queryByText('Packaged')).toBeNull();
     expect(screen.getByText('Yours')).toBeTruthy();
   });
 
@@ -166,6 +166,19 @@ describe('Quick Log typing state', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
     expect(screen.getByRole('button', { name: 'Scan' })).toBeTruthy();
     expect(screen.getByText('Chicken breast')).toBeTruthy();
+  });
+
+  it('keeps the same search input mounted through typing and clearing', async () => {
+    mockRecent.mockResolvedValue([RECENT]);
+    mockPage.mockResolvedValue(page([food('1', 'Chicken')]));
+    await renderScreen();
+    await settle(1);
+    const before = screen.getByLabelText('Search foods');
+    await typeText('chicken');
+    await settle(301);
+    expect(screen.getByLabelText('Search foods')).toBe(before);
+    await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByLabelText('Search foods')).toBe(before);
   });
 
   it('sends one request for rapid typing after the debounce', async () => {

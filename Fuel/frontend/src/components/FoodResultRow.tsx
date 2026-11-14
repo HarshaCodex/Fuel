@@ -25,17 +25,25 @@ export function FoodResultRow({ food, onPress, divider = false }: Props) {
       >
         <View style={styles.left}>
           <View style={styles.title}>
-            <Text style={[type.label, styles.name, { color: colors.text }]} numberOfLines={2} maxFontSizeMultiplier={2}>
+            <Text style={[type.label, styles.name, { color: colors.text }]} numberOfLines={1} maxFontSizeMultiplier={2}>
               {food.name}
             </Text>
             {food.source === 'USDA' ? (
-              <Ionicons name="checkmark-circle" size={16} color={colors.verified} accessibilityElementsHidden importantForAccessibility="no" />
+              <Ionicons name="checkmark" size={14} color={colors.verified} accessibilityElementsHidden importantForAccessibility="no" />
             ) : null}
-            <View style={[styles.chip, { backgroundColor: yours ? colors.accentSoft : colors.surfaceMuted }]}>
-              <Text style={[type.caption, { color: yours ? colors.accentText : colors.textSecondary }]} maxFontSizeMultiplier={1.3}>
-                {yours ? 'Yours' : 'Packaged'}
-              </Text>
-            </View>
+            {yours ? (
+              <View style={[styles.chip, { backgroundColor: colors.surfaceMuted }]}>
+                <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.3}>
+                  Yours
+                </Text>
+              </View>
+            ) : food.source !== 'USDA' ? (
+              <View style={[styles.chip, { backgroundColor: colors.surfaceMuted }]}>
+                <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.3}>
+                  Packaged
+                </Text>
+              </View>
+            ) : null}
           </View>
           <Text style={[type.caption, numeric, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
             {`${serving} · P ${macro(food.protein)} · C ${macro(food.carbs)} · F ${macro(food.fat)}`}

@@ -1,3 +1,4 @@
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, type ReactNode } from 'react';
 import { BackHandler, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
@@ -50,13 +51,16 @@ export function QuickLogSheet({ onClose, children }: Props) {
     );
   }, [progress, closing, onClose]);
 
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      close();
-      return true;
-    });
-    return () => sub.remove();
-  }, [close]);
+  // Only while this screen is focused: it stays mounted under Scan, Food detail and the like, where back must pop them.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        close();
+        return true;
+      });
+      return () => sub.remove();
+    }, [close]),
+  );
 
   const pan = usePanGesture({
     activeOffsetY: [-8, 8],

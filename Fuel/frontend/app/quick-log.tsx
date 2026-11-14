@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState, type ComponentRef } from 'react';
+import { useCallback, useMemo, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { NetworkError } from '@/api/errors';
@@ -116,7 +116,7 @@ function QuickLogContent({ close }: { close: () => void }) {
         accessibilityRole="button"
         accessibilityLabel="Close"
         onPress={close}
-        style={[styles.closeBtn, { backgroundColor: colors.surfaceMuted }]}
+        style={[styles.closeBtn, { backgroundColor: colors.surface }]}
       >
         <Ionicons name="close" size={sizing.icon} color={colors.text} />
       </Pressable>
@@ -136,6 +136,8 @@ function QuickLogContent({ close }: { close: () => void }) {
     </Text>
   );
 
+  const recentsOffline = recents.error instanceof NetworkError;
+  let content: ReactNode;
   if (active) {
     const offline = search.error instanceof NetworkError;
     let body;
@@ -197,50 +199,51 @@ function QuickLogContent({ close }: { close: () => void }) {
         />
       );
     }
-    return (
-      <View style={styles.flex}>
-        <View style={styles.pad}>{field}</View>
-        <View style={styles.flex}>{body}</View>
-      </View>
+    content = <View style={styles.flex}>{body}</View>;
+  } else {
+    content = (
+      <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.tiles}>
+          <QuickLogTile icon="barcode-outline" label="Scan" hint="Scan a barcode" onPress={() => router.push('/scan')} />
+          <QuickLogTile icon="create-outline" label="Manual" hint="Enter a food by hand" onPress={() => router.push('/manual-entry')} />
+          <QuickLogTile icon="bookmark-outline" label="My Foods" hint="Your saved foods" onPress={() => router.push('/my-foods')} />
+        </View>
+        {recents.isError ? (
+          <Banner
+            variant="caution"
+            message={recentsOffline ? "You're offline. Recent foods aren't available." : "Couldn't load recents"}
+            action={{ label: 'Retry', onPress: () => void recents.refetch() }}
+          />
+        ) : null}
+        {recents.isPending ? <Skeleton label="Loading recent foods" testID="recent-skeleton-row" rows={3} /> : null}
+        {recents.data && recents.data.length > 0 ? (
+          <View style={styles.recents}>
+            {eyebrow('Recent')}
+            {rows(recents.data)}
+          </View>
+        ) : null}
+      </ScrollView>
     );
   }
 
-  const offline = recents.error instanceof NetworkError;
+  // One stable tree: the field must not remount when switching between browse and typing.
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {field}
-      <View style={styles.tiles}>
-        <QuickLogTile icon="barcode-outline" label="Scan" hint="Scan a barcode" onPress={() => router.push('/scan')} />
-        <QuickLogTile icon="create-outline" label="Manual" hint="Enter a food by hand" onPress={() => router.push('/manual-entry')} />
-        <QuickLogTile icon="bookmark-outline" label="My Foods" hint="Your saved foods" onPress={() => router.push('/my-foods')} />
-      </View>
-      {recents.isError ? (
-        <Banner
-          variant="caution"
-          message={offline ? "You're offline. Recent foods aren't available." : "Couldn't load recents"}
-          action={{ label: 'Retry', onPress: () => void recents.refetch() }}
-        />
-      ) : null}
-      {recents.isPending ? <Skeleton label="Loading recent foods" testID="recent-skeleton-row" rows={3} /> : null}
-      {recents.data && recents.data.length > 0 ? (
-        <View style={styles.recents}>
-          {eyebrow('Recent')}
-          {rows(recents.data)}
-        </View>
-      ) : null}
-    </ScrollView>
+    <View style={styles.flex}>
+      <View style={styles.pad}>{field}</View>
+      {content}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   pad: { paddingHorizontal: space.lg },
-  content: { paddingHorizontal: space.lg, paddingBottom: space.lg, gap: space.lg },
+  content: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.lg, gap: space.lg },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   pill: { flex: 1, height: sizing.input, borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingLeft: space.lg, paddingRight: space.xs },
   input: { flex: 1, paddingVertical: 0 },
   clear: { width: sizing.touchMin, height: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
-  closeBtn: { width: sizing.input, height: sizing.input, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  closeBtn: { width: sizing.touchMin, height: sizing.touchMin, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
   tiles: { flexDirection: 'row', gap: space.md },
   recents: { gap: space.sm },
   card: { borderRadius: radius.lg, overflow: 'hidden' },

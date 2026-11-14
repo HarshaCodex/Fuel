@@ -48,8 +48,14 @@ name: Appearance
 - extendedWaitUntil:
     visible: "Manual"
     timeout: 15000
-- hideKeyboard
+- waitForAnimationToEnd:
+    timeout: 3000
 - takeScreenshot: 02c-dark-quick-log
+- inputText: "chicken"
+- extendedWaitUntil:
+    visible: "Chicken breast, roasted"
+    timeout: 30000
+- takeScreenshot: 02d-dark-quick-log-typing
 - tapOn: "Close"
 - extendedWaitUntil:
     visible: "kcal left"
