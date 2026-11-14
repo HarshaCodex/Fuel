@@ -21,7 +21,7 @@ name: Manual entry saves to My Foods
     visible: "kcal left"
     timeout: 30000
 - tapOn: "Log food"
-- tapOn: "Enter manually"
+- tapOn: "Manual"
 - extendedWaitUntil:
     visible: "Enter a food"
     timeout: 15000
@@ -81,7 +81,7 @@ name: Manual entry saves to My Foods
           point: "92%,92%"
 - tapOn: "Save to My Foods only"
 - extendedWaitUntil:
-    visible: "Search foods"
+    visible: "My Foods"
     timeout: 15000
 - tapOn: "My Foods"
 - extendedWaitUntil:

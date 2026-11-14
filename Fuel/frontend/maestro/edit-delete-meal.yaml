@@ -21,10 +21,9 @@ name: Edit and delete a logged meal
     visible: "kcal left"
     timeout: 30000
 - tapOn: "Log food"
-- tapOn: "Search foods"
-- tapOn:
-    text: "Search foods"
-    index: 1
+- extendedWaitUntil:
+    visible: "Manual"
+    timeout: 15000
 - inputText: "banana"
 - extendedWaitUntil:
     visible: "Banana, raw"

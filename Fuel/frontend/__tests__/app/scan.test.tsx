@@ -8,9 +8,10 @@ import { foodKeys, getFoodByBarcode, type Food } from '@/api/food';
 import Scan from '../../app/scan';
 
 const mockPush = jest.fn();
+const mockDismissTo = jest.fn();
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack }) }));
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack, dismissTo: mockDismissTo }) }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 40, bottom: 34, left: 0, right: 0 }),
 }));
@@ -147,7 +148,7 @@ describe('scanning', () => {
     expect(screen.getByText('No match for this barcode')).toBeTruthy();
     expect(screen.getByText(/0123456789012/)).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Search by name'));
-    expect(mockPush).toHaveBeenCalledWith('/search');
+    expect(mockDismissTo).toHaveBeenCalledWith({ pathname: '/quick-log', params: { focus: '1' } });
     await fireEvent.press(screen.getByLabelText('Enter manually'));
     expect(mockPush).toHaveBeenCalledWith('/manual-entry');
     await fireEvent.press(screen.getByLabelText('Scan again'));

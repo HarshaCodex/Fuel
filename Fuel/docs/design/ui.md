@@ -48,6 +48,10 @@ Text pairs below are at least 4.5:1 on the surface named; UI shapes (borders of 
 | track | #EEEAE4 | #2A2724 | Generic unfilled track |
 | divider | #F0ECE6 | rgba(255,255,255,0.06) | Row and table separators |
 | verified | #2F6B4F | #7DCBA4 | "Verified" check and label |
+| sheetScrim | rgba(29,27,24,0.36) | rgba(0,0,0,0.6) | Behind the Quick Log sheet |
+| sheetEdge | transparent | rgba(255,255,255,0.08) | 1pt top edge of the sheet in dark |
+| toast / onToast | text / bg | track / text | Toast surface and its text (both modes) |
+| toastAction | #6CC3A3 | #6CC3A3 | Undo and Retry inside a toast |
 
 Rule: meaning is never colour alone. Badges carry an icon and a label, errors carry an icon and text, over-goal carries words.
 
@@ -65,6 +69,10 @@ system font is used if loading fails. Android needs one family per weight, so ev
 | body | 17 / 24 | 400 | Default text, input text |
 | callout | 15 / 20 | 400 | Supporting text, macro values |
 | caption | 13 / 18 | 500 | Badges, tab labels, units, helper text |
+| label | 15 / 600 | | Tile labels |
+| value | 16 / 700 | | Result kcal |
+| action | 14 / 700 | | Inline actions |
+| eyebrow | 13 / 700 | uppercase, 0.06em tracking | "Recent" and "Results" labels |
 
 All text honours the user's font size. Cap with `maxFontSizeMultiplier`: display 1.2, tab labels and badges 1.3, everything else 2.0.
 
@@ -73,7 +81,7 @@ All text honours the user's font size. Cap with `maxFontSizeMultiplier`: display
 Gap between sections `xl` (24). Inside cards `lg` (16). Minimum gap between tappable targets `sm` (8).
 
 ### 1.4 Radius (`radius.*`)
-`sm 8` (badges, chips inside rows), `md 12` (buttons, inputs, toasts), `lg 16` (cards, ring card), `xl 24` (top corners of sheets),
+`sm 8` (badges, chips inside rows), `md 12` (buttons, inputs, toasts), `lg 16` (cards, ring card), `xl 24`, `sheet 28` (top corners of the Quick Log sheet), `tile 22` (Quick Log tiles), `pill 26` (search field),
 `full 999` (pills, FAB, avatar, progress bars).
 
 ### 1.5 Shadow (`shadow.*`, light theme; dark has no shadow and uses a 1pt `border` hairline instead)
@@ -84,17 +92,18 @@ Shadow colour is the warm `#1F1B16`, never pure black.
 | none | - | Rows inside a card |
 | sm | 0,1 / 3 / 0.06 / 1 | Cards, inputs on focus |
 | md | 0,4 / 12 / 0.08 / 3 | Tab bar (upward, offset 0,-2), toast |
-| lg | 0,8 / 24 / 0.14 / 8 | FAB, bottom sheets |
+| lg | 0,8 / 24 / 0.14 / 8 | FAB |
+| sheet | upward | Quick Log sheet |
 
 ### 1.6 Motion (`motion.*`)
 Easing `cubic-bezier(0.2, 0, 0, 1)`. `fast 120ms` press feedback; `base 200ms` sheet, toast, state swap; `slow 400ms` bar fill and the kcal count-up; `ring 700ms` ring fill (Today hero), all played once when data first
 arrives or changes after a log. Pressed meal rows and Log food spring to scale 0.98. Haptics (light impact on log success,
 delete and undo; selection on pull-to-refresh) and nowhere else. Skeleton shimmer 1200ms loop while loading only.
-With Reduce Motion on: no fills or slides, use an instant swap or a 120ms fade.
+With Reduce Motion on: no fills or slides, use an instant swap or a 120ms fade. The Quick Log sheet fades in and out instead of sliding.
 
 ### 1.7 Sizing
 Touch target minimum 44 x 44. Button height lg 52, md 44. Input height 52. List row min height 64. Icon 24 (20 inside badges).
-FAB 56. Tab bar 56 plus bottom safe area. Hit slop extends small icons to 44.
+FAB 56. Quick Log tile 88, icon well 40, grabber 40 x 5. Tab bar 56 plus bottom safe area. Hit slop extends small icons to 44.
 
 ## 2. Components
 
@@ -156,7 +165,7 @@ Badge is informational, not a button, but tapping the meal row shows the source 
 **Skeleton.** `surfaceMuted` blocks matching the final layout with radius `md`, shimmer per motion tokens. Shown after 200ms of loading, replaced in place (no layout jump).
 
 ## 3. Navigation
-Bottom tabs: Today (Dashboard), History, Profile. Each tab owns a stack. Logging flows and Edit entry open as full-screen modal stacks above the tabs with a back or close control at top left (44pt). Android back goes up one level, then exits the app from a tab root. No hamburger menus, no drawers. Auth screens sit in a separate stack shown when no session exists.
+Bottom tabs: Today (Dashboard), History, Profile. Each tab owns a stack. Quick Log opens as a bottom sheet over Today (scrim, grabber; closes by scrim tap, grabber drag, close button or Android back). Other logging flows and Edit entry open as full-screen modal stacks above the tabs with a back or close control at top left (44pt). Android back goes up one level, then exits the app from a tab root. No hamburger menus, no drawers. Auth screens sit in a separate stack shown when no session exists.
 
 ## 4. Screens
 Common: screen title `title1` at `lg` padding (large title collapses on scroll), content scrolls under a `bg` header, each state below replaces the content area, never the whole chrome. Screen ids are used for screenshots.
@@ -188,20 +197,15 @@ Layout, top to bottom: small uppercase date label; header row (title "Today" wit
 Interactions: pull to refresh (system spinner, `accent`); swipe a row to delete; long press to edit portion; the row "more" button does both without gestures; tap row for Food detail (read-only with source); tap the Log food pill opens Quick Log; day chevrons change date, future days disabled.
 States: loading (skeleton ring card, pills, three rows); empty (ring shows full goal, Meals section shows empty state "Nothing logged yet" with button "Log your first food"); error (full-screen error if first load fails, otherwise toast and stale data kept); offline (banner, cached last view stays visible, Retry); over goal (ring turns `caution`, see component).
 
-### S06 Quick Log menu (`quick-log`)
-Purpose: choose how to log. Bottom sheet over the dashboard, open for as short a time as possible.
-Layout: title "Log food"; four large list rows: Search foods, Scan barcode, Enter manually, My Foods (each with icon and one-line hint); below, "Recent" with up to 5 recents as compact rows, each with a trailing 44pt "+" button that logs it at once with its last-used portion (default serving if none) and the meal label chosen by time of day, using the same rule as Food detail.
-States: Recents loading (3 skeleton rows), no recents (section hidden), recents error (section shows "Couldn't load recents" with Retry; the four methods still work). Offline: banner inside the sheet; methods still open and show their own offline state.
-Interactions: tapping "+" on a recent logs it, closes the sheet, shows toast "Added to Lunch. Undo". Here the entry is already saved, so Undo sends a delete for it. (Deleting a row on Today works the other way: the request waits until the toast ends.)
-
-### S07 Search (`search`)
-Purpose: find a food by name. Layout: back, search field (autofocus, clear button, "Search" return key), results list under it, each result a list row: name, brand and serving `callout`, trust badge, calories right; bottom of list loads next page.
-States: idle (shows Recents, else a hint); loading (skeleton rows after 200ms); no results (empty state "No match for 'chikn'", buttons "Enter it manually" with the query prefilled, and "Scan barcode"); error (error state, Retry, query kept); offline (offline banner, Retry). Debounce 300ms, minimum 2 characters.
-Interactions: tap a row opens Food detail; trailing "+" logs the default serving (as in Recent).
+### S06 Quick Log sheet (`quick-log`)
+Purpose: find or add a food from one place. Bottom sheet over Today with a scrim, 28pt top corners and a grabber; open for as short a time as possible.
+Layout: 52pt search field (label "Search foods", autofocus, accent ring on focus, clear button, "Search" return key, 100 character limit) with a round Close button beside it. Browse state: three 88pt tiles (Scan, Manual, My Foods, each with an icon and a hint), then a "Recent" card with up to 5 recents. Typing state (2 or more characters, 300ms debounce): tiles and Recent are replaced by a "Results" label and result rows. A row shows name, verified check, "Yours" or "Packaged" chip, `100 g · P · C · F`, and kcal; tap opens Food detail.
+States: recents loading (3 skeleton rows), no recents (section hidden), recents error (caution banner with Retry; tiles still work). Search: loading (skeleton rows after 200ms); no results (empty state "No match for 'chikn'", buttons "Enter it manually" with the query prefilled, and "Scan barcode"); error or offline (error state, Retry, query kept); next page failure ("Couldn't load more" with Retry). Offline: tiles still open and show their own offline state.
+Interactions: the sheet closes by scrim tap, grabber drag past 120pt or a fast flick, the Close button, or Android back. The one-tap "+" and its toast come in a later change.
 
 ### S08 Barcode scan (`barcode`)
 Purpose: read a product barcode. Layout: full-screen camera preview, 280 x 180 viewfinder with `radius lg` corner brackets in white, hint "Point at a barcode", close button top left, torch toggle top right, "Type the number instead" text button at the bottom. That button opens a sheet with one numeric field (`decimal-pad`, label "Barcode number", 8, 12 or 13 digits; inline error "Enter 8, 12 or 13 digits" until valid) and a primary "Look up" button that behaves like a scan result.
-States: permission not asked (system dialog after a one-line explanation screen); permission denied (empty state "Camera access is off" with "Open Settings" and "Search instead"); looking up (viewfinder dims, spinner); found -> Food detail; not found (sheet "We don't have this product yet" with "Enter it manually", barcode prefilled, and "Scan again"); error/offline (sheet with Retry; scanning pauses until dismissed). Success feedback: one light haptic.
+States: permission not asked (system dialog after a one-line explanation screen); permission denied (empty state "Camera access is off" with "Open Settings" and "Search instead", which returns to the Quick Log sheet with the search field focused); looking up (viewfinder dims, spinner); found -> Food detail; not found (sheet "We don't have this product yet" with "Enter it manually", barcode prefilled, and "Scan again"); error/offline (sheet with Retry; scanning pauses until dismissed). Success feedback: one light haptic.
 Note: web renders cannot show the camera; use the denied and not-found states in screenshots.
 
 ### S09 Manual entry (`manual-entry`)
@@ -239,7 +243,7 @@ States: loading (skeleton cards), error (Retry), offline (banner; edits blocked 
 
 **Log a food in the fewest taps.**
 1. Repeat food: Today -> FAB -> "+" on a Recent row. Two taps, no typing, toast with Undo.
-2. Searched food: Today -> FAB -> Search -> type -> "+" on result (4 taps plus typing), or tap result -> adjust -> "Log" (5 taps).
+2. Searched food: Today -> FAB -> type in the sheet's search field -> tap result -> adjust -> "Log".
 3. Barcode: Today -> FAB -> Scan -> Food detail -> "Log" (4 taps, no typing, default portion).
 4. New food: Today -> FAB -> Enter manually -> fill label values -> "Log food".
 After every log the user lands on Today, the ring and bar animate (`slow`), and a toast confirms. Mistakes are fixed by Undo, swipe-delete, or long-press edit.

@@ -44,6 +44,16 @@ name: Appearance
     visible: "kcal left"
     timeout: 60000
 - takeScreenshot: 02b-dark-today
+- tapOn: "Log food"
+- extendedWaitUntil:
+    visible: "Manual"
+    timeout: 15000
+- hideKeyboard
+- takeScreenshot: 02c-dark-quick-log
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 15000
 - tapOn: "Profile"
 - assertVisible: "Appearance. Dark"
 - takeScreenshot: 03-dark-after-relaunch

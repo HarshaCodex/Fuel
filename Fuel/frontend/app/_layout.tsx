@@ -40,8 +40,7 @@ function RootStack() {
           <Stack.Screen name="appearance" options={{ presentation: 'modal' }} />
           <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
           <Stack.Screen name="edit-body-stats" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="quick-log" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="search" />
+          <Stack.Screen name="quick-log" options={{ presentation: 'transparentModal', animation: 'none' }} />
           <Stack.Screen name="food-detail" />
           <Stack.Screen name="scan" />
           <Stack.Screen name="manual-entry" />

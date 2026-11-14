@@ -5,6 +5,11 @@ export const type = {
   headline: { fontSize: 17, lineHeight: 24, fontFamily: 'Manrope_600SemiBold' },
   body: { fontSize: 17, lineHeight: 24, fontFamily: 'Manrope_400Regular' },
   callout: { fontSize: 15, lineHeight: 20, fontFamily: 'Manrope_400Regular' },
+  label: { fontSize: 15, lineHeight: 20, fontFamily: 'Manrope_600SemiBold' },
+  value: { fontSize: 16, lineHeight: 22, fontFamily: 'Manrope_700Bold' },
+  action: { fontSize: 14, lineHeight: 20, fontFamily: 'Manrope_700Bold' },
+  /** Small uppercase section label, 0.06em tracking. */
+  eyebrow: { fontSize: 13, lineHeight: 18, fontFamily: 'Manrope_700Bold', letterSpacing: 0.78, textTransform: 'uppercase' },
   caption: { fontSize: 13, lineHeight: 18, fontFamily: 'Manrope_500Medium' },
 } as const;
 

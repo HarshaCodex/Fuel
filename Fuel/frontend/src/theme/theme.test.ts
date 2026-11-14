@@ -44,6 +44,8 @@ describe('theme tokens', () => {
       ['verified', 'surface'],
       ['danger', 'bg'],
       ['caution', 'bg'],
+      ['onToast', 'toast'],
+      ['toastAction', 'toast'],
     ];
     const graphics: (keyof Colors)[] = ['accent', 'protein', 'carbs', 'fat'];
 
@@ -53,6 +55,9 @@ describe('theme tokens', () => {
       });
       it(`${name}: onScrim is at least 4.5:1 over the scrim on black`, () => {
         expect(ratio(c.onScrim, '#000000')).toBeGreaterThanOrEqual(4.5);
+      });
+      it('accent on accentSoft is at least 3:1', () => {
+        expect(ratio(c.accent, c.accentSoft)).toBeGreaterThanOrEqual(3);
       });
       it.each(graphics)(`${name}: %s on surface is at least 3:1`, (fg) => {
         expect(ratio(c[fg], c.surface)).toBeGreaterThanOrEqual(3);

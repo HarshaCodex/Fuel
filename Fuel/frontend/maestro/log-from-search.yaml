@@ -25,20 +25,16 @@ name: Log a food from search
 - evalScript: ${output.eatenBefore = maestro.copiedText}
 - takeScreenshot: 01-today-before
 - tapOn: "Log food"
-- tapOn: "Search foods"
 - extendedWaitUntil:
-    visible: "Type at least 2 characters to search foods."
+    visible: "Manual"
     timeout: 15000
-- takeScreenshot: 02-search-empty
-- tapOn:
-    text: "Search foods"
-    index: 1
+- takeScreenshot: 02-quick-log-browse
 - inputText: "chicken"
 - extendedWaitUntil:
     visible: "Chicken breast, roasted"
     timeout: 30000
 - assertVisible: "Chicken thigh, roasted"
-- takeScreenshot: 03-search-results
+- takeScreenshot: 03-quick-log-results
 - tapOn: "Chicken breast, roasted"
 - extendedWaitUntil:
     visible: "Amount"
