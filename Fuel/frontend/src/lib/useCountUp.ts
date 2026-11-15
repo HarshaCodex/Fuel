@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import { motion } from '@/theme';
 
-/** Counts from the value on screen (first `startAt`) to `target` over 400ms; a new target restarts from where it is. Instant if reduced. */
-export function useCountUp(target: number, reduceMotion: boolean, startAt: number = target): number {
+/** Counts from the value on screen (first `startAt`) to `target` over `duration` (400ms by default); a new target restarts from where it is. Instant if reduced. */
+export function useCountUp(target: number, reduceMotion: boolean, startAt: number = target, duration: number = motion.slow): number {
   const [value, setValue] = useState(startAt);
   const current = useRef(startAt);
   useEffect(() => {
@@ -16,7 +16,7 @@ export function useCountUp(target: number, reduceMotion: boolean, startAt: numbe
     const start = Date.now();
     let frame = 0;
     const step = () => {
-      const t = Math.min((Date.now() - start) / motion.slow, 1);
+      const t = Math.min((Date.now() - start) / duration, 1);
       const eased = 1 - Math.pow(1 - t, 3);
       current.current = from + (target - from) * eased;
       setValue(current.current);
@@ -24,6 +24,6 @@ export function useCountUp(target: number, reduceMotion: boolean, startAt: numbe
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-  }, [target, reduceMotion]);
+  }, [target, reduceMotion, duration]);
   return reduceMotion ? target : value;
 }
