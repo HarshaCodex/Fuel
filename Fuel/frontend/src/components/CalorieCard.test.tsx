@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo, StyleSheet } from 'react-native';
 
-import { lightColors } from '@/theme';
+import { lightColors, motion } from '@/theme';
 
 import { CalorieCard } from './CalorieCard';
 import { useKeyboardHeight } from './KeyboardAvoider';
@@ -58,5 +58,37 @@ describe('CalorieCard', () => {
     await rerender(<CalorieCard macros={{ calories: 100, protein: 20, carbs: 5, fat: 1 }} amountLabel="50 g" />);
     expect(screen.getByText('100')).toBeTruthy();
     expect(screen.getByLabelText('100 calories, protein 20 grams, carbs 5 grams, fat 1 grams')).toBeTruthy();
+  });
+});
+
+describe('CalorieCard animation', () => {
+  it('counts to the new value over motion.fast when Reduce Motion is off', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    let now = 1000;
+    let queued: (() => void)[] = [];
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    jest.spyOn(globalThis, 'requestAnimationFrame').mockImplementation(((cb: () => void) => {
+      queued.push(cb);
+      return 1;
+    }) as never);
+    jest.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation((() => {
+      queued = [];
+    }) as never);
+    const advance = (ms: number) =>
+      act(() => {
+        now += ms;
+        const cbs = queued;
+        queued = [];
+        cbs.forEach((cb) => cb());
+      });
+    const shown = () => Number(String(screen.getByTestId('calorie-card-kcal').props.children).replace(',', ''));
+    const from = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    const { rerender } = await render(<CalorieCard macros={from} amountLabel="0 g" />);
+    await rerender(<CalorieCard macros={{ calories: 1000, protein: 10, carbs: 10, fat: 10 }} amountLabel="100 g" />);
+    await advance(motion.fast / 2);
+    expect(shown()).toBeGreaterThan(0);
+    expect(shown()).toBeLessThan(1000);
+    await advance(motion.fast);
+    expect(shown()).toBe(1000);
   });
 });

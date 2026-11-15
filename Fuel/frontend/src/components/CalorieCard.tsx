@@ -40,12 +40,12 @@ export function CalorieCard({ macros, amountLabel }: Props) {
     <View accessible accessibilityLabel={label} style={[styles.card, card]}>
       <Text
         testID="calorie-card-kcal"
-        style={[{ fontSize: compact ? COMPACT : BIG, lineHeight: (compact ? COMPACT : BIG) + 6, fontFamily: type.title1.fontFamily }, numeric, styles.center, { color: colors.text }]}
+        style={[{ fontSize: compact ? COMPACT : BIG, lineHeight: compact ? COMPACT + 4 : BIG + 4, letterSpacing: -0.03 * (compact ? COMPACT : BIG), fontFamily: type.title1.fontFamily }, numeric, styles.center, { color: colors.text }]}
         maxFontSizeMultiplier={2}
       >
         {formatKcal(kcal)}
       </Text>
-      <Text style={[type.callout, styles.center, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
+      <Text style={[styles.sub, styles.center, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
         {`kcal in ${amountLabel}`}
       </Text>
       <View testID="calorie-split" style={[styles.bar, { backgroundColor: colors.barTrack }]}>
@@ -64,7 +64,7 @@ export function CalorieCard({ macros, amountLabel }: Props) {
                 {c.name}
               </Text>
             </View>
-            <Text style={[type.title2, numeric, { color: colors.text, fontFamily: type.value.fontFamily }]} maxFontSizeMultiplier={2}>
+            <Text style={[styles.grams, numeric, { color: colors.text }]} maxFontSizeMultiplier={2}>
               {`${formatGrams(c.grams)} g`}
             </Text>
           </View>
@@ -75,11 +75,13 @@ export function CalorieCard({ macros, amountLabel }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.sheet, padding: space.xl, gap: space.md },
+  card: { borderRadius: radius.sheet, paddingTop: space.xl, paddingHorizontal: space.lg + space.xs, paddingBottom: space.lg + space.xs, gap: space.lg + 2 },
+  sub: { fontSize: 14, lineHeight: 20, fontFamily: type.label.fontFamily },
+  grams: { fontSize: 20, lineHeight: 26, fontFamily: type.value.fontFamily },
   center: { textAlign: 'center' },
   bar: { flexDirection: 'row', height: BAR, borderRadius: BAR / 2, gap: GAP, overflow: 'hidden' },
   cols: { flexDirection: 'row', gap: space.sm },
-  col: { flex: 1, gap: space.xs },
+  col: { flex: 1, gap: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   dot: { width: DOT, height: DOT, borderRadius: DOT / 2 },
 });
