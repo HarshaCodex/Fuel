@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { NetworkError } from '@/api/errors';
+import { ApiError, NetworkError } from '@/api/errors';
 import { foodKeys, getFoodPage, getRecentFoods, type Food } from '@/api/food';
 import { createEntry, deleteEntry, trackingKeys } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
@@ -82,41 +82,67 @@ function QuickLogContent({ close }: { close: () => void }) {
   const inFlight = useRef(new Set<string>());
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const checkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(
-    () => () => {
+  const mounted = useRef(true);
+  const undoing = useRef(new Set<string>());
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       clearTimeout(toastTimer.current);
       clearTimeout(checkTimer.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const showToast = (next: Toast) => {
+    if (!mounted.current) return;
     clearTimeout(toastTimer.current);
     setToast(next);
     toastTimer.current = setTimeout(() => setToast(null), TOAST_MS);
   };
 
   const undo = async (entryId: string) => {
+    if (undoing.current.has(entryId)) return;
+    undoing.current.add(entryId);
     try {
-      await deleteEntry(entryId);
+      try {
+        await deleteEntry(entryId);
+      } catch (error) {
+        // Already deleted (a double tap or another device): the goal is met.
+        if (!(error instanceof ApiError && error.status === 404)) throw error;
+      }
       await queryClient.invalidateQueries({ queryKey: trackingKeys.all });
       hapticLight();
+      if (!mounted.current) return;
       clearTimeout(toastTimer.current);
       setToast(null);
     } catch {
-      showToast({ message: "Couldn't undo. Try again.", actionLabel: 'Retry', onAction: () => void undo(entryId), tone: 'error' });
+      showToast({
+        message: "Couldn't undo. Try again.",
+        actionLabel: 'Retry',
+        onAction: () => void undo(entryId),
+        tone: 'error',
+      });
+    } finally {
+      undoing.current.delete(entryId);
     }
   };
 
   const quickAdd = async (food: Food) => {
     if (inFlight.current.has(food.id)) return;
     inFlight.current.add(food.id);
-    setAddingIds(new Set(inFlight.current));
+    if (mounted.current) setAddingIds(new Set(inFlight.current));
     const mealLabel = mealForHour(new Date().getHours());
     try {
-      const entry = await createEntry({ foodId: food.id, servingSize: food.servingSize, servingUnit: food.servingUnit, quantity: 1, mealLabel });
+      const entry = await createEntry({
+        foodId: food.id,
+        servingSize: food.servingSize,
+        servingUnit: food.servingUnit,
+        quantity: 1,
+        mealLabel,
+      });
       await queryClient.invalidateQueries({ queryKey: trackingKeys.all });
       hapticLight();
+      if (!mounted.current) return;
       setAddedId(food.id);
       clearTimeout(checkTimer.current);
       checkTimer.current = setTimeout(() => setAddedId(null), CHECK_MS);
@@ -128,10 +154,15 @@ function QuickLogContent({ close }: { close: () => void }) {
         tone: 'success',
       });
     } catch (error) {
-      showToast({ message: logErrorMessage(error), actionLabel: 'Retry', onAction: () => void quickAdd(food), tone: 'error' });
+      showToast({
+        message: logErrorMessage(error),
+        actionLabel: 'Retry',
+        onAction: () => void quickAdd(food),
+        tone: 'error',
+      });
     } finally {
       inFlight.current.delete(food.id);
-      setAddingIds(new Set(inFlight.current));
+      if (mounted.current) setAddingIds(new Set(inFlight.current));
     }
   };
 

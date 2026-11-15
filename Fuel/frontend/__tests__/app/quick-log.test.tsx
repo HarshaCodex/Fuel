@@ -2,8 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
-import { createEntry, deleteEntry } from '@/api/tracking';
+import { createEntry, deleteEntry, trackingKeys } from '@/api/tracking';
 import { foodKeys, getFoodPage, getRecentFoods, type Food, type FoodPage, type RecentFood } from '@/api/food';
+
+import { hapticLight } from '@/lib/haptics';
 
 import QuickLog from '../../app/quick-log';
 
@@ -418,5 +420,57 @@ describe('Quick Log one-tap add', () => {
     await settle(300);
     expect(screen.getByText('Apple')).toBeTruthy();
     expect(screen.queryByLabelText(/^Log Apple/)).toBeNull();
+  });
+
+  it('invalidates Today and buzzes once after a log and once after Undo, not after a failed log', async () => {
+    mockCreate.mockRejectedValueOnce(new NetworkError()).mockResolvedValueOnce(created('e1'));
+    mockDelete.mockResolvedValue(null);
+    await renderScreen();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Chicken breast, 100 g'));
+    await settle(0);
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: trackingKeys.all });
+    expect(hapticLight).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    await settle(0);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: trackingKeys.all });
+    expect(hapticLight).toHaveBeenCalledTimes(1);
+    invalidate.mockClear();
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    await settle(0);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: trackingKeys.all });
+    expect(hapticLight).toHaveBeenCalledTimes(2);
+  });
+
+  it('calls delete once on a double tap of Undo and treats a 404 as done', async () => {
+    mockCreate.mockResolvedValue(created('e1'));
+    let reject: (e: unknown) => void = () => {};
+    mockDelete.mockReturnValue(new Promise((_, r) => (reject = r)));
+    await renderScreen();
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Chicken breast, 100 g'));
+    await settle(0);
+    const undoBtn = screen.getByRole('button', { name: 'Undo' });
+    await fireEvent.press(undoBtn);
+    await fireEvent.press(undoBtn);
+    expect(mockDelete).toHaveBeenCalledTimes(1);
+    await act(async () => reject(new ApiError(404, 'gone')));
+    await settle(0);
+    expect(screen.queryByText("Couldn't undo. Try again.")).toBeNull();
+    expect(screen.queryByText(/^Added to/)).toBeNull();
+  });
+
+  it('still logs and refreshes Today when the sheet closes mid-request', async () => {
+    let resolve: (v: ReturnType<typeof created>) => void = () => {};
+    mockCreate.mockReturnValue(new Promise((r) => (resolve = r)));
+    await renderScreen();
+    const invalidate = jest.spyOn(client, 'invalidateQueries');
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Chicken breast, 100 g'));
+    await screen.unmount();
+    await act(async () => resolve(created('e1')));
+    await settle(6000);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: trackingKeys.all });
   });
 });
