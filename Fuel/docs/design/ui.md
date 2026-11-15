@@ -81,7 +81,7 @@ All text honours the user's font size. Cap with `maxFontSizeMultiplier`: display
 Gap between sections `xl` (24). Inside cards `lg` (16). Minimum gap between tappable targets `sm` (8).
 
 ### 1.4 Radius (`radius.*`)
-`sm 8` (badges, chips inside rows), `md 12` (buttons, inputs, toasts), `lg 16` (cards, ring card), `xl 24`, `sheet 28` (top corners of the Quick Log sheet), `tile 22` (Quick Log tiles), `pill 26` (search field),
+`sm 8` (badges, chips inside rows), `md 12` (buttons, inputs, toasts), `lg 16` (cards, ring card), `xl 24`, `sheet 28` (top corners of the Quick Log sheet), `tile 22` (Quick Log tiles), `option 20` (Food detail portion tiles), `pill 26` (search field),
 `full 999` (pills, FAB, avatar, progress bars).
 
 ### 1.5 Shadow (`shadow.*`, light theme; dark has no shadow and uses a 1pt `border` hairline instead)
@@ -103,7 +103,7 @@ With Reduce Motion on: no fills or slides, use an instant swap or a 120ms fade. 
 
 ### 1.7 Sizing
 Touch target minimum 44 x 44. Button height lg 52, md 44. Input height 52. List row min height 64. Icon 24 (20 inside badges).
-FAB 56. Quick Log tile 88, icon well 40, grabber 40 x 5. Tab bar 56 plus bottom safe area. Hit slop extends small icons to 44.
+FAB 56. Food detail portion tile 64, Log button 56. Quick Log tile 88, icon well 40, grabber 40 x 5. Tab bar 56 plus bottom safe area. Hit slop extends small icons to 44.
 
 ## 2. Components
 
@@ -215,8 +215,9 @@ States: validation (name required, numbers not negative, errors on blur), saving
 
 ### S10 Food detail and portion confirm (`food-detail`)
 Purpose: confirm how much was eaten, then log it.
-Layout: back, food name `title1` (up to 3 lines), brand `callout`, trust badge and source line ("From USDA FoodData Central"); portion card: serving size stepper field with unit selector, quantity stepper (0.5 steps, min 0.5), meal chips (Breakfast, Lunch, Dinner, Snack; preselected by time of day: before 11 breakfast, 11 to 15 lunch, 15 to 17 snack, otherwise dinner); nutrition card showing calories in `display` and a P / C / F row that update live with portion; primary "Log food" pinned at the bottom with the calories ("Log 248 kcal"). Read-only mode (opened from a meal row) hides the log button and shows "Edit portion".
-States: loading (skeleton), error (Retry, back), offline, validation (quantity above 0). Interactions: stepping values updates figures within `fast`; success closes the modal stack to Today with a toast.
+Layout (top to bottom): back (44pt round `surface` button with card shadow, hairline in dark); food name `title1` (up to 3 lines); brand `callout`; source line (USDA: check icon and "Verified · USDA FoodData Central" in `verified`; Open Food Facts "From the manufacturer label"; your own "Entered by you", both `textSecondary`). Then a "Portion" radiogroup of four equal 64pt tiles (radius `option` 20): half, one and one and a half servings of the food's serving, and Custom. Each tile shows the amount (16/700, e.g. "50 g", "½ cup") over a caption (12/600: "½ serving", "1 serving", "1½ servings", "type amount"). "1 serving" is selected on open: `accent` fill with `onAccent` text; others `surface` with `shadow.sm` (hairline in dark). Tile amounts are rounded to one decimal (the backend accepts one). Custom reveals a 56pt pill (radius 28): "Amount" on the left, the number (22/700) and unit on the right, a 2pt `accent` ring when focused; it opens focused with the decimal pad, prefilled with the current amount. Below, the calorie card (radius 28, card shadow): kcal in 56/700 (40 while the keyboard is up) with "kcal in 100 g" under it, an 8pt split bar of protein, carbs and fat by calories (4, 4 and 9 per gram, 2pt gaps; a nutrient at 0 g has no segment), and three columns of dot, name and grams. Then the "MEAL" eyebrow and a "Meal" radiogroup of Breakfast, Lunch, Snack, Dinner pills (44pt min), preselected by time of day: before 11 breakfast, 11 to 15 lunch, 15 to 17 snack, otherwise dinner. The primary button is pinned at the bottom, 56pt, radius 28, labelled "Log 248 kcal to Dinner" (tinted accent shadow in light, none in dark), and scrolled content fades into the background above it. At font scale 1.5 and above the tiles become a 2 x 2 grid. Quantity is no longer a separate control: a different amount is a different tile or a custom amount. Read-only mode (opened from a meal row) is not built; the edit sheet (S12) covers editing.
+States: loading (spinner), load error and offline (Retry), not found ("Go back"), logging (button shows a spinner, inputs kept), failed log (caution banner with Retry above the tiles, inputs kept), validation (Custom amount must be above 0 with at most one decimal; error after blur, Log disabled).
+Interactions: choosing a tile or meal gives a select haptic (not when it is already chosen); the kcal figure and bar update within `fast` (instant with Reduce Motion); tiles, pills and the button scale to 0.98 while pressed. Success refreshes Today, gives a light haptic and closes the modal stack to Today.
 
 ### S11 My Foods (`my-foods`)
 Purpose: manage and reuse foods the user created. Reached from the Quick Log row "My Foods" and from the Profile row "My Foods". Layout: title, search-in-list field, list rows (name, serving, calories, You Entered badge, 44pt "more" button), button "New food" (text button top right opens Manual entry in create-only mode).

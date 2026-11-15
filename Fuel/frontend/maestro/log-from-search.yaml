@@ -37,17 +37,15 @@ name: Log a food from search
 - takeScreenshot: 03-quick-log-results
 - tapOn: "Chicken breast, roasted"
 - extendedWaitUntil:
-    visible: "Amount"
+    visible: "Custom"
     timeout: 15000
-- tapOn:
-    text: "Amount"
-    index: 1
+- takeScreenshot: 04-food-detail
+- tapOn: "Dinner"
+- tapOn: "Custom"
 - eraseText: 10
 - inputText: "200"
-- hideKeyboard
-- tapOn: "Dinner"
-- assertVisible: "Log 330 kcal"
-- takeScreenshot: 04-food-detail
+- assertVisible: "Log 330 kcal to Dinner"
+- takeScreenshot: 04b-food-detail-custom
 # Dismiss the dev-build warnings toast, which can cover the bottom button.
 - runFlow:
     when:
@@ -55,7 +53,7 @@ name: Log a food from search
     commands:
       - tapOn:
           point: "92%,92%"
-- tapOn: "Log 330 kcal"
+- tapOn: "Log 330 kcal to Dinner"
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 30000

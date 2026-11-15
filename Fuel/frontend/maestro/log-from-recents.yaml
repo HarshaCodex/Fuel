@@ -31,7 +31,7 @@ name: Log a food from recents
 - takeScreenshot: 01-quick-log-recents
 - tapOn: "Rice, white, cooked"
 - extendedWaitUntil:
-    visible: "Amount"
+    visible: "Custom"
     timeout: 15000
 - tapOn: "Snack"
 - takeScreenshot: 02-food-detail
@@ -42,7 +42,7 @@ name: Log a food from recents
     commands:
       - tapOn:
           point: "92%,92%"
-- tapOn: "Log .* kcal"
+- tapOn: "Log .* kcal to Snack"
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 30000
