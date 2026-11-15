@@ -10,4 +10,7 @@ export const sizing = {
   tabBar: 56,
   border: 1.5,
   borderFocus: 2,
+  tile: 88,
+  grabber: { width: 40, height: 5 },
+  well: 40,
 } as const;

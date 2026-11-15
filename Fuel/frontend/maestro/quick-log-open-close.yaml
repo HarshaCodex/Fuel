@@ -1,4 +1,4 @@
-# The + button opens Quick Log with its four ways to log food, and Close returns to Today.
+# The + button opens Quick Log as a sheet with its three ways to log food, and Close returns to Today.
 appId: com.harshacodex.fuel
 name: Quick Log opens and closes
 ---
@@ -23,15 +23,14 @@ name: Quick Log opens and closes
 - takeScreenshot: 01-today
 - tapOn: "Log food"
 - extendedWaitUntil:
-    visible: "Search foods"
+    visible: "Scan"
     timeout: 15000
-- assertVisible: "Scan barcode"
-- assertVisible: "Enter manually"
+- assertVisible: "Manual"
 - assertVisible: "My Foods"
 - takeScreenshot: 02-quick-log
 - tapOn: "Close"
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 15000
-- assertNotVisible: "Search foods"
+- assertNotVisible: "Manual"
 - takeScreenshot: 03-back-on-today

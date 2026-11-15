@@ -24,9 +24,9 @@ name: Scan screen with camera denied
     timeout: 30000
 - tapOn: "Log food"
 - extendedWaitUntil:
-    visible: "Scan barcode"
+    visible: "Scan"
     timeout: 15000
-- tapOn: "Scan barcode"
+- tapOn: "Scan"
 - extendedWaitUntil:
     visible: "Or type the barcode"
     timeout: 15000

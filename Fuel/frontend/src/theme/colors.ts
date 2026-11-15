@@ -31,6 +31,11 @@ export const lightColors = {
   track: '#EEEAE4',
   divider: '#F0ECE6',
   verified: '#2F6B4F',
+  sheetScrim: 'rgba(29,27,24,0.36)',
+  sheetEdge: 'rgba(255,255,255,0)',
+  toast: '#1D1B18',
+  onToast: '#F5F3EF',
+  toastAction: '#6CC3A3',
 };
 
 export type Colors = typeof lightColors;
@@ -68,4 +73,9 @@ export const darkColors: Colors = {
   track: '#2A2724',
   divider: 'rgba(255,255,255,0.06)',
   verified: '#7DCBA4',
+  sheetScrim: 'rgba(0,0,0,0.6)',
+  sheetEdge: 'rgba(255,255,255,0.08)',
+  toast: '#2A2724',
+  onToast: '#F3F0EA',
+  toastAction: '#6CC3A3',
 };

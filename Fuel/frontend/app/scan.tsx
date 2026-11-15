@@ -112,7 +112,7 @@ export default function ScanScreen() {
           title="No match for this barcode"
           message={`We couldn't find ${code}.`}
           actionLabel="Search by name"
-          onAction={() => router.push('/search')}
+          onAction={() => router.dismissTo({ pathname: '/quick-log', params: { focus: '1' } })}
         />
         <Button variant="secondary" label="Enter manually" onPress={() => router.push('/manual-entry')} />
         <Button variant="text" label="Scan again" onPress={scanAgain} />
