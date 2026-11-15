@@ -18,6 +18,7 @@ import { TextField } from '@/components/TextField';
 import { TrustBadge } from '@/components/TrustBadge';
 import { formatGrams, formatKcal } from '@/lib/dashboardView';
 import { hapticLight } from '@/lib/haptics';
+import { logErrorMessage } from '@/lib/logError';
 import { MEAL_OPTIONS, mealForHour } from '@/lib/mealLabel';
 import { MAX_QUANTITY, amountError, parseAmount, portionMacros } from '@/lib/portion';
 import { radius, sizing, space, type, useTheme } from '@/theme';
@@ -28,15 +29,6 @@ const SOURCE_LINES: Record<FoodSource, string> = {
   OFF: 'From the manufacturer label',
   USER: 'Entered by you',
 };
-
-function logErrorMessage(error: unknown): string {
-  if (error instanceof NetworkError) return "You're offline. Check your connection and try again.";
-  if (error instanceof ApiError) {
-    if (error.status === 404) return 'That food is no longer available';
-    if (error.status === 400) return error.message;
-  }
-  return "Couldn't log this food. Try again.";
-}
 
 function Macro({ label, value }: { label: string; value: string }) {
   const { colors } = useTheme();

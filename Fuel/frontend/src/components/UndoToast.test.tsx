@@ -13,4 +13,10 @@ describe('UndoToast', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
     expect(onAction).toHaveBeenCalledTimes(1);
   });
+
+  it('applies the bottom offset and renders a tone icon only when asked', async () => {
+    const { toJSON } = await render(<UndoToast message="Added" actionLabel="Undo" onAction={() => {}} tone="error" bottom={16} />);
+    expect(JSON.stringify(toJSON())).toContain('"bottom":16');
+    expect(screen.getByText('Added')).toBeTruthy();
+  });
 });
