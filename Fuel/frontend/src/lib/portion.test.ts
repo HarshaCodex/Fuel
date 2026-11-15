@@ -1,5 +1,5 @@
 import type { Food } from '@/api/food';
-import { amountError, calorieSplit, parseAmount, portionMacros, portionTiles } from './portion';
+import { amountError, calorieSplit, formatPortionAmount, parseAmount, portionMacros, portionTiles } from './portion';
 
 const food: Food = { id: 'f', name: 'Chicken', brand: null, source: 'USDA', servingSize: 100, servingUnit: 'g', calories: 165, protein: 31, carbs: 0, fat: 3.6 };
 
@@ -48,6 +48,12 @@ describe('portionTiles', () => {
   });
   it('captions the tiles', () => {
     expect(portionTiles(food).map((t) => t.caption)).toEqual(['½ serving', '1 serving', '1½ servings']);
+  });
+});
+
+describe('formatPortionAmount', () => {
+  it('does not show zero as a half', () => {
+    expect(formatPortionAmount(0, 'cup')).toBe('0 cup');
   });
 });
 

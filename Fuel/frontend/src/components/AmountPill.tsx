@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { numeric, radius, sizing, space, useTheme } from '@/theme';
+import { numeric, radius, sizing, space, type, useTheme } from '@/theme';
 
 type Props = { value: string; onChangeText: (text: string) => void; unit: string; error?: string | null; onBlur?: () => void };
 
@@ -19,7 +19,7 @@ export function AmountPill({ value, onChangeText, unit, error, onBlur }: Props) 
           { backgroundColor: colors.surface, borderColor: focused ? colors.accent : 'transparent' },
         ]}
       >
-        <Text style={[styles.label, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
+        <Text style={[type.label, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
           Amount
         </Text>
         <View style={styles.right}>
@@ -36,15 +36,15 @@ export function AmountPill({ value, onChangeText, unit, error, onBlur }: Props) 
             }}
             selectTextOnFocus
             maxFontSizeMultiplier={2}
-            style={[styles.input, numeric, { color: colors.text }]}
+            style={[type.amount, styles.input, numeric, { color: colors.text }]}
           />
-          <Text style={[styles.unit, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
+          <Text style={[type.amount, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
             {unit}
           </Text>
         </View>
       </View>
       {error ? (
-        <Text accessibilityRole="alert" style={[styles.error, { color: colors.danger }]} maxFontSizeMultiplier={2}>
+        <Text accessibilityRole="alert" style={[type.caption, styles.error, { color: colors.danger }]} maxFontSizeMultiplier={2}>
           {error}
         </Text>
       ) : null}
@@ -55,7 +55,7 @@ export function AmountPill({ value, onChangeText, unit, error, onBlur }: Props) 
 const styles = StyleSheet.create({
   wrap: { gap: space.xs },
   pill: {
-    minHeight: sizing.cta,
+    minHeight: sizing.field,
     borderRadius: radius.sheet,
     borderWidth: sizing.borderFocus,
     paddingHorizontal: space.lg,
@@ -63,9 +63,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  label: { fontSize: 15, lineHeight: 20, fontFamily: 'Manrope_600SemiBold' },
   right: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  input: { fontSize: 22, lineHeight: 28, fontFamily: 'Manrope_700Bold', minWidth: 48, textAlign: 'right', padding: 0 },
-  unit: { fontSize: 22, lineHeight: 28, fontFamily: 'Manrope_700Bold' },
-  error: { fontSize: 13, lineHeight: 18, fontFamily: 'Manrope_500Medium', paddingHorizontal: space.lg },
+  input: { minWidth: 48, textAlign: 'right', padding: 0 },
+  error: { paddingHorizontal: space.lg },
 });

@@ -3,7 +3,7 @@ import { PixelRatio, StyleSheet, Text, View } from 'react-native';
 import type { Food } from '@/api/food';
 import { hapticSelect } from '@/lib/haptics';
 import { portionTiles, type PortionKey } from '@/lib/portion';
-import { numeric, radius, shadow, sizing, space, useTheme } from '@/theme';
+import { numeric, radius, shadow, sizing, space, type, useTheme } from '@/theme';
 
 import { PressableScale } from './PressableScale';
 
@@ -50,7 +50,7 @@ export function PortionTiles({ food, selected, onSelect }: Props) {
             ]}
           >
             <Text
-              style={[styles.top, numeric, { color: on ? colors.onAccent : colors.text }]}
+              style={[type.value, numeric, { color: on ? colors.onAccent : colors.text }]}
               maxFontSizeMultiplier={2}
               numberOfLines={1}
               adjustsFontSizeToFit
@@ -58,9 +58,11 @@ export function PortionTiles({ food, selected, onSelect }: Props) {
               {t.top}
             </Text>
             <Text
-              style={[styles.caption, { color: on ? colors.onAccent : colors.textSecondary }]}
+              style={[type.tileCaption, { color: on ? colors.onAccent : colors.textSecondary }]}
               maxFontSizeMultiplier={2}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
             >
               {t.caption}
             </Text>
@@ -83,6 +85,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.xs,
   },
-  top: { fontSize: 16, lineHeight: 22, fontFamily: 'Manrope_700Bold' },
-  caption: { fontSize: 12, lineHeight: 16, fontFamily: 'Manrope_600SemiBold' },
 });

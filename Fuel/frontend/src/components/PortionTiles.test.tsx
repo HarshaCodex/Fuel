@@ -3,14 +3,23 @@ import { PixelRatio } from 'react-native';
 
 import type { Food } from '@/api/food';
 import { hapticSelect } from '@/lib/haptics';
+import { darkColors, lightColors } from '@/theme';
 
 import { PortionTiles } from './PortionTiles';
 
-jest.mock('@/lib/haptics', () => ({ hapticSelect: jest.fn(), hapticLight: jest.fn() }));
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({ default: jest.fn() }));
+jest.mock('@/lib/haptics', () => ({ hapticSelect: jest.fn() }));
 
 const food: Food = { id: 'f', name: 'Chicken', brand: null, source: 'USDA', servingSize: 100, servingUnit: 'g', calories: 165, protein: 31, carbs: 0, fat: 3.6 };
 
-afterEach(() => jest.clearAllMocks());
+const mockScheme = jest.requireMock('react-native/Libraries/Utilities/useColorScheme').default as jest.Mock;
+const tileOf = (label: string) => screen.getByLabelText(label);
+
+beforeEach(() => mockScheme.mockReturnValue('light'));
+afterEach(() => {
+  jest.clearAllMocks();
+  jest.restoreAllMocks();
+});
 
 describe('PortionTiles', () => {
   it('renders four radios in a Portion group with labels', async () => {
@@ -50,6 +59,18 @@ describe('PortionTiles', () => {
     jest.spyOn(PixelRatio, 'getFontScale').mockReturnValue(2);
     await render(<PortionTiles food={food} selected="one" onSelect={() => {}} />);
     expect(screen.getByLabelText('Portion')).toHaveStyle({ flexWrap: 'wrap' });
-    jest.restoreAllMocks();
+  });
+
+  it('fills the selected tile with the accent and leaves the others on the surface', async () => {
+    await render(<PortionTiles food={food} selected="one" onSelect={() => {}} />);
+    expect(tileOf('100 g, 1 serving')).toHaveStyle({ backgroundColor: lightColors.accent });
+    expect(tileOf('50 g, ½ serving')).toHaveStyle({ backgroundColor: lightColors.surface });
+  });
+
+  it('uses a hairline instead of a shadow in dark mode', async () => {
+    mockScheme.mockReturnValue('dark');
+    await render(<PortionTiles food={food} selected="one" onSelect={() => {}} />);
+    expect(tileOf('50 g, ½ serving')).toHaveStyle({ borderWidth: 1, borderColor: darkColors.border });
+    expect(tileOf('100 g, 1 serving')).toHaveStyle({ backgroundColor: darkColors.accent });
   });
 });

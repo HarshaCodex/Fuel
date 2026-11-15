@@ -10,6 +10,10 @@ export const type = {
   action: { fontSize: 14, lineHeight: 20, fontFamily: 'Manrope_700Bold' },
   /** Small uppercase section label, 0.06em tracking. */
   eyebrow: { fontSize: 13, lineHeight: 18, fontFamily: 'Manrope_700Bold', letterSpacing: 0.78, textTransform: 'uppercase' },
+  /** Small bold line under a tile's amount. */
+  tileCaption: { fontSize: 12, lineHeight: 16, fontFamily: 'Manrope_600SemiBold' },
+  /** The number in an amount field. */
+  amount: { fontSize: 22, lineHeight: 28, fontFamily: 'Manrope_700Bold' },
   caption: { fontSize: 13, lineHeight: 18, fontFamily: 'Manrope_500Medium' },
 } as const;
 

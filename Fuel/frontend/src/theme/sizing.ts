@@ -12,6 +12,7 @@ export const sizing = {
   borderFocus: 2,
   tile: 88,
   cta: 56,
+  field: 56,
   portionTile: 64,
   grabber: { width: 40, height: 5 },
   well: 40,

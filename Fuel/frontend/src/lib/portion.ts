@@ -29,7 +29,6 @@ export function portionMacros(food: Food, amount: number, quantity: number): Mac
   };
 }
 
-
 export type PortionKey = 'half' | 'one' | 'oneHalf';
 export type PortionTile = { key: PortionKey; amount: number; amountLabel: string; caption: string };
 
@@ -45,7 +44,7 @@ const round1 = (n: number): number => Math.round(n * 10) / 10;
 /** "50 g", "12.5 g", "½ cup", "1½ piece", "2.3 slice": g and ml are plain decimals, other units use halves when exact. */
 export function formatPortionAmount(n: number, unit: string): string {
   const r = round1(n);
-  if (!PLAIN_UNITS.has(unit) && Number.isInteger(r * 2)) {
+  if (!PLAIN_UNITS.has(unit) && r > 0 && Number.isInteger(r * 2)) {
     const whole = Math.floor(r);
     const half = r % 1 !== 0;
     const text = whole === 0 ? '½' : `${whole}${half ? '½' : ''}`;
