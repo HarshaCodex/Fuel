@@ -94,3 +94,12 @@ describe('useCountUp startAt', () => {
     expect(result.current).toBe(100);
   });
 });
+
+describe('useCountUp duration', () => {
+  it('uses the given duration instead of motion.slow', async () => {
+    const { result, rerender } = await renderHook<number, { t: number }>(({ t }) => useCountUp(t, false, 0, motion.fast), { initialProps: { t: 0 } });
+    await rerender({ t: 1000 });
+    await advance(motion.fast);
+    expect(result.current).toBe(1000);
+  });
+});
