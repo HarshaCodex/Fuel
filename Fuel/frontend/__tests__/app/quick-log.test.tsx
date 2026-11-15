@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
+import { createEntry, deleteEntry } from '@/api/tracking';
 import { foodKeys, getFoodPage, getRecentFoods, type Food, type FoodPage, type RecentFood } from '@/api/food';
 
 import QuickLog from '../../app/quick-log';
@@ -23,6 +24,15 @@ jest.mock('@/api/food', () => ({
   getFoodPage: jest.fn(),
 }));
 
+jest.mock('@/api/tracking', () => ({
+  ...jest.requireActual('@/api/tracking'),
+  createEntry: jest.fn(),
+  deleteEntry: jest.fn(),
+}));
+jest.mock('@/lib/haptics', () => ({ hapticLight: jest.fn() }));
+
+const mockCreate = jest.mocked(createEntry);
+const mockDelete = jest.mocked(deleteEntry);
 const mockRecent = jest.mocked(getRecentFoods);
 const mockPage = jest.mocked(getFoodPage);
 const food = (id: string, name = `Food ${id}`, source: Food['source'] = 'USDA'): Food => ({
@@ -309,5 +319,104 @@ describe('Quick Log typing state', () => {
       list.props.onEndReached();
     });
     expect(mockPage).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('Quick Log one-tap add', () => {
+  const created = (id: string) => ({ id }) as Awaited<ReturnType<typeof createEntry>>;
+  beforeEach(() => {
+    jest.setSystemTime(new Date(2026, 10, 15, 8, 0));
+    mockRecent.mockResolvedValue([RECENT, { ...food('f2', 'Rice'), lastLoggedAt: '2026-11-08T12:00:00Z' }]);
+  });
+
+  it('logs one serving under the meal for the hour, without navigating, and shows a toast', async () => {
+    mockCreate.mockResolvedValue(created('e1'));
+    await renderScreen();
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Chicken breast, 100 g'));
+    await settle(0);
+    expect(mockCreate).toHaveBeenCalledWith({ foodId: 'f1', servingSize: 100, servingUnit: 'g', quantity: 1, mealLabel: 'breakfast' });
+    expect(screen.getByText('Added to Breakfast · 165 kcal')).toBeTruthy();
+    expect(screen.getByLabelText('Added Chicken breast')).toBeTruthy();
+    expect(mockPush).not.toHaveBeenCalled();
+    await settle(1500);
+    expect(screen.getByLabelText('Log Chicken breast, 100 g')).toBeTruthy();
+    await settle(3600);
+    expect(screen.queryByText(/^Added to/)).toBeNull();
+  });
+
+  it('sends one entry when the button is double tapped', async () => {
+    let resolve: (v: ReturnType<typeof created>) => void = () => {};
+    mockCreate.mockReturnValue(new Promise((r) => (resolve = r)));
+    await renderScreen();
+    await settle(0);
+    const btn = screen.getByLabelText('Log Chicken breast, 100 g');
+    await fireEvent.press(btn);
+    await fireEvent.press(btn);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    await act(async () => resolve(created('e1')));
+  });
+
+  it('undoes the newest entry after a second log replaced the toast', async () => {
+    mockCreate.mockResolvedValueOnce(created('e1')).mockResolvedValueOnce(created('e2'));
+    mockDelete.mockResolvedValue(null);
+    await renderScreen();
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Chicken breast, 100 g'));
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Rice, 100 g'));
+    await settle(0);
+    expect(screen.getAllByText(/^Added to/)).toHaveLength(1);
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    await settle(0);
+    expect(mockDelete).toHaveBeenCalledWith('e2');
+    expect(screen.queryByText(/^Added to/)).toBeNull();
+  });
+
+  it('shows a Retry toast when undo fails', async () => {
+    mockCreate.mockResolvedValue(created('e1'));
+    mockDelete.mockRejectedValueOnce(new Error('x')).mockResolvedValueOnce(null);
+    await renderScreen();
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Chicken breast, 100 g'));
+    await settle(0);
+    await fireEvent.press(screen.getByRole('button', { name: 'Undo' }));
+    await settle(0);
+    expect(screen.getByText("Couldn't undo. Try again.")).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    await settle(0);
+    expect(mockDelete).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("Couldn't undo. Try again.")).toBeNull();
+  });
+
+  it('shows an offline error toast, does not mark the row added, and retries', async () => {
+    mockCreate.mockRejectedValueOnce(new NetworkError()).mockResolvedValueOnce(created('e1'));
+    await renderScreen();
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Chicken breast, 100 g'));
+    await settle(0);
+    expect(screen.getByText("You're offline. Check your connection and try again.")).toBeTruthy();
+    expect(screen.queryByLabelText('Added Chicken breast')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    await settle(0);
+    expect(screen.getByText('Added to Breakfast · 165 kcal')).toBeTruthy();
+  });
+
+  it('uses the food-detail wording for a 404', async () => {
+    mockCreate.mockRejectedValue(new ApiError(404, 'gone'));
+    await renderScreen();
+    await settle(0);
+    await fireEvent.press(screen.getByLabelText('Log Chicken breast, 100 g'));
+    await settle(0);
+    expect(screen.getByText('That food is no longer available')).toBeTruthy();
+  });
+
+  it('has no "+" on search results', async () => {
+    mockPage.mockResolvedValue(page([food('a', 'Apple')]));
+    await renderScreen();
+    await typeText('apple');
+    await settle(300);
+    expect(screen.getByText('Apple')).toBeTruthy();
+    expect(screen.queryByLabelText(/^Log Apple/)).toBeNull();
   });
 });

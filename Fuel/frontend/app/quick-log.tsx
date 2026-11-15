@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { NetworkError } from '@/api/errors';
 import { foodKeys, getFoodPage, getRecentFoods, type Food } from '@/api/food';
+import { createEntry, deleteEntry, trackingKeys } from '@/api/tracking';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
 import { useCardStyle } from '@/components/cardStyle';
@@ -13,12 +14,21 @@ import { FoodResultRow } from '@/components/FoodResultRow';
 import { QuickLogSheet } from '@/components/QuickLogSheet';
 import { QuickLogTile } from '@/components/QuickLogTile';
 import { StateBlock } from '@/components/StateBlock';
+import { UndoToast } from '@/components/UndoToast';
+import { formatKcal } from '@/lib/dashboardView';
+import { hapticLight } from '@/lib/haptics';
+import { logErrorMessage } from '@/lib/logError';
+import { MEAL_OPTIONS, mealForHour } from '@/lib/mealLabel';
 import { useDebouncedValue } from '@/lib/useDebouncedValue';
 import { radius, sizing, space, type, useTheme } from '@/theme';
 
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 300;
 const SKELETON_DELAY_MS = 200;
+const CHECK_MS = 1500;
+const TOAST_MS = 5000;
+
+type Toast = { message: string; actionLabel: string; onAction: () => void; tone: 'success' | 'error' };
 
 function Skeleton({ label, testID, rows }: { label: string; testID: string; rows: number }) {
   const { colors } = useTheme();
@@ -65,6 +75,65 @@ function QuickLogContent({ close }: { close: () => void }) {
 
   const loading = active && ((search.isPending && !search.isError) || (search.isFetching && !search.data));
   const showSkeleton = useDebouncedValue(loading, SKELETON_DELAY_MS) && loading;
+
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [addedId, setAddedId] = useState<string | null>(null);
+  const [addingIds, setAddingIds] = useState<ReadonlySet<string>>(new Set());
+  const inFlight = useRef(new Set<string>());
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const checkTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(
+    () => () => {
+      clearTimeout(toastTimer.current);
+      clearTimeout(checkTimer.current);
+    },
+    [],
+  );
+
+  const showToast = (next: Toast) => {
+    clearTimeout(toastTimer.current);
+    setToast(next);
+    toastTimer.current = setTimeout(() => setToast(null), TOAST_MS);
+  };
+
+  const undo = async (entryId: string) => {
+    try {
+      await deleteEntry(entryId);
+      await queryClient.invalidateQueries({ queryKey: trackingKeys.all });
+      hapticLight();
+      clearTimeout(toastTimer.current);
+      setToast(null);
+    } catch {
+      showToast({ message: "Couldn't undo. Try again.", actionLabel: 'Retry', onAction: () => void undo(entryId), tone: 'error' });
+    }
+  };
+
+  const quickAdd = async (food: Food) => {
+    if (inFlight.current.has(food.id)) return;
+    inFlight.current.add(food.id);
+    setAddingIds(new Set(inFlight.current));
+    const mealLabel = mealForHour(new Date().getHours());
+    try {
+      const entry = await createEntry({ foodId: food.id, servingSize: food.servingSize, servingUnit: food.servingUnit, quantity: 1, mealLabel });
+      await queryClient.invalidateQueries({ queryKey: trackingKeys.all });
+      hapticLight();
+      setAddedId(food.id);
+      clearTimeout(checkTimer.current);
+      checkTimer.current = setTimeout(() => setAddedId(null), CHECK_MS);
+      const mealName = MEAL_OPTIONS.find((m) => m.value === mealLabel)?.label ?? mealLabel;
+      showToast({
+        message: `Added to ${mealName} · ${formatKcal(food.calories)} kcal`,
+        actionLabel: 'Undo',
+        onAction: () => void undo(entry.id),
+        tone: 'success',
+      });
+    } catch (error) {
+      showToast({ message: logErrorMessage(error), actionLabel: 'Retry', onAction: () => void quickAdd(food), tone: 'error' });
+    } finally {
+      inFlight.current.delete(food.id);
+      setAddingIds(new Set(inFlight.current));
+    }
+  };
 
   const foods = useMemo(() => {
     const byId = new Map<string, Food>();
@@ -126,7 +195,15 @@ function QuickLogContent({ close }: { close: () => void }) {
   const rows = (list: Food[]) => (
     <View style={[styles.card, card]}>
       {list.map((food, i) => (
-        <FoodResultRow key={food.id} food={food} divider={i < list.length - 1} onPress={() => openFood(food)} />
+        <FoodResultRow
+          key={food.id}
+          food={food}
+          divider={i < list.length - 1}
+          onPress={() => openFood(food)}
+          onAdd={() => void quickAdd(food)}
+          added={addedId === food.id}
+          adding={addingIds.has(food.id)}
+        />
       ))}
     </View>
   );
@@ -231,6 +308,7 @@ function QuickLogContent({ close }: { close: () => void }) {
     <View style={styles.flex}>
       <View style={styles.pad}>{field}</View>
       {content}
+      {toast ? <UndoToast {...toast} bottom={space.lg} /> : null}
     </View>
   );
 }
