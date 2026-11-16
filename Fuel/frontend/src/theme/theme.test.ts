@@ -59,6 +59,9 @@ describe('theme tokens', () => {
       it('accent on accentSoft is at least 3:1', () => {
         expect(ratio(c.accent, c.accentSoft)).toBeGreaterThanOrEqual(3);
       });
+      it('accentTint on surface is at least 3:1', () => {
+        expect(ratio(c.accentTint, c.surface)).toBeGreaterThanOrEqual(3);
+      });
       it.each(graphics)(`${name}: %s on surface is at least 3:1`, (fg) => {
         expect(ratio(c[fg], c.surface)).toBeGreaterThanOrEqual(3);
         expect(ratio(c[fg], c.bg)).toBeGreaterThanOrEqual(3);
