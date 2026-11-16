@@ -46,6 +46,6 @@ name: Scan screen with camera denied
           point: "92%,92%"
 - tapOn: "Look up"
 - extendedWaitUntil:
-    visible: "Amount"
+    visible: "Custom"
     timeout: 20000
 - takeScreenshot: 02-food-from-typed-barcode

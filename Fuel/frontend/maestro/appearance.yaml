@@ -69,6 +69,12 @@ name: Appearance
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 15000
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Profile"
 - assertVisible: "Appearance. Dark"
 - takeScreenshot: 03-dark-after-relaunch
