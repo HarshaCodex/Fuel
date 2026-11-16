@@ -56,3 +56,22 @@ name: History and past days
     text: "Next month"
     enabled: false
 - takeScreenshot: 04-back-month-kept
+# Same screen in dark mode.
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Appearance. System"
+    timeout: 15000
+- tapOn: "Appearance. System"
+- extendedWaitUntil:
+    visible: "Dark.*"
+    timeout: 10000
+- tapOn: "Dark.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Appearance. Dark"
+    timeout: 10000
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: "Previous month"
+    timeout: 15000
+- takeScreenshot: 05-history-month-dark
