@@ -32,8 +32,9 @@ name: History and past days
 - takeScreenshot: 01-history-month-light
 - tapOn: "Previous month"
 - extendedWaitUntil:
-    visible: "Next month"
-    enabled: true
+    visible:
+      text: "Next month"
+      enabled: true
     timeout: 15000
 - takeScreenshot: 02-history-earlier-month
 - tapOn: "Next month"
