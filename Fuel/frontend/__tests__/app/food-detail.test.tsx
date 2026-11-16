@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Dimensions, Keyboard, Platform, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
@@ -157,10 +158,43 @@ describe('Food detail screen', () => {
     expect(logButton().props.accessibilityState.disabled).toBe(disabled);
   });
 
-  it('keeps the last valid card values while the custom text is invalid', async () => {
+  it('falls back to one serving on the card while the custom text is invalid', async () => {
     await renderScreen();
+    await fireEvent.press(tile('150 g, 1½ servings'));
+    expect(screen.getByRole('button', { name: 'Log 248 kcal to Breakfast' })).toBeTruthy();
     await custom('abc');
-    expect(screen.getByRole('button', { name: 'Log 165 kcal to Breakfast' }).props.accessibilityState.disabled).toBe(true);
+    const button = screen.getByRole('button', { name: 'Log 165 kcal to Breakfast' });
+    expect(button.props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('hides the error banner while the custom amount is invalid so Retry is never a no-op', async () => {
+    mockCreate.mockRejectedValueOnce(new ApiError(400, 'Serving size is too large'));
+    await renderScreen();
+    await custom('150');
+    await fireEvent.press(logButton());
+    await screen.findByText('Serving size is too large');
+    await fireEvent.changeText(screen.getByLabelText(/^Amount in/), 'abc');
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText(/^Amount in/), '120');
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+  });
+
+  it('shrinks the calorie number while the keyboard is up', async () => {
+    // The avoider and the card each subscribe, so keep every handler.
+    const handlers: Record<string, ((e: unknown) => void)[]> = {};
+    jest.spyOn(Keyboard, 'addListener').mockImplementation(((name: string, fn: (e: unknown) => void) => {
+      (handlers[name] ??= []).push(fn);
+      return { remove: jest.fn() };
+    }) as unknown as typeof Keyboard.addListener);
+    await renderScreen();
+    const size = () => StyleSheet.flatten(screen.getByTestId('calorie-card-kcal').props.style).fontSize;
+    const big = size();
+    const windowHeight = Dimensions.get('window').height;
+    const show = Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow';
+    await act(async () =>
+      handlers[show].forEach((fn) => fn({ endCoordinates: { height: 300, screenY: windowHeight - 300 } })),
+    );
+    expect(size()).toBeLessThan(big);
   });
 
   it('shows the amount error after blur and none for a valid one', async () => {

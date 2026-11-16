@@ -85,7 +85,7 @@ function Confirm({ food }: { food: Food }) {
   return (
     <KeyboardAvoider avoidOnAndroid>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {log.isError ? (
+        {log.isError && amount !== null ? (
           <Banner variant="caution" message={logErrorMessage(log.error)} action={{ label: 'Retry', onPress: submit }} />
         ) : null}
         <PortionTiles food={food} selected={choice} onSelect={select} />
