@@ -54,6 +54,20 @@ describe('KeyboardAvoider', () => {
     expect(paddingBottom()).toBe(0);
   });
 
+  it('lifts content above the keyboard on Android when avoidOnAndroid is set', async () => {
+    Platform.OS = 'android';
+    const { handlers } = mockKeyboard();
+    await render(
+      <KeyboardAvoider avoidOnAndroid>
+        <Text>content</Text>
+      </KeyboardAvoider>,
+    );
+    await act(async () => handlers.keyboardDidShow({ endCoordinates: { height: 300, screenY: 0 } }));
+    expect(paddingBottom()).toBe(300);
+    await act(async () => handlers.keyboardDidHide({ endCoordinates: { height: 300, screenY: 0 } }));
+    expect(paddingBottom()).toBe(0);
+  });
+
   it('removes its listeners on unmount', async () => {
     Platform.OS = 'ios';
     const { remove } = mockKeyboard();

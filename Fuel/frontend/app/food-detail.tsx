@@ -83,7 +83,7 @@ function Confirm({ food }: { food: Food }) {
   const ctaShadow = scheme === 'dark' ? null : { ...shadow.lg, shadowColor: colors.accent, shadowOpacity: 0.28 };
 
   return (
-    <KeyboardAvoider>
+    <KeyboardAvoider avoidOnAndroid>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {log.isError ? (
           <Banner variant="caution" message={logErrorMessage(log.error)} action={{ label: 'Retry', onPress: submit }} />

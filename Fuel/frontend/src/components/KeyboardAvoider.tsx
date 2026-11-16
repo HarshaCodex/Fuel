@@ -26,9 +26,19 @@ export function useKeyboardHeight(): number {
 
 /**
  * Fills its parent and lifts its content above the iOS keyboard. Place it so it reaches the screen's bottom edge.
- * Android resizes the window itself, so it adds no padding there.
+ * Android resizes the window itself (modals, sheets), so it adds no padding there unless `avoidOnAndroid` is set,
+ * which stack screens need because edge-to-edge windows do not resize for the keyboard.
  */
-export function KeyboardAvoider({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+export function KeyboardAvoider({
+  children,
+  style,
+  avoidOnAndroid = false,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  avoidOnAndroid?: boolean;
+}) {
   const height = useKeyboardHeight();
-  return <View style={[{ flex: 1 }, style, { paddingBottom: Platform.OS === 'ios' ? height : 0 }]}>{children}</View>;
+  const pad = Platform.OS === 'ios' || avoidOnAndroid ? height : 0;
+  return <View style={[{ flex: 1 }, style, { paddingBottom: pad }]}>{children}</View>;
 }
