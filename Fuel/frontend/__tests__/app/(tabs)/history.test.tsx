@@ -1,12 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AccessibilityInfo } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { getDashboard, getHistory, type HistoryDay } from '@/api/tracking';
 import { addDays, isoDate } from '@/lib/dashboardView';
+import { hapticSelect } from '@/lib/haptics';
+import { cellA11yLabel } from '@/lib/historyView';
 
 import History from '../../../app/(tabs)/history';
 
+jest.mock('@/lib/haptics', () => ({ hapticSelect: jest.fn(), hapticLight: jest.fn() }));
 const mockPush = jest.fn();
 const mockNavigate = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, navigate: mockNavigate }) }));
@@ -48,7 +52,7 @@ describe('History screen', () => {
     expect(screen.getByRole('button', { name: 'Previous month' }).props.accessibilityState.disabled).toBe(false);
     await act(async () => resolve(DAYS));
     expect(await screen.findByText('Today')).toBeTruthy();
-    expect(screen.getByText(/^Avg /)).toBeTruthy();
+    expect(screen.getByLabelText(/^Average /)).toBeTruthy();
     expect(screen.getByLabelText('Streak, 3 days')).toBeTruthy();
   });
 
@@ -133,5 +137,38 @@ describe('History screen', () => {
       await screen.getByTestId('history-scroll').props.refreshControl.props.onRefresh();
     });
     expect(mockGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('selects a pressed calendar day, updates the card and fires a haptic', async () => {
+    mockGet.mockResolvedValue(DAYS);
+    await renderScreen();
+    await screen.findByText('Today');
+    await fireEvent.press(screen.getByLabelText(cellA11yLabel(YESTERDAY, DAYS[1], TODAY)));
+    expect(await screen.findByRole('button', { name: /2,300 kcal.*Open day/ })).toBeTruthy();
+    expect(hapticSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('selects the last logged day of an earlier month and opens it', async () => {
+    const [y, m] = TODAY.split('-').map(Number);
+    const prev = new Date(y, m - 2, 1);
+    const older = isoDate(new Date(prev.getFullYear(), prev.getMonth(), 10));
+    const last = isoDate(new Date(prev.getFullYear(), prev.getMonth(), 20));
+    mockGet.mockImplementation(async (from: string) =>
+      from === `${TODAY.slice(0, 8)}01` ? DAYS : [day(older, 1000), day(last, 1800)],
+    );
+    await renderScreen();
+    await screen.findByText('Today');
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous month' }));
+    await fireEvent.press(await screen.findByRole('button', { name: /1,800 kcal.*Open day/ }));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/day', params: { date: last } });
+  });
+
+  it('still renders the calendar and card when Reduce Motion is on', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+    mockGet.mockResolvedValueOnce(DAYS).mockResolvedValue([]);
+    await renderScreen();
+    expect(await screen.findByText('Today')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Previous month' }));
+    expect(await screen.findByText('No entries')).toBeTruthy();
   });
 });

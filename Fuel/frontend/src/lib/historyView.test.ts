@@ -7,7 +7,6 @@ import {
 const day = (date: string, calories: number, calorieGoal = 2000): HistoryDay => ({
   date, calories, calorieGoal, protein: 0, carbs: 0, fat: 0, fiber: 0, entryCount: 1,
 });
-const TODAY = '2026-11-09';
 
 describe('labels', () => {
   it('pluralises entries', () => {

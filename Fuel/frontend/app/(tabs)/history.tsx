@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Animated, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { NetworkError } from '@/api/errors';
@@ -25,16 +25,27 @@ const MONTH_NAMES = [
 const STALE_MS = 5 * 60 * 1000;
 const SLIDE = 24;
 const SLIDE_MS = 220;
+const FADE_MS = 150;
 const BUTTON = 44;
 
 /** Fades (and slides, unless Reduce Motion is on) its children in whenever `k` changes. */
 function Swap({ k, dir, slide, children }: { k: string; dir: number; slide: boolean; children: ReactNode }) {
   const reduce = useReduceMotion();
+  const reduceRef = useRef(reduce);
+  useEffect(() => {
+    reduceRef.current = reduce;
+  }, [reduce]);
+  const mounted = useRef(false);
   const [v] = useState(() => new Animated.Value(1));
   useEffect(() => {
+    // No animation on first render, and a later Reduce Motion update must not replay it.
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
     v.setValue(0);
-    Animated.timing(v, { toValue: 1, duration: reduce ? 0 : SLIDE_MS, useNativeDriver: true }).start();
-  }, [k, v, reduce]);
+    Animated.timing(v, { toValue: 1, duration: reduceRef.current ? FADE_MS : SLIDE_MS, useNativeDriver: true }).start();
+  }, [k, v]);
   const x = slide && !reduce ? v.interpolate({ inputRange: [0, 1], outputRange: [dir * SLIDE, 0] }) : 0;
   return <Animated.View style={{ opacity: v, transform: [{ translateX: x }] }}>{children}</Animated.View>;
 }

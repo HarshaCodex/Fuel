@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { HistoryDay } from '@/api/tracking';
 import { formatKcal } from '@/lib/dashboardView';
 import { entriesLabel, isWithinGoal, leftOrOverLabel, longDateLabel } from '@/lib/historyView';
-import { space, type, useTheme } from '@/theme';
+import { numeric, space, type, useTheme } from '@/theme';
 import { useCardStyle } from './cardStyle';
 import { PressableScale } from './PressableScale';
 
@@ -48,19 +48,22 @@ export function SelectedDayCard({ date, todayIso, row, onPress }: Props) {
     >
       <View style={styles.top}>
         {head}
-        <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={1.5}>
-          {kcal}
+        <Text style={[styles.kcal, numeric, { color: colors.text }]} maxFontSizeMultiplier={1.5}>
+          {formatKcal(row.calories)}
+          <Text style={[type.caption, { color: colors.textSecondary }]}> kcal</Text>
         </Text>
       </View>
       <View testID="day-bar" style={[styles.track, { backgroundColor: colors.barTrack }]}>
         <View style={[styles.fill, { width: `${fraction * 100}%`, backgroundColor: within ? colors.accent : colors.protein }]} />
       </View>
-      <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
-        {summary}
-      </Text>
-      <Text style={[type.caption, { color: colors.accentText }]} maxFontSizeMultiplier={1.5}>
-        {entriesLabel(row.entryCount)} ›
-      </Text>
+      <View style={styles.foot}>
+        <Text style={[type.caption, styles.summary, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
+          {summary}
+        </Text>
+        <Text style={[type.caption, styles.link, { color: colors.accentText }]} maxFontSizeMultiplier={1.5}>
+          {entriesLabel(row.entryCount)} ›
+        </Text>
+      </View>
     </PressableScale>
   );
 }
@@ -69,6 +72,10 @@ const styles = StyleSheet.create({
   card: { borderRadius: CARD_RADIUS, padding: space.lg, minHeight: 44 },
   content: { gap: space.sm },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: space.md },
+  kcal: { fontSize: 18, lineHeight: 24, fontFamily: 'Manrope_700Bold' },
+  foot: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', columnGap: space.md },
+  summary: { flexShrink: 1 },
+  link: { fontFamily: 'Manrope_700Bold' },
   track: { height: BAR, borderRadius: BAR / 2, overflow: 'hidden' },
   fill: { height: BAR, borderRadius: BAR / 2 },
 });
