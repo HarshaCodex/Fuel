@@ -39,12 +39,24 @@ name: Log a food from search
 - extendedWaitUntil:
     visible: "Custom"
     timeout: 15000
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - takeScreenshot: 04-food-detail
 - tapOn: "Dinner"
 - tapOn: "Custom"
 - eraseText: 10
 - inputText: "200"
 - assertVisible: "Log 330 kcal to Dinner"
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - takeScreenshot: 04b-food-detail-custom
 # Dismiss the dev-build warnings toast, which can cover the bottom button.
 - runFlow:
