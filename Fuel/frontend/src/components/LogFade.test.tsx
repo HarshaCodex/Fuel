@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react-native';
 import { processColor, StyleSheet } from 'react-native';
 
-import { darkColors, lightColors } from '@/theme';
+import { darkColors, lightColors, space } from '@/theme';
 
 import { LogFade } from './LogFade';
 
@@ -14,7 +14,7 @@ describe('LogFade', () => {
     await render(<LogFade height={64} />);
     const fade = screen.getByTestId('log-fade');
     expect(fade.props.pointerEvents).toBe('none');
-    expect(StyleSheet.flatten(fade.props.style)).toMatchObject({ height: 64, top: -64 });
+    expect(StyleSheet.flatten(fade.props.style)).toMatchObject({ height: 64, top: -64, left: -space.lg, right: -space.lg });
   });
 
   it.each([
