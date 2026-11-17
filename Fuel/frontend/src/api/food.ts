@@ -22,6 +22,8 @@ export const foodKeys = {
   recent: ['food', 'recent'] as const,
   detail: (id: string) => ['food', 'detail', id] as const,
   custom: ['food', 'custom'] as const,
+  /** Shares the custom prefix so My Foods edits invalidate it. */
+  customCount: ['food', 'custom', 'count'] as const,
 };
 
 /** The backend allows 1..30 and defaults to 10. */
