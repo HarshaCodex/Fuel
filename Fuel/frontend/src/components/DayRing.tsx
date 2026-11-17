@@ -19,7 +19,9 @@ export function DayRing({ day, state, fraction }: Props) {
   return (
     <View style={styles.root} testID={state === 'skeleton' ? 'day-ring-skeleton' : undefined}>
       <Svg width={SIZE} height={SIZE} style={styles.svg}>
-        <Circle cx={SIZE / 2} cy={SIZE / 2} r={R} stroke={colors.track} strokeWidth={STROKE} fill="none" />
+        {state === 'future' ? null : (
+          <Circle cx={SIZE / 2} cy={SIZE / 2} r={R} stroke={colors.track} strokeWidth={STROKE} fill="none" />
+        )}
         {arc && shown > 0 ? (
           <Circle
             testID="day-ring-arc"
@@ -37,7 +39,7 @@ export function DayRing({ day, state, fraction }: Props) {
         ) : null}
       </Svg>
       <Text
-        style={[styles.day, numeric, { color: state === 'future' || state === 'skeleton' ? colors.textTertiary : colors.text }]}
+        style={[styles.day, numeric, state === 'future' && styles.future, { color: state === 'future' || state === 'skeleton' ? colors.textTertiary : colors.text }]}
         maxFontSizeMultiplier={1.3}
       >
         {day}
@@ -49,5 +51,6 @@ export function DayRing({ day, state, fraction }: Props) {
 const styles = StyleSheet.create({
   root: { width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' },
   svg: { position: 'absolute' },
+  future: { fontSize: 14, fontFamily: 'Manrope_600SemiBold' },
   day: { fontSize: 13, lineHeight: 16, fontFamily: 'Manrope_700Bold' },
 });

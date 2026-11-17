@@ -45,14 +45,14 @@ name: Pull to refresh
 - takeScreenshot: 01-today-refreshed
 - tapOn: "History"
 - extendedWaitUntil:
-    visible: "Days on goal"
+    visible: "Previous month"
     timeout: 15000
 - swipe:
     start: 50%, 30%
     end: 50%, 80%
     duration: 600
 - extendedWaitUntil:
-    visible: "Days on goal"
+    visible: "Previous month"
     timeout: 15000
 - assertNotVisible: "Couldn't load your history"
 - takeScreenshot: 02-history-refreshed

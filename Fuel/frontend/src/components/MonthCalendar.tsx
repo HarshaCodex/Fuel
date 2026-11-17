@@ -28,13 +28,13 @@ export function MonthCalendar({ year, month, rows, todayIso, selected, loading, 
   const legend = [
     { label: 'Within goal', color: colors.accent },
     { label: 'Over goal', color: colors.protein },
-    { label: 'No logs', color: colors.track },
+    { label: 'No logs', color: colors.track, hollow: true },
   ];
   return (
     <View style={[styles.card, card]}>
       <View style={styles.week}>
         {WEEKDAYS.map((d, i) => (
-          <Text key={i} style={[type.tileCaption, styles.head, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.3}>
+          <Text key={i} style={[type.tileCaption, styles.head, styles.headBold, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.3}>
             {d}
           </Text>
         ))}
@@ -72,7 +72,7 @@ export function MonthCalendar({ year, month, rows, todayIso, selected, loading, 
       <View style={styles.legend}>
         {legend.map((l) => (
           <View key={l.label} style={styles.key}>
-            <View style={[styles.swatch, { backgroundColor: l.color }]} />
+            <View style={[styles.swatch, l.hollow ? { borderWidth: 2, borderColor: l.color } : { backgroundColor: l.color }]} />
             <Text style={[type.caption, { color: colors.textSecondary }]}>{l.label}</Text>
           </View>
         ))}
@@ -92,5 +92,6 @@ const styles = StyleSheet.create({
   rule: { height: 1, marginTop: space.md, marginBottom: space.md },
   legend: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: space.lg },
   key: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  headBold: { fontFamily: 'Manrope_700Bold' },
   swatch: { width: 10, height: 10, borderRadius: 5 },
 });
