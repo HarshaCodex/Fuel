@@ -36,6 +36,8 @@ describe('theme tokens', () => {
       ['text', 'surface'],
       ['textSecondary', 'bg'],
       ['textSecondary', 'surface'],
+      ['text', 'tileFill'],
+      ['textSecondary', 'tileFill'],
       ['textTertiary', 'bg'],
       ['textTertiary', 'surface'],
       ['accentText', 'bg'],
@@ -59,14 +61,25 @@ describe('theme tokens', () => {
       it('accent on accentSoft is at least 3:1', () => {
         expect(ratio(c.accent, c.accentSoft)).toBeGreaterThanOrEqual(3);
       });
+      it('accent on accentSoft text size (chip) is at least 4.5:1', () => {
+        expect(ratio(c.accentText, c.accentSoft)).toBeGreaterThanOrEqual(4.5);
+      });
       it('accentTint on surface is at least 3:1', () => {
         expect(ratio(c.accentTint, c.surface)).toBeGreaterThanOrEqual(3);
+      });
+      it.each(graphics)(`${name}: %s on tileFill is at least 3:1`, (fg) => {
+        expect(ratio(c[fg], c.tileFill)).toBeGreaterThanOrEqual(3);
       });
       it.each(graphics)(`${name}: %s on surface is at least 3:1`, (fg) => {
         expect(ratio(c[fg], c.surface)).toBeGreaterThanOrEqual(3);
         expect(ratio(c[fg], c.bg)).toBeGreaterThanOrEqual(3);
       });
     }
+  });
+
+  it('adds a tileFill token that differs between modes', () => {
+    expect(lightColors.tileFill).toBe('#F5F3EF');
+    expect(darkColors.tileFill).toBe('#24221F');
   });
 
   it('follows the 4pt spacing scale', () => {

@@ -1,5 +1,7 @@
 export const lightColors = {
   bg: '#F5F3EF',
+  /** Fill of the macro tiles on a card. */
+  tileFill: '#F5F3EF',
   surface: '#FFFFFF',
   surfaceMuted: '#F0ECE6',
   border: '#E6E1D9',
@@ -43,6 +45,7 @@ export type Colors = typeof lightColors;
 
 export const darkColors: Colors = {
   bg: '#121110',
+  tileFill: '#24221F',
   surface: '#1C1A18',
   surfaceMuted: '#2A2724',
   border: 'rgba(255,255,255,0.06)',
