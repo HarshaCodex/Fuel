@@ -54,6 +54,24 @@ describe('KeyboardAvoider', () => {
     expect(paddingBottom()).toBe(0);
   });
 
+  it('lifts content above the keyboard on Android when avoidOnAndroid is set', async () => {
+    Platform.OS = 'android';
+    const { handlers } = mockKeyboard();
+    await render(
+      <KeyboardAvoider avoidOnAndroid>
+        <Text>content</Text>
+      </KeyboardAvoider>,
+    );
+    const windowHeight = Dimensions.get('window').height;
+    await act(async () => handlers.keyboardDidShow({ endCoordinates: { height: 300, screenY: windowHeight - 300 } }));
+    expect(paddingBottom()).toBe(300);
+    // Edge-to-edge: the reported height omits the ~24 gesture bar, so the screenY gap is larger and wins.
+    await act(async () => handlers.keyboardDidShow({ endCoordinates: { height: 300, screenY: windowHeight - 324 } }));
+    expect(paddingBottom()).toBe(324);
+    await act(async () => handlers.keyboardDidHide({ endCoordinates: { height: 300, screenY: 0 } }));
+    expect(paddingBottom()).toBe(0);
+  });
+
   it('removes its listeners on unmount', async () => {
     Platform.OS = 'ios';
     const { remove } = mockKeyboard();

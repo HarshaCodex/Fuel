@@ -30,11 +30,9 @@ name: Edit and delete a logged meal
     timeout: 30000
 - tapOn: "Banana, raw"
 - extendedWaitUntil:
-    visible: "Amount"
+    visible: "Custom"
     timeout: 15000
-- tapOn:
-    text: "Amount"
-    index: 1
+- tapOn: "Custom"
 - eraseText: 10
 - inputText: "100"
 - hideKeyboard
@@ -46,7 +44,7 @@ name: Edit and delete a logged meal
     commands:
       - tapOn:
           point: "92%,92%"
-- tapOn: "Log 89 kcal"
+- tapOn: "Log 89 kcal to Snack"
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 30000
