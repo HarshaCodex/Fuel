@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Dimensions, Keyboard, Platform, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Dimensions, Keyboard, Platform, View, type KeyboardEvent, type StyleProp, type ViewStyle } from 'react-native';
 
 /**
  * Height of the on-screen keyboard. Read from the keyboard events directly because KeyboardAvoidingView
@@ -9,12 +9,12 @@ export function useKeyboardHeight(): number {
   const [height, setHeight] = useState(0);
   useEffect(() => {
     const ios = Platform.OS === 'ios';
-    // iOS can change the keyboard height without hiding it (keyboard switch, predictive bar), so follow the frame.
+    // The gap from the window bottom to the keyboard top also covers the system inset that `height` omits on
+    // edge-to-edge Android. iOS can change the keyboard height without hiding it, so follow the frame there.
+    const gap = (e: KeyboardEvent) => Math.max(0, Dimensions.get('window').height - e.endCoordinates.screenY);
     const show = ios
-      ? Keyboard.addListener('keyboardWillChangeFrame', (e) =>
-          setHeight(Math.max(0, Dimensions.get('window').height - e.endCoordinates.screenY)),
-        )
-      : Keyboard.addListener('keyboardDidShow', (e) => setHeight(e.endCoordinates.height));
+      ? Keyboard.addListener('keyboardWillChangeFrame', (e) => setHeight(gap(e)))
+      : Keyboard.addListener('keyboardDidShow', (e) => setHeight(Math.max(e.endCoordinates.height, gap(e))));
     const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setHeight(0));
     return () => {
       show.remove();
@@ -26,9 +26,19 @@ export function useKeyboardHeight(): number {
 
 /**
  * Fills its parent and lifts its content above the iOS keyboard. Place it so it reaches the screen's bottom edge.
- * Android resizes the window itself, so it adds no padding there.
+ * Android resizes the window itself (modals, sheets), so it adds no padding there unless `avoidOnAndroid` is set,
+ * which stack screens need because edge-to-edge windows do not resize for the keyboard.
  */
-export function KeyboardAvoider({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+export function KeyboardAvoider({
+  children,
+  style,
+  avoidOnAndroid = false,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  avoidOnAndroid?: boolean;
+}) {
   const height = useKeyboardHeight();
-  return <View style={[{ flex: 1 }, style, { paddingBottom: Platform.OS === 'ios' ? height : 0 }]}>{children}</View>;
+  const pad = Platform.OS === 'ios' || avoidOnAndroid ? height : 0;
+  return <View style={[{ flex: 1 }, style, { paddingBottom: pad }]}>{children}</View>;
 }

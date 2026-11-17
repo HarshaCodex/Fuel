@@ -56,10 +56,37 @@ name: Appearance
     visible: "Chicken breast, roasted"
     timeout: 30000
 - takeScreenshot: 02d-dark-quick-log-typing
+- tapOn: "Chicken breast, roasted"
+- extendedWaitUntil:
+    visible: "Custom"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- takeScreenshot: 02e-dark-food-detail
+- tapOn: "Custom"
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- takeScreenshot: 02f-dark-food-detail-custom
+- hideKeyboard
+- tapOn: "Back"
 - tapOn: "Close"
 - extendedWaitUntil:
     visible: "kcal left"
     timeout: 15000
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
 - tapOn: "Profile"
 - assertVisible: "Appearance. Dark"
 - takeScreenshot: 03-dark-after-relaunch
