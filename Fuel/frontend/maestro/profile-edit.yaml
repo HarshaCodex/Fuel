@@ -44,7 +44,7 @@ name: Edit profile, body stats and goals
     visible: "Lab Tester"
     timeout: 15000
 - takeScreenshot: 02-name-saved
-- tapOn: "Edit body stats.*"
+- tapOn: ".*Edit body stats"
 - extendedWaitUntil:
     visible: "Activity level"
     timeout: 15000
@@ -64,7 +64,7 @@ name: Edit profile, body stats and goals
     element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
-    visible: "178 cm, 82 kg, 33 years, Male"
+    visible: "82 kg"
     timeout: 15000
 - takeScreenshot: 04-body-stats-saved
 - tapOn: "Edit goals.*"
@@ -87,9 +87,9 @@ name: Edit profile, body stats and goals
     element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
-    visible: "2,300 kcal"
+    visible: "2,300"
     timeout: 15000
-- assertVisible: "Protein 170 g, Carbs 250 g, Fat 70 g"
+- assertVisible: "170 g"
 - takeScreenshot: 06-goals-saved
 # Restore the seeded values so later flows see the original data.
 - tapOn: "Edit goals.*"
@@ -111,9 +111,9 @@ name: Edit profile, body stats and goals
     element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
-    visible: "2,200 kcal"
+    visible: "2,200"
     timeout: 15000
-- tapOn: "Edit body stats.*"
+- tapOn: ".*Edit body stats"
 - extendedWaitUntil:
     visible: "Activity level"
     timeout: 15000
@@ -132,7 +132,7 @@ name: Edit profile, body stats and goals
     element: "Save"
 - tapOn: "Save"
 - extendedWaitUntil:
-    visible: "178 cm, 80 kg, 32 years, Male"
+    visible: "80 kg"
     timeout: 15000
 - tapOn: "Edit profile"
 - extendedWaitUntil:

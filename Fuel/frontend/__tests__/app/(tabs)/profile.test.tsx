@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { NetworkError } from '@/api/errors';
+import { getCustomFoodPage } from '@/api/food';
 import { deleteAccount, getBodyStats, getGoals, getProfile, userKeys, type BodyStats, type Goals, type UserProfile } from '@/api/user';
 
 import Profile from '../../../app/(tabs)/profile';
@@ -16,11 +17,13 @@ jest.mock('@/lib/appearance', () => ({ ...jest.requireActual('@/lib/appearance')
 const mockSignOut = jest.fn();
 jest.mock('@/session/SessionProvider', () => ({ useSession: () => ({ signOut: mockSignOut }) }));
 jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), getGoals: jest.fn(), getProfile: jest.fn(), getBodyStats: jest.fn(), deleteAccount: jest.fn() }));
+jest.mock('@/api/food', () => ({ ...jest.requireActual('@/api/food'), getCustomFoodPage: jest.fn() }));
 jest.mock('@/auth/oauthProviders', () => ({ signInWithGoogle: jest.fn(), signInWithApple: jest.fn() }));
 
 const mockGet = jest.mocked(getGoals);
 const mockProfile = jest.mocked(getProfile);
 const mockBody = jest.mocked(getBodyStats);
+const mockFoods = jest.mocked(getCustomFoodPage);
 const BODY: BodyStats = { height: 180, heightUnit: 'cm', weight: 80.5, weightUnit: 'kg', age: 30, gender: 'MALE', activityLevel: 'MODERATE', updatedAt: 'x' };
 const PROFILE: UserProfile = {
   userId: 'u1', email: 'sam@example.com', name: 'sam k', profilePhotoUrl: null, emailVerified: true,
@@ -41,110 +44,125 @@ beforeEach(() => {
   mockProfile.mockResolvedValue(PROFILE);
   mockBody.mockResolvedValue(BODY);
   mockGet.mockResolvedValue(GOALS);
+  mockFoods.mockResolvedValue({ content: [], page: 0, size: 1, totalElements: 5, totalPages: 5 });
 });
 
+const OFFLINE = "You're offline. Check your connection and try again.";
+
 describe('Profile body stats card', () => {
-  it('shows loading, then the saved stats, and opens the editor', async () => {
+  it('shows a skeleton, then the saved stats, and opens the editor', async () => {
     let release: (v: Awaited<ReturnType<typeof getBodyStats>>) => void = () => undefined;
     mockBody.mockReturnValue(new Promise((r) => { release = r; }));
     await renderScreen();
-    expect(screen.getByText('Loading body stats')).toBeTruthy();
+    expect(screen.getAllByRole('progressbar', { name: 'Loading your profile' }).length).toBeGreaterThan(0);
     await act(async () => release(BODY));
-    expect(await screen.findByText('180 cm, 80.5 kg, 30 years, Male')).toBeTruthy();
-    expect(screen.getByText('Moderately active')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: /^Edit body stats/ }));
+    expect(await screen.findByText('180 cm')).toBeTruthy();
+    expect(screen.getByText('80.5 kg')).toBeTruthy();
+    expect(screen.getByText('Moderate')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /Edit body stats$/ }));
     expect(mockPush).toHaveBeenCalledWith('/edit-body-stats');
   });
 
-  it('invites the user to add stats when none are saved', async () => {
+  it('offers Add body stats when none are saved', async () => {
     mockBody.mockResolvedValue(null);
     await renderScreen();
-    const add = await screen.findByRole('button', { name: 'Add your body stats' });
-    await fireEvent.press(add);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Add body stats' }));
     expect(mockPush).toHaveBeenCalledWith('/edit-body-stats');
   });
 
-  it('shows an offline banner with Retry when loading fails', async () => {
+  it('shows an offline banner with Retry while the other cards stay', async () => {
     mockBody.mockRejectedValueOnce(new NetworkError());
     await renderScreen();
-    expect(await screen.findByText("You're offline. Check your connection and try again.")).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Edit body stats' }).props.accessibilityState.disabled).toBe(true);
+    expect(await screen.findByText(OFFLINE)).toBeTruthy();
+    expect(screen.getByText('Daily goal')).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Retry' })));
-    expect(await screen.findByText('180 cm, 80.5 kg, 30 years, Male')).toBeTruthy();
+    expect(await screen.findByText('180 cm')).toBeTruthy();
   });
 });
 
 describe('Profile goals card', () => {
-  it('shows loading, then formatted goals set by the user', async () => {
+  it('shows a skeleton, then the goals with chip and shares', async () => {
     let release: (v: Awaited<ReturnType<typeof getGoals>>) => void = () => undefined;
     mockGet.mockReturnValue(new Promise((r) => { release = r; }));
     await renderScreen();
-    expect(screen.getByText('Loading goals')).toBeTruthy();
+    expect(screen.getAllByRole('progressbar', { name: 'Loading your profile' }).length).toBeGreaterThan(0);
     await act(async () => release(GOALS));
-    expect(await screen.findByText('2,200 kcal')).toBeTruthy();
-    expect(screen.getByText('Protein 150 g, Carbs 250 g, Fat 70.5 g')).toBeTruthy();
-    expect(screen.getByText('Set by you')).toBeTruthy();
+    expect(await screen.findByText('Set by you')).toBeTruthy();
+    expect(screen.getByText('150 g')).toBeTruthy();
+    expect(screen.getByText('27% of kcal')).toBeTruthy();
   });
 
-  it('notes auto-calculated goals', async () => {
-    mockGet.mockResolvedValue({ ...GOALS, isAutoCalculated: true });
+  it.each([
+    [{ isAutoCalculated: true }, 'From body stats'],
+    [{ updatedAt: null }, 'Default targets'],
+  ])('shows the chip for %j', async (patch, label) => {
+    mockGet.mockResolvedValue({ ...GOALS, ...patch });
     await renderScreen();
-    expect(await screen.findByText('Calculated from your body stats')).toBeTruthy();
+    expect(await screen.findByText(label)).toBeTruthy();
   });
 
-  it('flags default targets when never updated', async () => {
-    mockGet.mockResolvedValue({ ...GOALS, updatedAt: null });
+  it('opens Edit goals from its button', async () => {
     await renderScreen();
-    expect(await screen.findByText('Default targets. Set yours')).toBeTruthy();
-  });
-
-  it('opens the edit modal when the card is pressed', async () => {
-    mockGet.mockResolvedValue(GOALS);
-    await renderScreen();
-    await screen.findByText('2,200 kcal');
-    await fireEvent.press(screen.getByRole('button', { name: /^Edit goals/ }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit goals' }));
     expect(mockPush).toHaveBeenCalledWith('/edit-goals');
   });
 
-  it('shows an offline message with Retry that refetches', async () => {
-    mockGet.mockRejectedValueOnce(new NetworkError()).mockResolvedValue(GOALS);
+  it('shows an offline banner with Retry that refetches', async () => {
+    mockGet.mockRejectedValueOnce(new NetworkError());
     await renderScreen();
-    expect(await screen.findByText("You're offline. Check your connection and try again.")).toBeTruthy();
+    expect(await screen.findByText(OFFLINE)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit goals' })).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText('2,200 kcal')).toBeTruthy();
+    expect(await screen.findByText('Set by you')).toBeTruthy();
   });
 
-  it('cannot be pressed while there is no data', async () => {
+  it('shows a load error without the card while profile and body stats render', async () => {
     mockGet.mockRejectedValue(new Error('x'));
     await renderScreen();
-    await screen.findByText("Couldn't load your goals.");
-    await fireEvent.press(screen.getByRole('button', { name: 'Edit goals' }));
-    expect(mockPush).not.toHaveBeenCalled();
-  });
-
-  it('opens My Foods from its row', async () => {
-    mockGet.mockResolvedValue(GOALS);
-    await renderScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'My Foods' }));
-    expect(mockPush).toHaveBeenCalledWith('/my-foods');
+    expect(await screen.findByText("Couldn't load your goals.")).toBeTruthy();
+    expect(screen.getByText('sam k')).toBeTruthy();
+    expect(screen.getByText('180 cm')).toBeTruthy();
   });
 });
 
-describe('Profile account card', () => {
-  it('shows loading, then the name, email, timezone and initial', async () => {
+describe('Profile My Foods row', () => {
+  it('shows the custom food count and opens My Foods', async () => {
+    await renderScreen();
+    expect(await screen.findByText('5')).toBeTruthy();
+    expect(mockFoods).toHaveBeenCalledWith(0, 1);
+    await fireEvent.press(screen.getByRole('button', { name: 'My Foods' }));
+    expect(mockPush).toHaveBeenCalledWith('/my-foods');
+  });
+
+  it('shows 0 when there are none', async () => {
+    mockFoods.mockResolvedValue({ content: [], page: 0, size: 1, totalElements: 0, totalPages: 0 });
+    await renderScreen();
+    expect(await screen.findByText('0')).toBeTruthy();
+  });
+
+  it('shows no value while loading or on error', async () => {
+    mockFoods.mockRejectedValue(new Error('x'));
+    await renderScreen();
+    await screen.findByText('sam k');
+    expect(screen.queryByText('5')).toBeNull();
+    expect(screen.getByRole('button', { name: 'My Foods' })).toBeTruthy();
+  });
+});
+
+describe('Profile header', () => {
+  it('shows a skeleton, then the name and email without the timezone', async () => {
     let release: (v: Awaited<ReturnType<typeof getProfile>>) => void = () => undefined;
     mockProfile.mockReturnValue(new Promise((r) => { release = r; }));
     await renderScreen();
-    expect(screen.getByText('Loading profile')).toBeTruthy();
+    expect(screen.getAllByRole('progressbar', { name: 'Loading your profile' }).length).toBeGreaterThan(0);
     await act(async () => release(PROFILE));
     expect(await screen.findByText('sam k')).toBeTruthy();
     expect(screen.getByText('sam@example.com')).toBeTruthy();
-    expect(screen.getByText('Europe/London')).toBeTruthy();
-    expect(screen.getByText('S', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByText('Europe/London')).toBeNull();
+    expect(screen.queryByText('Profile')).toBeNull();
   });
 
   it('shows the new name when the profile cache is updated after an edit', async () => {
-    mockGet.mockResolvedValue(GOALS);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     await render(
       <QueryClientProvider client={client}>
@@ -152,34 +170,30 @@ describe('Profile account card', () => {
       </QueryClientProvider>,
     );
     await screen.findByText('sam k');
-    await act(async () => client.setQueryData(userKeys.profile, { ...PROFILE, name: 'Alex', timezone: 'Asia/Tokyo' }));
+    await act(async () => client.setQueryData(userKeys.profile, { ...PROFILE, name: 'Alex' }));
     expect(await screen.findByText('Alex')).toBeTruthy();
-    expect(screen.getByText('Asia/Tokyo')).toBeTruthy();
   });
 
-  it('opens the edit profile modal', async () => {
-    mockGet.mockResolvedValue(GOALS);
+  it('opens Edit profile', async () => {
     await renderScreen();
-    await screen.findByText('sam k');
-    await fireEvent.press(screen.getByRole('button', { name: 'Edit profile' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Edit profile' }));
     expect(mockPush).toHaveBeenCalledWith('/edit-profile');
   });
 
-  it('shows an offline message with Retry that refetches the profile', async () => {
-    mockGet.mockResolvedValue(GOALS);
+  it('shows an offline banner with Retry that refetches the profile', async () => {
     mockProfile.mockRejectedValueOnce(new NetworkError()).mockResolvedValue(PROFILE);
     await renderScreen();
-    expect(await screen.findByText("You're offline. Check your connection and try again.")).toBeTruthy();
+    expect(await screen.findByText(OFFLINE)).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('sam k')).toBeTruthy();
   });
 
-  it('shows a load error without an edit button', async () => {
-    mockGet.mockResolvedValue(GOALS);
+  it('shows a load error without an edit button or Delete account', async () => {
     mockProfile.mockRejectedValue(new Error('x'));
     await renderScreen();
     expect(await screen.findByText("Couldn't load your profile.")).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete account' })).toBeNull();
   });
 });
 

@@ -16,6 +16,11 @@ describe('ProfileHeader', () => {
     expect(screen.getByText('Z')).toBeTruthy();
   });
 
+  it('uses a whole emoji as the initial, not half a surrogate pair', async () => {
+    await render(<ProfileHeader name="🦊 Fox" email="f@example.com" onEdit={jest.fn()} />);
+    expect(screen.getByText('🦊')).toBeTruthy();
+  });
+
   it('opens Edit profile from the Edit pill', async () => {
     const onEdit = jest.fn();
     await render(<ProfileHeader name="Ada" email="a@b.co" onEdit={onEdit} />);
