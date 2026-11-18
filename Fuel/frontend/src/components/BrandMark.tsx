@@ -13,7 +13,7 @@ export function BrandMark() {
         importantForAccessibility="no-hide-descendants"
         style={[styles.mark, { backgroundColor: colors.accent }, scheme === 'dark' ? null : accentShadow(colors.accent)]}
       >
-        <Ionicons name="flame" size={sizing.icon + space.sm} color={colors.onAccent} />
+        <Ionicons name="flame-outline" size={sizing.icon + space.sm} color={colors.onAccent} />
       </View>
       <Text style={[type.brand, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
         Fuel

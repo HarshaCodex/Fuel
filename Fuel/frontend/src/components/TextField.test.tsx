@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { createRef, type ComponentRef } from 'react';
+import { TextInput } from 'react-native';
 
 import { TextField } from './TextField';
 
@@ -60,6 +62,15 @@ describe('TextField', () => {
       const style = Object.assign({}, ...[eye.props.style].flat());
       expect(style.minWidth).toBeGreaterThanOrEqual(44);
       expect(style.minHeight).toBeGreaterThanOrEqual(44);
+    });
+    it('focuses the input when the label is pressed, and still forwards the ref', async () => {
+      const focus = jest.spyOn(TextInput.prototype, 'focus');
+      const ref = createRef<ComponentRef<typeof TextInput>>();
+      await render(<TextField variant="pill" label="Email" ref={ref} />);
+      await fireEvent.press(screen.getByText('Email'));
+      expect(focus).toHaveBeenCalled();
+      expect(ref.current).toBeTruthy();
+      focus.mockRestore();
     });
     it('forwards focus and blur', async () => {
       const onFocus = jest.fn();

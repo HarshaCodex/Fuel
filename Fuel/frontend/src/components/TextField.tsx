@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef, useState, type ComponentRef, type ReactNode } from 'react';
+import { forwardRef, useRef, useState, type ComponentRef, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
@@ -29,6 +29,12 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, Props>(funct
   const [shown, setShown] = useState(false);
   const borderColor = error ? colors.danger : focused ? colors.accent : colors.borderStrong;
   const pill = variant === 'pill';
+  const inputRef = useRef<ComponentRef<typeof TextInput> | null>(null);
+  const setRefs = (node: ComponentRef<typeof TextInput> | null) => {
+    inputRef.current = node;
+    if (typeof ref === 'function') ref(node);
+    else if (ref) ref.current = node;
+  };
 
   if (pill) {
     const ring = error ? colors.danger : focused ? colors.accent : scheme === 'dark' ? colors.border : 'transparent';
@@ -46,12 +52,13 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, Props>(funct
             scheme === 'dark' ? null : shadow.sm,
           ]}
         >
-          <View style={styles.pillBody}>
+          {/* The whole pill focuses the input. Not accessible itself: the input carries the name. */}
+          <Pressable accessible={false} disabled={!editable} onPress={() => inputRef.current?.focus()} style={styles.pillBody}>
             <Text style={[type.fieldLabel, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
               {label}
             </Text>
             <TextInput
-              ref={ref}
+              ref={setRefs}
               accessibilityLabel={label}
               placeholderTextColor={colors.placeholder}
               editable={editable}
@@ -74,7 +81,7 @@ export const TextField = forwardRef<ComponentRef<typeof TextInput>, Props>(funct
               ]}
               maxFontSizeMultiplier={2}
             />
-          </View>
+          </Pressable>
           {suffix ? (
             <Text style={[type.headline, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
               {suffix}

@@ -1,5 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import * as RN from 'react-native';
 import { Text } from 'react-native';
+
+import { darkColors, lightColors } from '@/theme';
 
 import { Button } from './Button';
 
@@ -38,5 +41,25 @@ describe('Button', () => {
     expect(onPress).not.toHaveBeenCalled();
     await render(<Button pill label="Busy" loading onPress={onPress} />);
     expect(screen.getByRole('button', { name: 'Busy' }).props.accessibilityState).toMatchObject({ busy: true, disabled: true });
+  });
+  describe('pill colours', () => {
+    afterEach(() => jest.restoreAllMocks());
+    it.each([
+      ['light', lightColors],
+      ['dark', darkColors],
+    ] as const)('inverse uses the text fill and bg label in %s', async (scheme, c) => {
+      jest.spyOn(RN, 'useColorScheme').mockReturnValue(scheme);
+      await render(<Button pill variant="inverse" label="Go" onPress={() => {}} />);
+      expect(screen.getByRole('button', { name: 'Go' })).toHaveStyle({ backgroundColor: c.text });
+      expect(screen.getByText('Go')).toHaveStyle({ color: c.bg });
+    });
+    it('surface has a hairline in dark and none in light', async () => {
+      jest.spyOn(RN, 'useColorScheme').mockReturnValue('dark');
+      await render(<Button pill variant="surface" label="Go" onPress={() => {}} />);
+      expect(screen.getByRole('button', { name: 'Go' })).toHaveStyle({ backgroundColor: darkColors.surface, borderColor: darkColors.border });
+      jest.spyOn(RN, 'useColorScheme').mockReturnValue('light');
+      await render(<Button pill variant="surface" label="Light" onPress={() => {}} />);
+      expect(screen.getByRole('button', { name: 'Light' })).not.toHaveStyle({ borderColor: lightColors.border });
+    });
   });
 });
