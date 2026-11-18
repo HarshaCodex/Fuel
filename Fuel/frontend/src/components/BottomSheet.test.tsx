@@ -1,11 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text } from 'react-native';
 
+import { darkColors } from '@/theme';
+
 import { BottomSheet } from './BottomSheet';
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({ default: jest.fn() }));
+const mockScheme = jest.requireMock('react-native/Libraries/Utilities/useColorScheme').default as jest.Mock;
 let mockReduce = false;
 jest.mock('@/lib/useReduceMotion', () => ({ useReduceMotion: () => mockReduce }));
 jest.mock('react-native/Libraries/Modal/Modal', () => {
@@ -31,11 +35,20 @@ const sheetStyle = () => StyleSheet.flatten(findSheet(screen.toJSON() as unknown
 describe('BottomSheet', () => {
   beforeEach(() => {
     mockReduce = false;
+    mockScheme.mockReturnValue('light');
   });
 
   it('slides up by default (transform, no fade)', async () => {
     await render(<BottomSheet visible title="Age" onClose={jest.fn()}>{null}</BottomSheet>);
     expect(sheetStyle().transform).toBeDefined();
+  });
+
+  it('uses a hairline border and no shadow in dark mode', async () => {
+    mockScheme.mockReturnValue('dark');
+    await render(<BottomSheet visible title="Age" onClose={jest.fn()}>{null}</BottomSheet>);
+    const style = sheetStyle();
+    expect(style.borderColor).toBe(darkColors.border);
+    expect(style.shadowOpacity).toBeUndefined();
   });
 
   it('fades instead of sliding with Reduce Motion', async () => {
