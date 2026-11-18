@@ -40,6 +40,24 @@ describe('validation helpers', () => {
     expect(setupComplete({ ...metric, gender: null })).toBe(false);
   });
 
+  it('accepts imperial feet with empty inches and rejects bad inches or feet', () => {
+    expect(rowError({ ...imperial, heightIn: '' }, 'height')).toBeUndefined();
+    expect(rowError({ ...imperial, heightIn: '11.5' }, 'height')).toBeUndefined();
+    expect(rowError({ ...imperial, heightIn: '11.9' }, 'height')).toBeUndefined();
+    expect(rowError({ ...imperial, heightIn: '-1' }, 'height')).toBeDefined();
+    expect(rowError({ ...imperial, heightIn: 'x' }, 'height')).toBeDefined();
+    expect(rowError({ ...imperial, heightFt: '5.5' }, 'height')).toBeDefined();
+    expect(rowError({ ...imperial, heightFt: '0', heightIn: '0' }, 'height')).toBeDefined();
+    expect(rowError({ ...imperial, heightFt: '', heightIn: '' }, 'height')).toBeDefined();
+    expect(rowError({ ...imperial, heightFt: '1001' }, 'height')).toBeDefined();
+  });
+
+  it('shows inches-only imperial height and ignores the other units fields', () => {
+    expect(setupRows({ ...emptyBodyStatsForm('imperial'), heightIn: '7' })[2].value).toBe('7 in');
+    expect(setupRows({ ...metric, heightFt: '9' })[2].value).toBe('178 cm');
+    expect(setupComplete({ ...imperial, heightIn: '12' })).toBe(false);
+  });
+
   it('covers imperial height in one row', () => {
     expect(rowError({ ...imperial, heightIn: '12' }, 'height')).toMatch(/Inches/);
     expect(rowError({ ...imperial, heightFt: '' }, 'height')).toBeDefined();
@@ -56,7 +74,7 @@ describe('daily change', () => {
   });
 
   it.each(['100', '1000', '350', ' 500 '])('accepts %s', (t) => expect(customDeficitError(t)).toBeNull());
-  it.each(['', '75', '1050', 'abc', '99', '125', '12.5', '-100'])('rejects "%s"', (t) => expect(customDeficitError(t)).toEqual(expect.any(String)));
+  it.each(['', '   ', '0', '50', '75', '1050', '1100', 'abc', '99', '125', '12.5', '-100', '+100', '1e3', '1,000', '100.0', '5 00'])('rejects "%s"', (t) => expect(customDeficitError(t)).toEqual(expect.any(String)));
 
   it('labels tiles', () => {
     expect(tileLabel(250)).toBe('250 gentle');
@@ -66,6 +84,13 @@ describe('daily change', () => {
 });
 
 describe('panel', () => {
+  it('rounds half up, groups thousands and keeps zero', () => {
+    expect(panelA11y({ calorieGoal: 1234567.5, proteinGoal: 0.4, carbGoal: 99.5, fatGoal: 999.4 })).toBe(
+      'Daily goal 1,234,568 calories, protein 0 grams, carbs 100 grams, fat 999 grams',
+    );
+    expect(panelA11y({ calorieGoal: 999.5, proteinGoal: 1, carbGoal: 1, fatGoal: 1 })).toMatch(/^Daily goal 1,000 calories/);
+  });
+
   it('has empty copy and a rounded, grouped a11y label', () => {
     expect(PANEL_EMPTY).toBe('Fill in the details above to see your goal');
     expect(panelA11y({ calorieGoal: 2200.4, proteinGoal: 149.6, carbGoal: 240, fatGoal: 70 })).toBe(
