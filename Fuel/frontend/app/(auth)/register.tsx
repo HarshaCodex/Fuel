@@ -1,18 +1,17 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState, type ComponentRef } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { register } from '@/api/auth';
+import { AuthScreen } from '@/components/AuthScreen';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
-import { FormScreen } from '@/components/FormScreen';
 import { PasswordRules } from '@/components/PasswordRules';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
 import { validateNewPassword } from '@/lib/passwordRules';
 import { setPendingEmail } from '@/lib/pendingEmail';
 import { validateEmail } from '@/lib/validation';
-import { space, type, useTheme } from '@/theme';
 
 const NAME_MAX = 100;
 const NAME_ERROR = 'Enter your name.';
@@ -25,7 +24,6 @@ type Field = 'name' | 'email' | 'password';
 const validateName = (v: string) => (v.trim().length >= 1 && v.trim().length <= NAME_MAX ? null : NAME_ERROR);
 
 export default function RegisterScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -93,12 +91,7 @@ export default function RegisterScreen() {
   }
 
   return (
-    <FormScreen>
-      <View style={styles.header}>
-        <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-          Create your account
-        </Text>
-      </View>
+    <AuthScreen onBack={goBack} title="Create your account">
       {failure?.kind === 'offline' ? (
         <Banner variant="caution" message={failure.message} action={{ label: 'Retry', onPress: onSubmit }} />
       ) : null}
@@ -106,6 +99,7 @@ export default function RegisterScreen() {
         <Banner variant="danger" message={failure.message} />
       ) : null}
       <TextField
+        variant="pill"
         ref={nameRef}
         label="Name"
         value={name}
@@ -124,6 +118,7 @@ export default function RegisterScreen() {
         submitBehavior="submit"
       />
       <TextField
+        variant="pill"
         ref={emailRef}
         label="Email"
         value={email}
@@ -144,6 +139,7 @@ export default function RegisterScreen() {
         submitBehavior="submit"
       />
       <TextField
+        variant="pill"
         ref={passwordRef}
         label="Password"
         secure
@@ -163,11 +159,11 @@ export default function RegisterScreen() {
         onSubmitEditing={onSubmit}
       />
       <PasswordRules value={password} />
-      <Button label="Create account" loading={loading} onPress={onSubmit} />
+      <Button pill label="Create account" loading={loading} onPress={onSubmit} />
       <View style={styles.links}>
-        <Button variant="text" size="md" label="Back to sign in" onPress={goBack} />
+        <Button pill variant="text" size="md" label="Back to sign in" onPress={goBack} />
       </View>
-    </FormScreen>
+    </AuthScreen>
   );
 }
 
@@ -182,6 +178,5 @@ function mapFieldErrors(e: unknown): Partial<Record<Field, string>> | null {
 }
 
 const styles = StyleSheet.create({
-  header: { marginBottom: space.lg },
   links: { alignItems: 'center' },
 });
