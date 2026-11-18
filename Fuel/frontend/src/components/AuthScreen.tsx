@@ -10,6 +10,10 @@ type Props = {
   /** Shows a round Back button at the top. */
   onBack?: () => void;
   title?: string;
+  /** Secondary line under the title. */
+  subtitle?: string;
+  /** Announce subtitle changes to screen readers. */
+  subtitleLive?: boolean;
   /** Pinned under the scroll area, such as a "New to Fuel?" link. */
   footer?: ReactNode;
   /** Centre the content vertically in the space above the footer. */
@@ -17,7 +21,7 @@ type Props = {
 };
 
 /** Shared scroll + keyboard-avoiding container for the auth screens. */
-export function AuthScreen({ children, onBack, title, footer, centered = false }: Props) {
+export function AuthScreen({ children, onBack, title, subtitle, subtitleLive, footer, centered = false }: Props) {
   const { colors, scheme } = useTheme();
   return (
     <KeyboardAvoider style={{ backgroundColor: colors.bg }}>
@@ -42,9 +46,20 @@ export function AuthScreen({ children, onBack, title, footer, centered = false }
           </Pressable>
         ) : null}
         {title ? (
-          <Text style={[type.authTitle, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-            {title}
-          </Text>
+          <View style={styles.titleGroup}>
+            <Text style={[type.authTitle, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text
+                style={[type.callout, { color: colors.textSecondary }]}
+                accessibilityLiveRegion={subtitleLive ? 'polite' : undefined}
+                maxFontSizeMultiplier={2}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
         {children}
       </ScrollView>
@@ -56,6 +71,7 @@ export function AuthScreen({ children, onBack, title, footer, centered = false }
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { flexGrow: 1, padding: space.xl, paddingTop: space.xxxl, gap: space.lg },
+  titleGroup: { gap: space.xs },
   centered: { justifyContent: 'center' },
   back: {
     width: sizing.touchMin,

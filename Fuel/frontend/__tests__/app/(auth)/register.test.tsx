@@ -175,6 +175,16 @@ describe('Register', () => {
     await act(async () => resolve(null));
   });
 
+  it('shows the Back button and the title header, and Back goes back or to sign in', async () => {
+    await render(<Register />);
+    expect(screen.getByRole('header', { name: 'Create your account' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+    mockCanGoBack.mockReturnValue(false);
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(mockReplace).toHaveBeenCalledWith('/sign-in');
+  });
+
   it('goes back, or to sign in when there is no history', async () => {
     await render(<Register />);
     await fireEvent.press(screen.getByRole('button', { name: 'Back to sign in' }));

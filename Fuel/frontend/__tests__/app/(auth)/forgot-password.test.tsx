@@ -79,6 +79,18 @@ describe('ForgotPassword', () => {
     expect(mockPush).toHaveBeenCalledWith('/reset-password');
   });
 
+  it('shows the Back button and title header in the form and sent states', async () => {
+    mockForgot.mockResolvedValue(null);
+    await render(<ForgotPassword />);
+    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Reset your password' })).toBeTruthy();
+    await typeEmail(EMAIL);
+    await send();
+    await screen.findByText(SENT);
+    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'Reset your password' })).toBeTruthy();
+  });
+
   it('goes back, falling back to sign in when there is no history', async () => {
     await render(<ForgotPassword />);
     await fireEvent.press(screen.getByRole('button', { name: 'Back to sign in' }));

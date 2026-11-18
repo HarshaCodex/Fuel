@@ -15,6 +15,18 @@ describe('AuthScreen', () => {
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
 
+  it('renders the subtitle only when given', async () => {
+    const { rerender } = await render(<AuthScreen title="Check your email">{null}</AuthScreen>);
+    expect(screen.queryByText('We sent a code')).toBeNull();
+    await rerender(
+      <AuthScreen title="Check your email" subtitle="We sent a code">
+        {null}
+      </AuthScreen>,
+    );
+    expect(screen.getByText('We sent a code')).toBeTruthy();
+    expect(screen.getAllByRole('header')).toHaveLength(1);
+  });
+
   it('shows a labelled Back button that calls onBack, and a header title', async () => {
     const onBack = jest.fn();
     await render(

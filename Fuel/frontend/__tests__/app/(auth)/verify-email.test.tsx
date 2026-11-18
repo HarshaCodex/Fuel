@@ -10,7 +10,8 @@ import VerifyEmail from '../../../app/(auth)/verify-email';
 
 const mockReplace = jest.fn();
 const mockSignIn = jest.fn();
-const mockRouter = { replace: mockReplace };
+const mockBack = jest.fn();
+const mockRouter = { replace: mockReplace, back: mockBack, canGoBack: () => true };
 let mockParams: Record<string, string> = {};
 jest.mock('expo-router', () => ({ useRouter: () => mockRouter, useLocalSearchParams: () => mockParams }));
 jest.mock('@/api/auth');
@@ -206,6 +207,12 @@ describe('VerifyEmail', () => {
     const logged = JSON.stringify(spies.flatMap((s) => s.mock.calls));
     expect(logged).not.toContain(EMAIL);
     expect(logged).not.toContain(CODE);
+  });
+
+  it('shows a Back button that goes back', async () => {
+    await render(<VerifyEmail />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('renders in the dark scheme', async () => {

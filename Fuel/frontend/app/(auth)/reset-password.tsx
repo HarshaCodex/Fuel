@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState, type ComponentRef } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { forgotPassword, resetPassword } from '@/api/auth';
+import { AuthScreen } from '@/components/AuthScreen';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
-import { FormScreen } from '@/components/FormScreen';
 import { PasswordRules } from '@/components/PasswordRules';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
@@ -13,7 +13,6 @@ import { validateNewPassword } from '@/lib/passwordRules';
 import { getPendingEmail, setPendingEmail } from '@/lib/pendingEmail';
 import { formatCooldown, RESEND_COOLDOWN_SECONDS, useCooldown } from '@/lib/useCooldown';
 import { validateEmail } from '@/lib/validation';
-import { space, type, useTheme } from '@/theme';
 
 const CODE_MAX = 10;
 const CODE_LETTER_SPACING = 4;
@@ -28,7 +27,6 @@ type Field = 'email' | 'code' | 'password';
 type Notice = { variant: 'caution' | 'info' | 'danger'; message: string; retry?: 'reset' | 'resend' };
 
 export default function ResetPasswordScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
   const [pending] = useState(getPendingEmail);
   const [email, setEmail] = useState(pending ?? '');
@@ -129,16 +127,16 @@ export default function ResetPasswordScreen() {
     void resend();
   };
 
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/sign-in');
+  }
+
   const waiting = resendCooldown.remaining > 0;
   const resendLabel = waiting ? `Send a new code in ${formatCooldown(resendCooldown.remaining)}` : 'Send a new code';
 
   return (
-    <FormScreen>
-      <View style={styles.header}>
-        <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-          Choose a new password
-        </Text>
-      </View>
+    <AuthScreen onBack={goBack} title="Choose a new password">
       {notice ? (
         <Banner
           variant={notice.variant}
@@ -147,6 +145,7 @@ export default function ResetPasswordScreen() {
         />
       ) : null}
       <TextField
+        variant="pill"
         ref={emailRef}
         label="Email"
         value={email}
@@ -167,6 +166,7 @@ export default function ResetPasswordScreen() {
         submitBehavior="submit"
       />
       <TextField
+        variant="pill"
         ref={codeRef}
         label="Code"
         value={code}
@@ -185,9 +185,10 @@ export default function ResetPasswordScreen() {
         returnKeyType="next"
         onSubmitEditing={() => passwordRef.current?.focus()}
         submitBehavior="submit"
-        style={[type.title1, styles.code]}
+        style={styles.code}
       />
       <TextField
+        variant="pill"
         ref={passwordRef}
         label="New password"
         secure
@@ -207,9 +208,10 @@ export default function ResetPasswordScreen() {
         onSubmitEditing={onReset}
       />
       <PasswordRules value={password} />
-      <Button label="Reset password" loading={loading} disabled={locked} onPress={onReset} />
+      <Button pill label="Reset password" loading={loading} disabled={locked} onPress={onReset} />
       <View style={styles.links}>
         <Button
+          pill
           variant="text"
           size="md"
           label={resendLabel}
@@ -217,7 +219,7 @@ export default function ResetPasswordScreen() {
           onPress={onResend}
         />
       </View>
-    </FormScreen>
+    </AuthScreen>
   );
 }
 
@@ -233,7 +235,6 @@ function mapFieldErrors(e: unknown): Partial<Record<Field, string>> | null {
 }
 
 const styles = StyleSheet.create({
-  header: { marginBottom: space.lg },
   code: { textAlign: 'center', letterSpacing: CODE_LETTER_SPACING },
   links: { alignItems: 'center' },
 });

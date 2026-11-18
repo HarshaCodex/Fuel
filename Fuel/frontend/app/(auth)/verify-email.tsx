@@ -1,17 +1,16 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { resendVerification, verifyEmail } from '@/api/auth';
+import { AuthScreen } from '@/components/AuthScreen';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
-import { FormScreen } from '@/components/FormScreen';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
 import { clearPendingEmail, getPendingEmail } from '@/lib/pendingEmail';
 import { formatCooldown, RESEND_COOLDOWN_SECONDS, useCooldown } from '@/lib/useCooldown';
 import { useSession } from '@/session/SessionProvider';
-import { space, type, useTheme } from '@/theme';
 
 const CODE_MAX = 10;
 const CODE_LETTER_SPACING = 4;
@@ -25,7 +24,6 @@ const OFFLINE_ERROR = "You're offline. Check your connection and try again.";
 type Notice = { variant: 'caution' | 'info' | 'danger'; message: string; retry?: 'verify' | 'resend' };
 
 export default function VerifyEmailScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
   const { signIn } = useSession();
   // `unsent=1`: arrived from a blocked sign-in, so no code has been sent yet.
@@ -112,19 +110,20 @@ export default function VerifyEmailScreen() {
     void resend();
   };
 
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/sign-in');
+  }
+
   const waiting = resendCooldown.remaining > 0;
   const resendLabel = waiting ? `Resend in ${formatCooldown(resendCooldown.remaining)}` : 'Resend code';
 
   return (
-    <FormScreen>
-      <View style={styles.header}>
-        <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-          Check your email
-        </Text>
-        <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
-          {noCodeYet ? `Verify ${email} to sign in. Request a code below.` : `We sent a code to ${email}`}
-        </Text>
-      </View>
+    <AuthScreen
+      onBack={goBack}
+      title="Check your email"
+      subtitle={noCodeYet ? `Verify ${email} to sign in. Request a code below.` : `We sent a code to ${email}`}
+    >
       {notice ? (
         <Banner
           variant={notice.variant}
@@ -133,6 +132,7 @@ export default function VerifyEmailScreen() {
         />
       ) : null}
       <TextField
+        variant="pill"
         label="Code"
         value={code}
         onChangeText={(v) => {
@@ -148,11 +148,12 @@ export default function VerifyEmailScreen() {
         textContentType="oneTimeCode"
         returnKeyType="go"
         onSubmitEditing={onVerify}
-        style={[type.title1, styles.code]}
+        style={styles.code}
       />
-      <Button label="Verify" loading={loading} disabled={locked} onPress={onVerify} />
+      <Button pill label="Verify" loading={loading} disabled={locked} onPress={onVerify} />
       <View style={styles.links}>
         <Button
+          pill
           variant="text"
           size="md"
           label={resendLabel}
@@ -160,12 +161,11 @@ export default function VerifyEmailScreen() {
           onPress={onResend}
         />
       </View>
-    </FormScreen>
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { gap: space.xs, marginBottom: space.lg },
   code: { textAlign: 'center', letterSpacing: CODE_LETTER_SPACING },
   links: { alignItems: 'center' },
 });

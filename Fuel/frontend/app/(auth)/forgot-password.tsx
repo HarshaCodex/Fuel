@@ -1,16 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState, type ComponentRef } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { forgotPassword } from '@/api/auth';
+import { AuthScreen } from '@/components/AuthScreen';
 import { Banner } from '@/components/Banner';
 import { Button } from '@/components/Button';
-import { FormScreen } from '@/components/FormScreen';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
 import { setPendingEmail } from '@/lib/pendingEmail';
 import { validateEmail } from '@/lib/validation';
-import { space, type, useTheme } from '@/theme';
 
 const GENERIC_ERROR = "Couldn't send a code. Try again.";
 const OFFLINE_ERROR = "You're offline. Check your connection and try again.";
@@ -20,7 +19,6 @@ const SENT_MESSAGE = 'If an account exists, a code is on its way';
 type Failure = { kind: 'offline' | 'rateLimited' | 'generic'; message: string };
 
 export default function ForgotPasswordScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -72,46 +70,27 @@ export default function ForgotPasswordScreen() {
 
   const backButton = (
     <View style={styles.links}>
-      <Button variant="text" size="md" label="Back to sign in" onPress={goBack} />
+      <Button pill variant="text" size="md" label="Back to sign in" onPress={goBack} />
     </View>
   );
 
   if (sent) {
     return (
-      <FormScreen>
-        <View style={styles.header}>
-          <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-            Reset your password
-          </Text>
-          <Text
-            style={[type.callout, { color: colors.textSecondary }]}
-            accessibilityLiveRegion="polite"
-            maxFontSizeMultiplier={2}
-          >
-            {SENT_MESSAGE}
-          </Text>
-        </View>
-        <Button label="Enter code" onPress={enterCode} />
+      <AuthScreen onBack={goBack} title="Reset your password" subtitle={SENT_MESSAGE} subtitleLive>
+        <Button pill label="Enter code" onPress={enterCode} />
         {backButton}
-      </FormScreen>
+      </AuthScreen>
     );
   }
 
   return (
-    <FormScreen>
-      <View style={styles.header}>
-        <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-          Reset your password
-        </Text>
-        <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
-          {"Enter your email and we'll send a code"}
-        </Text>
-      </View>
+    <AuthScreen onBack={goBack} title="Reset your password" subtitle="Enter your email and we'll send a code">
       {failure?.kind === 'offline' ? (
         <Banner variant="caution" message={failure.message} action={{ label: 'Retry', onPress: onSubmit }} />
       ) : null}
       {failure && failure.kind !== 'offline' ? <Banner variant="danger" message={failure.message} /> : null}
       <TextField
+        variant="pill"
         ref={emailRef}
         label="Email"
         value={email}
@@ -130,13 +109,12 @@ export default function ForgotPasswordScreen() {
         returnKeyType="go"
         onSubmitEditing={onSubmit}
       />
-      <Button label="Send code" loading={loading} onPress={onSubmit} />
+      <Button pill label="Send code" loading={loading} onPress={onSubmit} />
       {backButton}
-    </FormScreen>
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { gap: space.xs, marginBottom: space.lg },
   links: { alignItems: 'center' },
 });

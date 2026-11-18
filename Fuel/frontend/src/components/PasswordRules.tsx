@@ -37,6 +37,6 @@ export function PasswordRules({ value }: { value: string }) {
 }
 
 const styles = StyleSheet.create({
-  root: { gap: space.xs },
+  root: { gap: space.xs, paddingHorizontal: space.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
 });

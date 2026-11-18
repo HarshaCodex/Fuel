@@ -8,7 +8,8 @@ import { clearPendingEmail, getPendingEmail, setPendingEmail } from '@/lib/pendi
 import ResetPassword from '../../../app/(auth)/reset-password';
 
 const mockReplace = jest.fn();
-const mockRouter = { replace: mockReplace };
+const mockBack = jest.fn();
+const mockRouter = { replace: mockReplace, back: mockBack, canGoBack: () => true };
 const mockSignIn = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => mockRouter }));
 jest.mock('@/api/auth');
@@ -113,6 +114,13 @@ describe('ResetPassword', () => {
     expect(getPendingEmail()).toBe(EMAIL);
     expect(mockSignIn).not.toHaveBeenCalled();
     expect(screen.getByLabelText('New password').props.value).toBe('');
+  });
+
+  it('shows a Back button that goes back', async () => {
+    await render(<ResetPassword />);
+    expect(screen.getByRole('header', { name: 'Choose a new password' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Back' }));
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('shows a code field error for 401 and keeps the input', async () => {
