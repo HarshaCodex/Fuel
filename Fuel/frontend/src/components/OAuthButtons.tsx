@@ -1,7 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { sizing, space, type, useTheme } from '@/theme';
+
+// Google's brand blue; the glyph is the only place it appears.
+const GOOGLE_BLUE = '#4285F4';
 
 type Props = {
   disabled?: boolean;
@@ -12,7 +16,7 @@ type Props = {
   onApple: () => void;
 };
 
-/** "or" divider plus the provider buttons. Each button is rendered only when its provider is available. */
+/** "or" divider plus the provider buttons (Apple first, as in the mockup). Each button is rendered only when its provider is available. */
 export function OAuthButtons({ disabled = false, showApple, showGoogle = true, onGoogle, onApple }: Props) {
   const { colors } = useTheme();
   if (!showGoogle && !showApple) return null;
@@ -25,8 +29,26 @@ export function OAuthButtons({ disabled = false, showApple, showGoogle = true, o
         </Text>
         <View style={[styles.line, { backgroundColor: colors.border }]} />
       </View>
-      {showGoogle ? <Button variant="secondary" label="Continue with Google" disabled={disabled} onPress={onGoogle} /> : null}
-      {showApple ? <Button variant="secondary" label="Continue with Apple" disabled={disabled} onPress={onApple} /> : null}
+      {showApple ? (
+        <Button
+          pill
+          variant="inverse"
+          label="Continue with Apple"
+          icon={<Ionicons name="logo-apple" size={sizing.icon - space.xs} color={disabled ? colors.textTertiary : colors.bg} />}
+          disabled={disabled}
+          onPress={onApple}
+        />
+      ) : null}
+      {showGoogle ? (
+        <Button
+          pill
+          variant="surface"
+          label="Continue with Google"
+          icon={<Ionicons name="logo-google" size={sizing.icon - space.xs} color={disabled ? colors.textTertiary : GOOGLE_BLUE} />}
+          disabled={disabled}
+          onPress={onGoogle}
+        />
+      ) : null}
     </View>
   );
 }

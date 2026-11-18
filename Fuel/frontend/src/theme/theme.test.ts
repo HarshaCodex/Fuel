@@ -92,6 +92,14 @@ describe('theme tokens', () => {
     expect(sizing.touchMin).toBe(44);
   });
 
+  it('defines the auth sizes, radii and type', () => {
+    expect(sizing.pillField).toBe(64);
+    expect(sizing.pillButton).toBe(56);
+    expect(radius.button).toBe(28);
+    expect(type.authTitle.fontSize).toBe(30);
+    expect(type.brand.fontSize).toBe(34);
+  });
+
   it('keeps light and dark palettes in step with valid values', () => {
     expect(Object.keys(darkColors)).toEqual(Object.keys(lightColors));
     for (const value of [...Object.values(lightColors), ...Object.values(darkColors)]) {
