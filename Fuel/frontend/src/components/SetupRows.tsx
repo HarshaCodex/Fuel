@@ -35,7 +35,7 @@ function Row({ row, error, onPress }: { row: SetupRow; error?: string; onPress: 
         <Text numberOfLines={1} style={[styles.value, { color: valueColor }]} maxFontSizeMultiplier={1.5}>
           {row.value ?? 'Add'}
         </Text>
-        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} accessibilityElementsHidden importantForAccessibility="no" />
+        <Ionicons testID="row-chevron" name="chevron-forward" size={18} color={colors.textSecondary} accessibilityElementsHidden importantForAccessibility="no" />
       </View>
       {error ? (
         <Text style={[type.caption, { color: colors.danger }]} maxFontSizeMultiplier={1.5}>
@@ -54,7 +54,7 @@ export function SetupRows({ rows, onPress, errors }: Props) {
     <View style={[styles.card, card]}>
       {rows.map((row, i) => (
         <Fragment key={row.key}>
-          {i > 0 ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
+          {i > 0 ? <View style={[styles.divider, { backgroundColor: colors.divider }]} /> : null}
           <Row row={row} error={errors?.[row.key]} onPress={onPress} />
         </Fragment>
       ))}
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.xl, overflow: 'hidden' },
   row: { minHeight: 50, justifyContent: 'center', paddingHorizontal: space.lg, paddingVertical: space.sm },
   line: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  label: { flex: 1, fontSize: 16, lineHeight: 22, fontFamily: 'Manrope_600SemiBold' },
+  label: { flexGrow: 1, flexShrink: 0, fontSize: 16, lineHeight: 22, fontFamily: 'Manrope_600SemiBold' },
   value: { flexShrink: 1, fontSize: 16, lineHeight: 22, fontFamily: 'Manrope_600SemiBold' },
   divider: { height: StyleSheet.hairlineWidth },
 });

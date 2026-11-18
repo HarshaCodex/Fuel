@@ -4,6 +4,8 @@ export const lightColors = {
   tileFill: '#F5F3EF',
   surface: '#FFFFFF',
   surfaceMuted: '#F0ECE6',
+  /** Selected thumb of the Metric/Imperial switch. */
+  switchThumb: '#FFFFFF',
   border: '#E6E1D9',
   borderStrong: '#7A7266',
   text: '#1D1B18',
@@ -48,6 +50,7 @@ export const darkColors: Colors = {
   tileFill: '#24221F',
   surface: '#1C1A18',
   surfaceMuted: '#2A2724',
+  switchThumb: '#47423C',
   border: 'rgba(255,255,255,0.06)',
   borderStrong: '#7A7266',
   text: '#F3F0EA',

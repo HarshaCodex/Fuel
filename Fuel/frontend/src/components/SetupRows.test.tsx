@@ -31,6 +31,13 @@ describe('SetupRows', () => {
     expect(screen.queryByText('Add')).toBeNull();
   });
 
+  it('uses secondary text for a set value and hides the chevron from screen readers', async () => {
+    await render(<SetupRows rows={filled} onPress={() => {}} />);
+    expect(StyleSheet.flatten(screen.getByText('178 cm').props.style).color).toBe(lightColors.textSecondary);
+    expect(screen.queryByTestId('row-chevron')).toBeNull();
+    expect(screen.getAllByTestId('row-chevron', { includeHiddenElements: true })).toHaveLength(5);
+  });
+
   it('presses with the key and a haptic', async () => {
     const onPress = jest.fn();
     await render(<SetupRows rows={empty} onPress={onPress} />);

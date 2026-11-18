@@ -1,13 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
-import { darkColors } from '@/theme';
+import { darkColors, lightColors } from '@/theme';
 
 import { SetupPanel } from './SetupPanel';
 
 jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({ default: jest.fn() }));
-jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: mockBottom, left: 0, right: 0 }) }));
 let mockReduce = true;
+let mockBottom = 0;
 jest.mock('@/lib/useReduceMotion', () => ({ useReduceMotion: () => mockReduce }));
 
 const mockScheme = jest.requireMock('react-native/Libraries/Utilities/useColorScheme').default as jest.Mock;
@@ -16,6 +17,7 @@ const A11Y = 'Daily goal 2,200 calories, protein 150 grams, carbs 240 grams, fat
 
 beforeEach(() => {
   mockReduce = true;
+  mockBottom = 0;
   mockScheme.mockReturnValue('light');
 });
 afterEach(() => jest.clearAllMocks());
@@ -66,7 +68,31 @@ describe('SetupPanel', () => {
     mockReduce = false;
     await render(<SetupPanel goals={goals} onStart={() => {}} />);
     await screen.rerender(<SetupPanel goals={{ ...goals, calorieGoal: 1950 }} onStart={() => {}} />);
+    expect(screen.queryByText('1,950')).toBeNull();
     await screen.unmount();
+  });
+
+  it('counts from the last shown number after the goal comes back', async () => {
+    mockReduce = false;
+    await render(<SetupPanel goals={goals} onStart={() => {}} />);
+    expect(screen.getByText('2,200')).toBeTruthy();
+    await screen.rerender(<SetupPanel onStart={() => {}} />);
+    await screen.rerender(<SetupPanel goals={goals} onStart={() => {}} />);
+    expect(screen.getByText('2,200')).toBeTruthy();
+  });
+
+  it('uses the panel shadow and no border in light', async () => {
+    await render(<SetupPanel goals={goals} onStart={() => {}} />);
+    const style = StyleSheet.flatten(screen.getByLabelText(A11Y).parent!.props.style);
+    expect(style.shadowOpacity).toBe(0.06);
+    expect(style.borderTopWidth).toBeUndefined();
+    expect(style.backgroundColor).toBe(lightColors.surface);
+  });
+
+  it('pads the bottom by the safe-area inset when larger than 30', async () => {
+    mockBottom = 34;
+    await render(<SetupPanel goals={goals} onStart={() => {}} />);
+    expect(StyleSheet.flatten(screen.getByLabelText(A11Y).parent!.props.style).paddingBottom).toBe(34);
   });
 
   it('uses a hairline top border and no shadow in dark', async () => {

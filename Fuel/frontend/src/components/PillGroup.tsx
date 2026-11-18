@@ -16,7 +16,9 @@ type Props<T extends string> = {
 };
 
 const HEIGHT = { switch: 40, accent: 44 } as const;
-const PAD = 3;
+const PAD = 4;
+/** The 40pt switch option gets a 44pt touch target. */
+const SWITCH_SLOP = { top: 2, bottom: 2 } as const;
 
 /** A radio group of two or three pill options. */
 export function PillGroup<T extends string>({ options, value, onChange, label, variant = 'switch', disabled }: Props<T>) {
@@ -38,7 +40,7 @@ export function PillGroup<T extends string>({ options, value, onChange, label, v
     >
       {options.map((o) => {
         const on = o.value === value;
-        const fill = on ? (isSwitch ? { backgroundColor: colors.surface, ...edge } : { backgroundColor: colors.accent }) : null;
+        const fill = on ? (isSwitch ? { backgroundColor: colors.switchThumb, ...edge } : { backgroundColor: colors.accent }) : null;
         const textColor = on && !isSwitch ? colors.onAccent : on ? colors.text : colors.textSecondary;
         return (
           <PressableScale
@@ -47,11 +49,12 @@ export function PillGroup<T extends string>({ options, value, onChange, label, v
             accessibilityLabel={o.label}
             accessibilityState={{ selected: on, disabled: !!disabled }}
             disabled={disabled}
+            hitSlop={isSwitch ? SWITCH_SLOP : undefined}
             onPress={() => pick(o.value)}
             style={styles.cell}
             contentStyle={[styles.option, { minHeight: HEIGHT[variant] }, fill]}
           >
-            <Text style={[type.label, numeric, { color: textColor }]} maxFontSizeMultiplier={1.5} numberOfLines={1}>
+            <Text style={[type.link, numeric, { color: textColor }]} maxFontSizeMultiplier={1.5} numberOfLines={1}>
               {o.label}
             </Text>
           </PressableScale>
@@ -62,7 +65,7 @@ export function PillGroup<T extends string>({ options, value, onChange, label, v
 }
 
 const styles = StyleSheet.create({
-  track: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.full, padding: PAD },
+  track: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.full, padding: PAD, gap: PAD },
   cell: { flex: 1 },
   option: { borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.sm },
   disabled: { opacity: 0.5 },

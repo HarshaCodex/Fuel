@@ -25,20 +25,20 @@ export function ChangeTiles({ value, onSelect, onCustom, disabled }: Props) {
     onCustom();
   };
   const items = [
-    ...DAILY_CHANGES.map((c) => ({ key: String(c.value), top: String(c.value), caption: c.label, on: value === c.value, press: () => choose(c.value) })),
-    { key: 'custom', top: preset ? 'Custom' : String(value), caption: 'kcal', on: !preset, press: custom },
+    ...DAILY_CHANGES.map((c) => ({ key: String(c.value), top: String(c.value), caption: c.label, label: `${c.value} calories a day, ${c.label}`, on: value === c.value, press: () => choose(c.value) })),
+    { key: 'custom', top: preset ? 'Custom' : String(value), caption: 'kcal', label: preset ? 'Custom, enter an amount' : `Custom amount, ${value} calories a day`, on: !preset, press: custom },
   ];
   return (
     <View
       accessibilityRole="radiogroup"
-      accessibilityLabel="Daily change"
+      accessibilityLabel="Daily calorie change"
       style={[styles.row, grid && styles.grid, disabled && styles.disabled]}
     >
       {items.map((t) => (
         <PressableScale
           key={t.key}
           accessibilityRole="radio"
-          accessibilityLabel={`${t.top}, ${t.caption}`}
+          accessibilityLabel={t.label}
           accessibilityState={{ selected: t.on, disabled: !!disabled }}
           disabled={disabled}
           onPress={t.press}
@@ -76,5 +76,5 @@ const styles = StyleSheet.create({
   cell: { flex: 1 },
   gridCell: { flexBasis: '47%' },
   disabled: { opacity: 0.5 },
-  tile: { minHeight: MIN_HEIGHT, borderRadius: radius.tile, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xs },
+  tile: { minHeight: MIN_HEIGHT, borderRadius: radius.option, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space.xs },
 });
