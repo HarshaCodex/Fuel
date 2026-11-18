@@ -16,4 +16,7 @@ export const sizing = {
   portionTile: 64,
   grabber: { width: 40, height: 5 },
   well: 40,
+  pillField: 64,
+  pillButton: 56,
+  brandMark: 64,
 } as const;

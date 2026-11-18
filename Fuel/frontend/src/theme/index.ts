@@ -3,12 +3,12 @@ import { useColorScheme } from 'react-native';
 import { darkColors, lightColors, type Colors } from './colors';
 import { motion } from './motion';
 import { radius } from './radius';
-import { shadow } from './shadow';
+import { accentShadow, shadow } from './shadow';
 import { sizing } from './sizing';
 import { space } from './space';
 import { numeric, type } from './type';
 
-export { darkColors, lightColors, type Colors, motion, radius, shadow, sizing, space, numeric, type };
+export { darkColors, lightColors, type Colors, motion, radius, shadow, accentShadow, sizing, space, numeric, type };
 
 export const theme = { space, radius, shadow, motion, sizing, type, numeric } as const;
 

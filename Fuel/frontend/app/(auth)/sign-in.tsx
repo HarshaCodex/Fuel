@@ -4,9 +4,10 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { login, oauthApple, oauthGoogle } from '@/api/auth';
 import { isAppleSignInAvailable, isGoogleSignInAvailable, signInWithApple, signInWithGoogle } from '@/auth/oauthProviders';
+import { AuthScreen } from '@/components/AuthScreen';
 import { Banner } from '@/components/Banner';
+import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/Button';
-import { FormScreen } from '@/components/FormScreen';
 import { OAuthButtons } from '@/components/OAuthButtons';
 import { TextField } from '@/components/TextField';
 import { classifyAuthError, rateLimitMessage } from '@/lib/authErrors';
@@ -143,14 +144,19 @@ export default function SignInScreen() {
   };
 
   return (
-    <FormScreen>
+    <AuthScreen
+      centered
+      footer={
+        <View style={styles.footer}>
+          <Text style={[type.tagline, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
+            New to Fuel?
+          </Text>
+          <Button pill variant="text" size="md" label="Create an account" onPress={() => router.push('/register')} />
+        </View>
+      }
+    >
       <View style={styles.header}>
-        <Text style={[type.title1, { color: colors.accentText }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-          Fuel
-        </Text>
-        <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
-          Track what you eat, simply.
-        </Text>
+        <BrandMark />
       </View>
       {reset === '1' ? <Banner variant="info" message={RESET_DONE} /> : null}
       {failure?.kind === 'offline' ? (
@@ -160,6 +166,7 @@ export default function SignInScreen() {
         <Banner variant="danger" message={failure.message} />
       ) : null}
       <TextField
+        variant="pill"
         ref={emailRef}
         label="Email"
         value={email}
@@ -177,6 +184,7 @@ export default function SignInScreen() {
         submitBehavior="submit"
       />
       <TextField
+        variant="pill"
         ref={passwordRef}
         label="Password"
         secure
@@ -195,17 +203,17 @@ export default function SignInScreen() {
         returnKeyType="go"
         onSubmitEditing={onSubmit}
       />
-      <Button label="Sign in" loading={loading} onPress={onSubmit} />
-      <OAuthButtons disabled={loading} showApple={showApple} showGoogle={isGoogleSignInAvailable()} onGoogle={onGoogle} onApple={onApple} />
-      <View style={styles.links}>
-        <Button variant="text" size="md" label="Forgot password?" onPress={() => router.push('/forgot-password')} />
-        <Button variant="text" size="md" label="Create an account" onPress={() => router.push('/register')} />
+      <View style={styles.forgot}>
+        <Button pill variant="text" size="md" label="Forgot password?" onPress={() => router.push('/forgot-password')} />
       </View>
-    </FormScreen>
+      <Button pill label="Sign in" loading={loading} onPress={onSubmit} />
+      <OAuthButtons disabled={loading} showApple={showApple} showGoogle={isGoogleSignInAvailable()} onGoogle={onGoogle} onApple={onApple} />
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { gap: space.xs, marginBottom: space.lg },
-  links: { alignItems: 'center' },
+  header: { alignItems: 'center', marginBottom: space.lg },
+  forgot: { alignSelf: 'flex-end' },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' },
 });

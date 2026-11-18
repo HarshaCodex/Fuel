@@ -6,3 +6,7 @@ export const shadow = {
   lg: { shadowColor, shadowOffset: { width: 0, height: 8 }, shadowRadius: 24, shadowOpacity: 0.14, elevation: 8 },
   sheet: { shadowColor, shadowOffset: { width: 0, height: -8 }, shadowRadius: 24, shadowOpacity: 0.14, elevation: 16 },
 } as const;
+
+/** Soft glow in the accent colour under primary pill buttons and the brand mark (light mode only). */
+export const accentShadow = (color: string) =>
+  ({ shadowColor: color, shadowOffset: { width: 0, height: 6 }, shadowRadius: 16, shadowOpacity: 0.25, elevation: 4 }) as const;

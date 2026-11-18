@@ -40,4 +40,9 @@ describe('OAuthButtons', () => {
     await fireEvent.press(g);
     expect(onGoogle).not.toHaveBeenCalled();
   });
+  it('lists Apple before Google', async () => {
+    await render(<OAuthButtons showApple onGoogle={jest.fn()} onApple={jest.fn()} />);
+    const names = screen.getAllByRole('button').map((b) => b.props.accessibilityLabel);
+    expect(names).toEqual(['Continue with Apple', 'Continue with Google']);
+  });
 });
