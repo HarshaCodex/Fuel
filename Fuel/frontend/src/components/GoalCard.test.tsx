@@ -44,6 +44,19 @@ describe('GoalCard', () => {
     expect(screen.getByText('0')).toBeTruthy();
   });
 
+  it('starts at 0 when counting up', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    jest.spyOn(globalThis, 'requestAnimationFrame').mockReturnValue(0);
+    await render(<GoalCard goals={goals} countUp onEdit={jest.fn()} />);
+    expect(screen.getByTestId('goal-kcal')).toHaveTextContent('0');
+  });
+
+  it('shows the value at once without countUp', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    await render(<GoalCard goals={goals} onEdit={jest.fn()} />);
+    expect(screen.getByTestId('goal-kcal')).toHaveTextContent('2,200');
+  });
+
   it('opens Edit goals from its own button', async () => {
     const onEdit = jest.fn();
     await render(<GoalCard goals={goals} onEdit={onEdit} />);

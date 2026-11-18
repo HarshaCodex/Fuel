@@ -1,23 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { getBodyStats, getGoals, getProfile, userKeys, type Goals } from '@/api/user';
+import { foodKeys, getCustomFoodPage } from '@/api/food';
+import { getBodyStats, getGoals, getProfile, userKeys } from '@/api/user';
 import { Banner } from '@/components/Banner';
-import { Button } from '@/components/Button';
+import { BodyStatsCard } from '@/components/BodyStatsCard';
 import { DeleteAccountDialog } from '@/components/DeleteAccountDialog';
 import { FormScreen } from '@/components/FormScreen';
+import { GoalCard } from '@/components/GoalCard';
+import { ProfileHeader } from '@/components/ProfileHeader';
+import { ProfileRows } from '@/components/ProfileRows';
+import { ProfileSkeleton } from '@/components/ProfileSkeleton';
 import { appearanceLabel, getAppearance } from '@/lib/appearance';
 import { classifyAuthError } from '@/lib/authErrors';
-import { activityLabel, BODY_STATS_UI, summarizeBodyStats } from '@/lib/bodyStatsForm';
-import { GOALS_MESSAGES, summarizeGoals } from '@/lib/goalsForm';
+import { BODY_STATS_UI } from '@/lib/bodyStatsForm';
+import { GOALS_MESSAGES } from '@/lib/goalsForm';
 import { PROFILE_MESSAGES } from '@/lib/profileForm';
+import { customFoodsValue } from '@/lib/profileView';
 import { useSession } from '@/session/SessionProvider';
-import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
+import { sizing, useTheme } from '@/theme';
 
-const noteFor = (g: Goals) =>
-  g.updatedAt === null ? 'Default targets. Set yours' : g.isAutoCalculated ? 'Calculated from your body stats' : 'Set by you';
+const offlineOr = (error: unknown, offline: string, failed: string) =>
+  classifyAuthError(error).kind === 'offline' ? offline : failed;
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
@@ -29,167 +35,59 @@ export default function ProfileScreen() {
   const goals = useQuery({ queryKey: userKeys.goals, queryFn: getGoals });
   const profile = useQuery({ queryKey: userKeys.profile, queryFn: getProfile });
   const body = useQuery({ queryKey: userKeys.bodyStats, queryFn: getBodyStats });
+  const customCount = useQuery({ queryKey: foodKeys.customCount, queryFn: async () => (await getCustomFoodPage(0, 1)).totalElements });
+  // Count the calories up only when the goals were not already cached on first render.
+  const [countUp] = useState(() => goals.data === undefined);
   const account = profile.data;
-  const data = goals.data;
-  const calories = data ? `${Math.round(data.calorieGoal).toLocaleString('en-US')} kcal` : '';
-  const summary = data ? summarizeGoals(data) : '';
 
   return (
     <FormScreen>
-      <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-        Profile
-      </Text>
       {profile.isError && !account ? (
         <Banner
           variant="danger"
-          message={classifyAuthError(profile.error).kind === 'offline' ? PROFILE_MESSAGES.offline : PROFILE_MESSAGES.loadFailed}
+          message={offlineOr(profile.error, PROFILE_MESSAGES.offline, PROFILE_MESSAGES.loadFailed)}
           action={{ label: 'Retry', onPress: () => void profile.refetch() }}
         />
+      ) : account ? (
+        <ProfileHeader name={account.name} email={account.email} onEdit={() => router.push('/edit-profile')} />
       ) : (
-        <View style={[styles.account, shadow.sm, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {account ? (
-            <>
-              <View style={styles.identity}>
-                <View style={[styles.avatar, { backgroundColor: colors.accentSoft }]} accessibilityElementsHidden importantForAccessibility="no">
-                  <Text style={[type.title2, { color: colors.accentText }]}>{account.name.trim().charAt(0).toUpperCase()}</Text>
-                </View>
-                <View style={styles.identityText}>
-                  <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={2}>{account.name}</Text>
-                  <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>{account.email}</Text>
-                  <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>{account.timezone}</Text>
-                </View>
-              </View>
-              <Button label="Edit profile" variant="secondary" size="md" onPress={() => router.push('/edit-profile')} />
-            </>
-          ) : (
-            <Text style={[type.callout, { color: colors.textSecondary }]}>Loading profile</Text>
-          )}
-        </View>
+        <ProfileSkeleton header />
       )}
-      {goals.isError && !data ? (
+      {goals.data ? (
+        <GoalCard goals={goals.data} countUp={countUp} onEdit={() => router.push('/edit-goals')} />
+      ) : goals.isError ? (
         <Banner
           variant="danger"
-          message={classifyAuthError(goals.error).kind === 'offline' ? GOALS_MESSAGES.offline : GOALS_MESSAGES.loadFailed}
+          message={offlineOr(goals.error, GOALS_MESSAGES.offline, GOALS_MESSAGES.loadFailed)}
           action={{ label: 'Retry', onPress: () => void goals.refetch() }}
         />
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={data ? `Edit goals. ${calories}. ${summary}. ${noteFor(data)}` : 'Edit goals'}
-        accessibilityState={{ disabled: !data }}
-        disabled={!data}
-        onPress={() => router.push('/edit-goals')}
-        style={({ pressed }) => [
-          styles.card,
-          shadow.sm,
-          { backgroundColor: pressed ? colors.surfaceMuted : colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <Text style={[type.caption, { color: colors.textSecondary }]}>Goals</Text>
-        {data ? (
-          <>
-            <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={2}>{calories}</Text>
-            <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>{summary}</Text>
-            <Text style={[type.caption, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>{noteFor(data)}</Text>
-          </>
-        ) : goals.isPending ? (
-          <Text style={[type.callout, { color: colors.textSecondary }]}>Loading goals</Text>
-        ) : null}
-        <View style={styles.cta}>
-          <Text style={[type.callout, { color: colors.accentText }]}>Edit goals</Text>
-        </View>
-      </Pressable>
-      {body.isError && !body.data ? (
+      ) : (
+        <ProfileSkeleton goals />
+      )}
+      {body.data !== undefined ? (
+        <BodyStatsCard stats={body.data} onPress={() => router.push('/edit-body-stats')} />
+      ) : body.isError ? (
         <Banner
           variant="danger"
-          message={classifyAuthError(body.error).kind === 'offline' ? BODY_STATS_UI.offline : BODY_STATS_UI.loadFailed}
+          message={offlineOr(body.error, BODY_STATS_UI.offline, BODY_STATS_UI.loadFailed)}
           action={{ label: 'Retry', onPress: () => void body.refetch() }}
         />
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={
-          body.data ? `Edit body stats. ${summarizeBodyStats(body.data)}. ${activityLabel(body.data.activityLevel)}` : body.data === null ? 'Add your body stats' : 'Edit body stats'
-        }
-        accessibilityState={{ disabled: body.data === undefined }}
-        disabled={body.data === undefined}
-        onPress={() => router.push('/edit-body-stats')}
-        style={({ pressed }) => [
-          styles.card,
-          shadow.sm,
-          { backgroundColor: pressed ? colors.surfaceMuted : colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <Text style={[type.caption, { color: colors.textSecondary }]}>Body stats</Text>
-        {body.data ? (
-          <>
-            <Text style={[type.headline, { color: colors.text }]} maxFontSizeMultiplier={2}>{summarizeBodyStats(body.data)}</Text>
-            <Text style={[type.callout, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>{activityLabel(body.data.activityLevel)}</Text>
-          </>
-        ) : body.isPending ? (
-          <Text style={[type.callout, { color: colors.textSecondary }]}>Loading body stats</Text>
-        ) : null}
-        <View style={styles.cta}>
-          <Text style={[type.callout, { color: colors.accentText }]}>{body.data === null ? 'Add your body stats' : 'Edit body stats'}</Text>
-        </View>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="My Foods"
-        onPress={() => router.push('/my-foods')}
-        style={({ pressed }) => [
-          styles.link,
-          { backgroundColor: pressed ? colors.surfaceMuted : colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <Text style={[type.headline, styles.linkText, { color: colors.text }]} maxFontSizeMultiplier={2}>
-          My Foods
-        </Text>
-        <Text style={[type.headline, { color: colors.textTertiary }]} accessibilityElementsHidden importantForAccessibility="no">
-          ›
-        </Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Appearance. ${appearanceLabel(appearance)}`}
-        onPress={() => router.push('/appearance')}
-        style={({ pressed }) => [
-          styles.link,
-          { backgroundColor: pressed ? colors.surfaceMuted : colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <Text style={[type.headline, styles.linkText, { color: colors.text }]} maxFontSizeMultiplier={2}>
-          Appearance
-        </Text>
-        <Text style={[type.callout, styles.value, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
-          {appearanceLabel(appearance)}
-        </Text>
-        <Text style={[type.headline, { color: colors.textTertiary }]} accessibilityElementsHidden importantForAccessibility="no">
-          ›
-        </Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Sign out"
-        onPress={() => void signOut()}
-        style={({ pressed }) => [
-          styles.link,
-          { backgroundColor: pressed ? colors.surfaceMuted : colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <Text style={[type.headline, styles.linkText, { color: colors.text }]} maxFontSizeMultiplier={2}>
-          Sign out
-        </Text>
-      </Pressable>
+      ) : (
+        <ProfileSkeleton body />
+      )}
+      <ProfileRows
+        customFoods={customFoodsValue(customCount.data)}
+        appearance={appearanceLabel(appearance)}
+        onMyFoods={() => router.push('/my-foods')}
+        onAppearance={() => router.push('/appearance')}
+        onSignOut={() => void signOut()}
+      />
       {account ? (
         <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Delete account"
-            onPress={() => setDeleting(true)}
-            style={styles.delete}
-          >
-            <Text style={[type.callout, { color: colors.danger }]} maxFontSizeMultiplier={2}>Delete account</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Delete account" onPress={() => setDeleting(true)} style={styles.delete}>
+            <Text style={[styles.deleteText, { color: colors.danger }]} maxFontSizeMultiplier={1.5}>
+              Delete account
+            </Text>
           </Pressable>
           <DeleteAccountDialog
             visible={deleting}
@@ -207,14 +105,6 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  account: { borderRadius: radius.lg, borderWidth: sizing.border, padding: space.lg, gap: space.md },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  identityText: { flex: 1, gap: space.xs },
-  avatar: { width: sizing.avatar, height: sizing.avatar, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
-  card: { borderRadius: radius.lg, borderWidth: sizing.border, padding: space.lg, gap: space.xs, minHeight: sizing.touchMin },
-  link: { minHeight: sizing.row, flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, borderRadius: radius.lg, borderWidth: sizing.border },
-  linkText: { flex: 1 },
-  value: { marginRight: space.sm },
   delete: { minHeight: sizing.touchMin, alignItems: 'center', justifyContent: 'center' },
-  cta: { minHeight: sizing.touchMin, justifyContent: 'center' },
+  deleteText: { fontSize: 15, lineHeight: 20, fontFamily: 'Manrope_700Bold' },
 });

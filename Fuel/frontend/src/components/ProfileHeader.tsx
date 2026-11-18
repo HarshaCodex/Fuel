@@ -13,7 +13,7 @@ const PILL = 40;
 /** Avatar initial, name and email on one line each, and an Edit pill. */
 export function ProfileHeader({ name, email, onEdit }: Props) {
   const { colors, scheme } = useTheme();
-  const initial = (name.trim() || email.trim()).charAt(0).toUpperCase();
+  const initial = (Array.from(name.trim() || email.trim())[0] ?? '').toUpperCase();
   return (
     <View style={styles.root}>
       <View accessible accessibilityLabel={`${name}, ${email}`} style={styles.who}>
