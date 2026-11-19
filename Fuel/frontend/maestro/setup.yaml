@@ -62,6 +62,7 @@ name: Set up body stats and goal
 - inputText: "30"
 - tapOn: "Done"
 - tapOn: "Sex"
+- takeScreenshot: 02a-sex-sheet
 - tapOn: "Male"
 - tapOn: "Height"
 - inputText: "180"

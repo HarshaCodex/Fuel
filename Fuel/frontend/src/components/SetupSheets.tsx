@@ -135,7 +135,7 @@ export function ChoiceSheet(props: ChoiceProps) {
   const { kind, visible, onClose } = props;
   const title = kind === 'sex' ? 'Sex' : 'How active are you?';
   return (
-    <BottomSheet visible={visible} title={title} onClose={onClose}>
+    <BottomSheet visible={visible} title={title} onClose={onClose} titleInset={CARD_INSET - space.lg}>
       <View accessibilityRole="radiogroup" accessibilityLabel={title} style={styles.cards}>
         {kind === 'sex'
           ? SEX_OPTIONS.map((o) => <OptionCard key={o.value} option={o} selected={props.value === o.value} onSelect={props.onSelect} />)

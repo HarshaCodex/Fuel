@@ -62,6 +62,7 @@ name: Setup page in Dark
 - inputText: "30"
 - tapOn: "Done"
 - tapOn: "Sex"
+- takeScreenshot: 02a-sex-sheet-dark
 - tapOn: "Male"
 - tapOn: "Height"
 - inputText: "180"
