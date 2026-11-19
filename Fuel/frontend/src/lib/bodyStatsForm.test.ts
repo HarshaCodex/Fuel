@@ -93,9 +93,10 @@ describe('validateBodyStats', () => {
     expect(validateBodyStats(imperial({ heightFt: '9', heightIn: '10' })).errors.height).toBeUndefined();
   });
 
-  it('rejects metric height of zero or over 1000', () => {
+  it('rejects metric height of zero or over 300', () => {
     expect(validateBodyStats(metric({ heightCm: '0' })).errors.height).toBe(M.heightInvalid);
-    expect(validateBodyStats(metric({ heightCm: '1001' })).errors.height).toBe(M.heightInvalid);
+    expect(validateBodyStats(metric({ heightCm: '301' })).errors.height).toBe(M.heightInvalid);
+    expect(validateBodyStats(metric({ heightCm: '300' })).errors.height).toBeUndefined();
   });
 
   it('never puts typed values in error text', () => {

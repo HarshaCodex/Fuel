@@ -236,4 +236,14 @@ describe('Setup page', () => {
     expect(mockPut).not.toHaveBeenCalled();
     expect(mockRecalc).not.toHaveBeenCalled();
   });
+
+  it('leaves once when Start tracking is pressed twice quickly', async () => {
+    await renderScreen();
+    await fillAll();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start tracking' }).props.accessibilityState).toMatchObject({ disabled: false }));
+    fireEvent.press(screen.getByRole('button', { name: 'Start tracking' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Start tracking' }));
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+  });
 });

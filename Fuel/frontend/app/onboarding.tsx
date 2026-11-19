@@ -56,6 +56,7 @@ export default function OnboardingScreen() {
   const [customText, setCustomText] = useState('');
   const saved = useRef(false);
   const requestId = useRef(0);
+  const finishing = useRef(false);
   const snapshot = useRef<Snapshot>({ form, saved: false });
 
   async function calculate(f: BodyStatsForm, g: GoalType, d: number) {
@@ -150,6 +151,8 @@ export default function OnboardingScreen() {
   }
 
   function finish() {
+    if (finishing.current) return; // a double tap must not navigate twice
+    finishing.current = true;
     void queryClient.invalidateQueries({ queryKey: userKeys.bodyStats });
     void queryClient.invalidateQueries({ queryKey: userKeys.goals });
     router.replace('/');
