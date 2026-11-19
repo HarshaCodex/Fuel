@@ -8,11 +8,11 @@ type Props = {
   variant: 'empty' | 'error';
   title: string;
   message: string;
-  actionLabel: string;
-  onAction: () => void;
+  actionLabel?: string;
+  onAction?: () => void;
 };
 
-/** Centred empty or error message with one action. The screen supplies the copy. */
+/** Centred empty or error message, with an action unless the screen already has one. The screen supplies the copy. */
 export function StateBlock({ variant, title, message, actionLabel, onAction }: Props) {
   const { colors } = useTheme();
   const isError = variant === 'error';
@@ -31,7 +31,7 @@ export function StateBlock({ variant, title, message, actionLabel, onAction }: P
       <Text style={[type.callout, styles.text, { color: colors.textSecondary }]} maxFontSizeMultiplier={2}>
         {message}
       </Text>
-      <Button variant={isError ? 'secondary' : 'primary'} label={actionLabel} onPress={onAction} />
+      {actionLabel && onAction ? <Button variant={isError ? 'secondary' : 'primary'} label={actionLabel} onPress={onAction} /> : null}
     </View>
   );
 }

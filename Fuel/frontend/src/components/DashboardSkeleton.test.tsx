@@ -1,7 +1,9 @@
 import { act, render, screen } from '@testing-library/react-native';
-import { AccessibilityInfo, Animated } from 'react-native';
+import { AccessibilityInfo, Animated, StyleSheet } from 'react-native';
 
 import { DashboardSkeleton } from './DashboardSkeleton';
+
+const hidden = { includeHiddenElements: true };
 
 describe('DashboardSkeleton', () => {
   afterEach(() => jest.restoreAllMocks());
@@ -31,5 +33,13 @@ describe('DashboardSkeleton', () => {
     await act(async () => {});
     expect(loop).toHaveBeenCalledTimes(1);
     expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('has a hero card with table rows and a meal card, with no 1px light-mode border', async () => {
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
+    await render(<DashboardSkeleton />);
+    expect(screen.getByTestId('skeleton-hero', hidden)).toBeOnTheScreen();
+    expect(screen.getByTestId('skeleton-meal', hidden)).toBeOnTheScreen();
+    expect(StyleSheet.flatten(screen.getByTestId('skeleton-hero', hidden).props.style).borderWidth).toBeUndefined();
   });
 });

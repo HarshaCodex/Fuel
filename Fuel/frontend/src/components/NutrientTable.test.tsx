@@ -52,12 +52,31 @@ describe('NutrientTable', () => {
     expect(width('protein')).toBe('0%');
     expect(width('carbs')).toBe('0%');
     expect(JSON.stringify(screen.toJSON())).not.toMatch(/NaN|Infinity/);
-    expect(screen.getByLabelText('Carbs, 5 of 0 grams, 0 left')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Carbs, 5 of 0 grams, 5 over')).toBeOnTheScreen();
   });
 
   it('rounds fractional grams the way the rest of the app does', async () => {
     await render(<NutrientTable protein={m(92.4, 150)} carbs={m(1, 2)} fat={m(1, 2)} />);
-    expect(screen.getByLabelText(/^Protein, 92(\.4)? of 150 grams, /)).toBeOnTheScreen();
+    expect(screen.getByLabelText('Protein, 92 of 150 grams, 58 left')).toBeOnTheScreen();
+  });
+
+  it.each([
+    [100.3, 100, '100 of 100 grams, 0 left', null],
+    [100.49, 100, '100 of 100 grams, 0 left', null],
+    [100.5, 100, '101 of 100 grams, 1 over', '1 over'],
+    [100, 100, '100 of 100 grams, 0 left', null],
+    [99.6, 100, '100 of 100 grams, 0 left', null],
+    [180, 150, '180 of 150 grams, 30 over', '30 over'],
+    [0.4, 0, '0 of 0 grams, 0 left', null],
+  ])('consumed %s of goal %s reads "%s" and never says over at the goal', async (consumed, goal, label, overText) => {
+    await render(<NutrientTable protein={m(consumed, goal)} carbs={m(0, 250)} fat={m(0, 70)} />);
+    expect(screen.getByLabelText(`Protein, ${label}`)).toBeOnTheScreen();
+    if (overText) {
+      expect(screen.getByText(overText)).toBeOnTheScreen();
+    } else {
+      expect(screen.queryByText(/over/)).toBeNull();
+      expect(screen.queryByLabelText(/over/)).toBeNull();
+    }
   });
 
   it('uses the dark palette in dark mode', async () => {

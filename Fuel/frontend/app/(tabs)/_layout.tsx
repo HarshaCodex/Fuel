@@ -7,10 +7,10 @@ import { sizing, type, useTheme } from '@/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-const TABS: { name: string; title: string; filled: IconName; outline: IconName }[] = [
-  { name: 'index', title: 'Today', filled: 'ellipse-outline', outline: 'ellipse-outline' },
-  { name: 'history', title: 'History', filled: 'stats-chart-outline', outline: 'stats-chart-outline' },
-  { name: 'profile', title: 'Profile', filled: 'person-outline', outline: 'person-outline' },
+const TABS: { name: string; title: string; icon: IconName }[] = [
+  { name: 'index', title: 'Today', icon: 'ellipse-outline' },
+  { name: 'history', title: 'History', icon: 'bar-chart-outline' },
+  { name: 'profile', title: 'Profile', icon: 'person-outline' },
 ];
 
 export default function TabsLayout() {
@@ -41,8 +41,8 @@ export default function TabsLayout() {
           name={t.name}
           options={{
             title: t.title,
-            tabBarIcon: ({ color, focused, size }) => (
-              <Ionicons name={focused ? t.filled : t.outline} color={String(color)} size={size} />
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name={t.icon} color={String(color)} size={size} />
             ),
           }}
         />

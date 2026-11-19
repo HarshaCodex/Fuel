@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { renderRouter, screen, within } from 'expo-router/testing-library';
 
 import TabsLayout from '../../../app/(tabs)/_layout';
@@ -19,5 +20,17 @@ describe('tab bar', () => {
       'Profile',
     ]);
     expect(tabs[0]).toBeSelected();
+  });
+
+  it('uses a three-bar chart icon for History', async () => {
+    await renderRouter({
+      '(tabs)/_layout': TabsLayout,
+      '(tabs)/index': () => null,
+      '(tabs)/history': History,
+      '(tabs)/profile': () => null,
+    });
+    const tabs = await screen.findAllByRole('button');
+    const glyph = String.fromCodePoint(Number(Ionicons.glyphMap['bar-chart-outline']));
+    expect(within(tabs[1]).getAllByText(glyph).length).toBeGreaterThan(0);
   });
 });

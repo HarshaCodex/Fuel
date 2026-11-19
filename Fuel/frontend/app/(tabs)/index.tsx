@@ -213,9 +213,7 @@ export default function TodayScreen() {
                 <StateBlock
                   variant="empty"
                   title="Nothing logged yet"
-                  message="Log your first food to see how the day is going."
-                  actionLabel="Log your first food"
-                  onAction={logFood}
+                  message="Tap Log food to add your first meal."
                 />
               ) : (
                 groupByMeal(data.entries).map((g) => (
