@@ -1,6 +1,7 @@
 import type { GoalsInput } from '@/api/user';
 
 import { validateBodyStats, type BodyStatsField, type BodyStatsForm } from './bodyStatsForm';
+import { formatKcal } from './dashboardView';
 import { activityShort } from './profileView';
 
 export type SetupRowKey = BodyStatsField;
@@ -49,9 +50,6 @@ export const rowError = (form: BodyStatsForm, key: SetupRowKey): string | undefi
 
 export const allValid = (form: BodyStatsForm): boolean => Object.keys(validateBodyStats(form).errors).length === 0;
 
-/** All five answers are in and valid, so goals can be calculated. */
-export const setupComplete = (form: BodyStatsForm): boolean => allValid(form);
-
 export const DAILY_CHANGES = [
   { value: 250, label: 'gentle' },
   { value: 500, label: 'steady' },
@@ -82,8 +80,6 @@ export function tileLabel(d: number): string {
 
 export const PANEL_EMPTY = 'Fill in the details above to see your goal';
 
-const grouped = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
 export function panelA11y(g: GoalsInput): string {
-  return `Daily goal ${grouped(g.calorieGoal)} calories, protein ${grouped(g.proteinGoal)} grams, carbs ${grouped(g.carbGoal)} grams, fat ${grouped(g.fatGoal)} grams`;
+  return `Daily goal ${formatKcal(g.calorieGoal)} calories, protein ${formatKcal(g.proteinGoal)} grams, carbs ${formatKcal(g.carbGoal)} grams, fat ${formatKcal(g.fatGoal)} grams`;
 }

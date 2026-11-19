@@ -19,4 +19,5 @@ export const sizing = {
   pillField: 64,
   pillButton: 56,
   brandMark: 64,
+  pageMargin: 20,
 } as const;

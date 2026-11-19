@@ -12,6 +12,11 @@ describe('theme tokens', () => {
     expect(darkColors.border).toBe('rgba(255,255,255,0.06)');
   });
 
+  it('has a switch thumb lighter than the muted track in dark', () => {
+    expect(lightColors.switchThumb).toBe('#FFFFFF');
+    expect(darkColors.switchThumb).toBe('#47423C');
+  });
+
   it('gives every type token a Manrope family and no fontWeight', () => {
     for (const token of Object.values(type)) {
       expect(token.fontFamily).toMatch(/^Manrope_\d{3}/);

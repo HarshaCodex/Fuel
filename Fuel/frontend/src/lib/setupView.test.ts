@@ -1,6 +1,6 @@
 import { emptyBodyStatsForm, type BodyStatsForm } from './bodyStatsForm';
 import {
-  DAILY_CHANGES, DEFAULT_DEFICIT, PANEL_EMPTY, allValid, customDeficitError, isPreset, panelA11y, rowError, setupComplete, setupRows, tileLabel,
+  DAILY_CHANGES, DEFAULT_DEFICIT, PANEL_EMPTY, allValid, customDeficitError, isPreset, panelA11y, rowError, setupRows, tileLabel,
 } from './setupView';
 
 const metric: BodyStatsForm = { ...emptyBodyStatsForm('metric'), age: '31', heightCm: '178', weight: '80', gender: 'MALE', activityLevel: 'MODERATE' };
@@ -34,10 +34,9 @@ describe('setupRows', () => {
 describe('validation helpers', () => {
   it('reports row errors and completeness', () => {
     expect(allValid(metric)).toBe(true);
-    expect(setupComplete(metric)).toBe(true);
     expect(rowError(metric, 'age')).toBeUndefined();
     expect(rowError({ ...metric, age: '5' }, 'age')).toMatch(/13 to 120/);
-    expect(setupComplete({ ...metric, gender: null })).toBe(false);
+    expect(allValid({ ...metric, gender: null })).toBe(false);
   });
 
   it('accepts imperial feet with empty inches and rejects bad inches or feet', () => {
@@ -55,7 +54,7 @@ describe('validation helpers', () => {
   it('shows inches-only imperial height and ignores the other units fields', () => {
     expect(setupRows({ ...emptyBodyStatsForm('imperial'), heightIn: '7' })[2].value).toBe('7 in');
     expect(setupRows({ ...metric, heightFt: '9' })[2].value).toBe('178 cm');
-    expect(setupComplete({ ...imperial, heightIn: '12' })).toBe(false);
+    expect(allValid({ ...imperial, heightIn: '12' })).toBe(false);
   });
 
   it('covers imperial height in one row', () => {

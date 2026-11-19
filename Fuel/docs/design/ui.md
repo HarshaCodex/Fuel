@@ -46,6 +46,7 @@ Text pairs below are at least 4.5:1 on the surface named; UI shapes (borders of 
 | scrim | rgba(31,27,22,0.45) | rgba(0,0,0,0.6) | Behind sheets |
 | onScrim | #FFFFFF | #FFFFFF | Text and icons over the camera feed or a scrim |
 | track | #EEEAE4 | #2A2724 | Generic unfilled track |
+| switchThumb | #FFFFFF | #47423C | Selected thumb of the Metric/Imperial switch (on a `surfaceMuted` track) |
 | divider | #F0ECE6 | rgba(255,255,255,0.06) | Row and table separators |
 | verified | #2F6B4F | #7DCBA4 | "Verified" check and label |
 | sheetScrim | rgba(29,27,24,0.36) | rgba(0,0,0,0.6) | Behind the Quick Log sheet |
@@ -94,6 +95,9 @@ Shadow colour is the warm `#1F1B16`, never pure black.
 | md | 0,4 / 12 / 0.08 / 3 | Tab bar (upward, offset 0,-2), toast |
 | lg | 0,8 / 24 / 0.14 / 8 | FAB |
 | sheet | upward | Quick Log sheet |
+| panel | 0,-8 / 24 / 0.06 / 8 | Setup bottom panel (lighter than `sheet`) |
+
+`sizing.pageMargin` is 20, the horizontal page margin (Setup panel content lines up with the rows card). The Setup row chevron uses `textSecondary` (about 5.6:1), not the mockup's lighter grey, to meet the 3:1 icon rule.
 
 ### 1.6 Motion (`motion.*`)
 Easing `cubic-bezier(0.2, 0, 0, 1)`. `fast 120ms` press feedback; `base 200ms` sheet, toast, state swap; `slow 400ms` bar fill and the kcal count-up; `ring 700ms` ring fill (Today hero), all played once when data first
