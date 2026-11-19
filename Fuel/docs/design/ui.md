@@ -163,11 +163,11 @@ Badge is informational, not a button, but tapping the meal row shows the source 
 
 **Tab bar.** Exactly three tabs, left to right: Today, History, Profile. Height 56 plus safe area, `surface`, top hairline `divider`. Each tab fills a third of the width (min 44 high), icon 24 above `caption` label. Active: icon and label `accentText` (both modes), icon filled. Inactive: `textTertiary`, outline icon. Icons, outline in both states (colour and label weight 600 mark active): ring (Today), bars (History), person (Profile). Page margin is 20dp. No badges, no fourth tab. Hidden on Quick Log, Search, Scan, Manual Entry, Food detail and Edit entry (modal stack screens).
 
-**Log food pill (Today only).** Replaces the round FAB. `accent` pill, min height 56, plus icon and "Log food" in `headline` with `onAccent`, `shadow.lg` in light mode, bottom right, `lg` from the edge. Springs to 0.98 while pressed. Content has bottom padding so it never covers the last row.
+**Log food pill (Today only).** Replaces the round FAB. `accent` pill, min height 56, plus icon and "Log food" in `headline` with `onAccent`, `shadow.lg` in light mode, bottom right, `lg` from the edge. Springs to 0.98 while pressed. Content has bottom padding so it never covers the last row. On an empty day it is not floating: it sits in the page flow (`inline`, centred, `lg` below) under the empty text, and the floating pill is hidden.
 
 **Toast.** Card on the `toast` colour with `onToast` text and a `toastAction` text button, in both modes; the shared toast is also used for Today's delete Undo, `radius md`, `shadow.md`, bottom `lg` above tab bar, text `callout`, optional text button ("Undo"). Optional leading icon: a check for success, an alert for an error; the `bottom` offset is set by the screen (above the Log food pill on Today, `lg` inside the Quick Log sheet). Visible 4s (5s with an action), pauses while a screen reader is focused on it; announced as a live region.
 
-**Empty state.** Centred, max width 280: 64pt line illustration in `textTertiary` (simple outline of a bowl or barcode, no mascots), `title2` headline, `callout` `textSecondary` sentence, one primary or text button. Copy is warm and short.
+**Empty state.** Centred, max width 280: 64pt line illustration in `textTertiary` (simple outline of a bowl or barcode, no mascots), `title2` headline, `callout` `textSecondary` sentence, one primary or text button. Copy is warm and short. A `compact` variant has no illustration and no button, for a screen that already has its own action (Today's empty day).
 
 **Error state.** Same layout with an alert icon in `danger`. Always a plain-language cause and a Retry button; typed input is kept. Variants: inline (banner), full-screen (failed first load), field-level.
 
@@ -210,9 +210,9 @@ Behaviour: each valid change saves body stats (only if they changed) and recalcu
 
 ### S05 Dashboard / Today (`dashboard`)
 Purpose: show how today is going and what has been eaten.
-Layout, top to bottom: small uppercase date label; header row (title "Today" with the previous and next day chevrons beside it, streak chip "12 days" with flame at right); hero card (calorie ring with count-up kcal left, "eaten" and "goal" totals, then the nutrient table: dot, name, eaten, goal, left, with a 4px bar under each row; left turns `caution` as "N over" past goal); section "Meals" with `title2`; one card per meal (Breakfast, Lunch, Dinner, Snack, "Other"), only for groups that have entries; "Log food" pill. Cards are shadow in light mode, hairline and no shadow in dark.
+Layout, top to bottom: small uppercase date label; header row (title "Today" with the previous and next day chevrons beside it, streak chip "12 days" with flame at right); hero card (calorie ring with count-up kcal left, "eaten" and "goal" totals, then the nutrient table: dot, name, eaten, goal, left, with a 4px bar under each row; left turns `caution` as "N over" past goal); section "Meals" with `title2`; one card per meal (Breakfast, Lunch, Dinner, Snack, "Other"), only for groups that have entries; "Log food" pill (inline under the empty text when nothing is logged). Cards are shadow in light mode, hairline and no shadow in dark.
 Interactions: pull to refresh (system spinner, `accent`); swipe a row to delete; long press to edit portion; the row "more" button does both without gestures; tap row for Food detail (read-only with source); tap the Log food pill opens Quick Log; day chevrons change date, future days disabled.
-States: loading (skeleton ring card, pills, three rows); empty (ring shows full goal, Meals section shows empty state "Nothing logged yet" with button "Log your first food"); error (full-screen error if first load fails, otherwise toast and stale data kept); offline (banner, cached last view stays visible, Retry); over goal (ring turns `caution`, see component).
+States: loading (skeleton hero card with ring, totals line and three bar rows, then a "Meals" title and one meal card); empty (ring shows full goal, Meals section shows the compact empty state "Nothing logged yet", "Meals you log show up here.", then the inline "Log food" pill); error (full-screen error if first load fails, otherwise toast and stale data kept); offline (banner, cached last view stays visible, Retry); over goal (ring turns `caution`, see component).
 
 ### S06 Quick Log sheet (`quick-log`)
 Purpose: find or add a food from one place. Bottom sheet over Today with a scrim, 28pt top corners and a grabber; open for as short a time as possible.
@@ -257,7 +257,7 @@ States: each card loads independently: skeleton while loading, Banner with Retry
 
 ## 5. Flows
 
-**First run.** Launch -> S01 Welcome. New user: Create account (S02) -> Verify email code (S02b, can be skipped) -> Onboarding (S04) -> Today (empty). Today's empty state points at the single "Log your first food" button. Returning signed-in user: launch lands directly on Today; session restored from secure storage with a skeleton, never a login flash.
+**First run.** Launch -> S01 Welcome. New user: Create account (S02) -> Verify email code (S02b, can be skipped) -> Onboarding (S04) -> Today (empty). Today's empty state points at the single inline "Log food" pill. Returning signed-in user: launch lands directly on Today; session restored from secure storage with a skeleton, never a login flash.
 
 **Sign-in.** Social: tap Continue with Apple or Google -> system sheet -> Today (or Onboarding if no goals set). Email: two fields, Return submits. Failures stay on the screen with inline errors and typed email kept. Session expiry returns to S01 with an info toast "Please sign in again".
 

@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     bottom: space.lg,
     borderRadius: radius.full,
   },
-  inline: { alignSelf: 'center', borderRadius: radius.full },
+  inline: { alignSelf: 'center', borderRadius: radius.full, marginBottom: space.lg },
   content: {
     minHeight: sizing.fab,
     flexDirection: 'row',
