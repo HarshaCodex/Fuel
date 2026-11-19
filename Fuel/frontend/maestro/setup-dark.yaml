@@ -89,3 +89,11 @@ name: Setup page in Dark
       enabled: true
     timeout: 30000
 - takeScreenshot: 05-setup-imperial-dark
+- tapOn: "Start tracking"
+- extendedWaitUntil:
+    visible: ".*kcal left.*"
+    timeout: 30000
+- assertVisible: "Nothing logged yet"
+- assertVisible: "Log food"
+- assertVisible: "Meals you log show up here."
+- takeScreenshot: 06-today-empty-dark

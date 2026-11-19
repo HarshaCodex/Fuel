@@ -37,6 +37,6 @@ export function HeroCard({ calories, protein, carbs, fat }: Props) {
 const flat = { shadowOffset: { width: 0, height: 2 }, shadowRadius: 12, shadowOpacity: 0.04, elevation: 0 } as const;
 
 const styles = StyleSheet.create({
-  card: { padding: space.xl, borderRadius: radius.xl, gap: space.lg },
+  card: { padding: space.xl, paddingBottom: space.md, borderRadius: radius.xl, gap: space.lg },
   totals: { flexDirection: 'row', justifyContent: 'center', gap: space.xl },
 });

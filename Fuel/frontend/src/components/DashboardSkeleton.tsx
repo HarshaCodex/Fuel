@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, PixelRatio, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-native';
 
+import { useCardStyle } from '@/components/cardStyle';
 import { motion, radius, sizing, space, useTheme } from '@/theme';
 
 /** Placeholder with the dashboard's layout. Pulses unless Reduce Motion is on. */
@@ -8,7 +9,6 @@ export function DashboardSkeleton() {
   const { colors } = useTheme();
   const [pulse] = useState(() => new Animated.Value(1));
   const [reduceMotion, setReduceMotion] = useState(false);
-  const stacked = PixelRatio.getFontScale() >= 1.5;
 
   useEffect(() => {
     let alive = true;
@@ -36,7 +36,7 @@ export function DashboardSkeleton() {
   }, [reduceMotion, pulse]);
 
   const block = { backgroundColor: colors.surfaceMuted };
-  const card = { backgroundColor: colors.surface, borderColor: colors.border };
+  const cardStyle = useCardStyle();
   return (
     <View
       accessible
@@ -50,16 +50,18 @@ export function DashboardSkeleton() {
         importantForAccessibility="no-hide-descendants"
         style={[styles.root, { opacity: pulse }]}
       >
-        <View style={[styles.ringCard, card]}>
+        <View testID="skeleton-hero" style={[styles.hero, cardStyle]}>
           <View style={[styles.ring, block]} />
-        </View>
-        <View style={[styles.tiles, stacked && styles.column]}>
+          <View style={[styles.totals, block]} />
           {[0, 1, 2].map((i) => (
-            <View key={i} style={[styles.tile, !stacked && styles.flex, block]} />
+            <View key={i} style={styles.tableRow}>
+              <View style={[styles.rowName, block]} />
+              <View style={[styles.rowBar, block]} />
+            </View>
           ))}
         </View>
         <View style={[styles.title, block]} />
-        <View style={[styles.mealCard, card]}>
+        <View testID="skeleton-meal" style={[styles.mealCard, cardStyle]}>
           {[0, 1, 2].map((i) => (
             <View key={i} style={[styles.row, block]} />
           ))}
@@ -71,13 +73,13 @@ export function DashboardSkeleton() {
 
 const styles = StyleSheet.create({
   root: { gap: space.lg },
-  ringCard: { alignItems: 'center', padding: space.xl, borderRadius: radius.lg, borderWidth: 1 },
+  hero: { alignItems: 'center', padding: space.xl, paddingBottom: space.md, borderRadius: radius.xl, gap: space.lg },
   ring: { width: 200, height: 200, borderRadius: radius.full },
-  tiles: { flexDirection: 'row', gap: space.sm },
-  column: { flexDirection: 'column' },
-  flex: { flex: 1 },
-  tile: { height: 88, borderRadius: radius.md },
+  totals: { height: 20, width: 140, borderRadius: radius.md },
+  tableRow: { alignSelf: 'stretch', paddingVertical: space.md, gap: space.sm },
+  rowName: { height: 20, width: 120, borderRadius: radius.md },
+  rowBar: { height: 4, borderRadius: radius.full },
   title: { height: 24, width: 96, borderRadius: radius.md },
-  mealCard: { padding: space.md, gap: space.sm, borderRadius: radius.lg, borderWidth: 1 },
+  mealCard: { padding: space.md, gap: space.sm, borderRadius: radius.xl },
   row: { height: sizing.row, borderRadius: radius.md },
 });

@@ -29,9 +29,9 @@ export function NutrientTable(props: Props) {
         const m = macroModel(name, { consumed, goal });
         const eaten = Math.round(consumed);
         const goalG = Math.round(goal);
-        const left = Math.max(0, Math.round(goal - consumed));
-        const overBy = Math.round(consumed - goal);
-        const over = m.over;
+        const overBy = eaten - goalG;
+        const over = overBy > 0;
+        const left = Math.max(0, goalG - eaten);
         const leftText = over ? `${overBy} over` : `${left} g`;
         return (
           <View

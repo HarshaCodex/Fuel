@@ -48,4 +48,12 @@ describe('LogFoodButton', () => {
     await render(<LogFoodButton onPress={jest.fn()} />);
     expect(outer().shadowOpacity).toBeUndefined();
   });
+
+  it('floats by default and sits in the page flow when inline', async () => {
+    const { rerender } = await render(<LogFoodButton onPress={jest.fn()} />);
+    await act(async () => {});
+    expect(StyleSheet.flatten(screen.getByRole('button', { name: 'Log food' }).parent?.props.style).position).toBe('absolute');
+    await rerender(<LogFoodButton inline onPress={jest.fn()} />);
+    expect(StyleSheet.flatten(screen.getByRole('button', { name: 'Log food' }).parent?.props.style).position).toBeUndefined();
+  });
 });
