@@ -88,12 +88,24 @@ describe('useToday', () => {
     expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
-  it('removes the listener and the timer on unmount', async () => {
+  it('removes the listener and clears the midnight timer on unmount', async () => {
     jest.setSystemTime(new Date('2026-11-20T07:59:50Z'));
-    const { unmount, invalidate } = await setup();
+    const set = jest.spyOn(globalThis, 'setTimeout');
+    const { unmount } = await setup();
+    const midnight = set.mock.results[set.mock.calls.findLastIndex(([, ms]) => ms === 11_000)]?.value;
+    expect(midnight).toBeDefined();
+    const clear = jest.spyOn(globalThis, 'clearTimeout');
     await unmount();
     expect(remove).toHaveBeenCalled();
-    await act(async () => void jest.advanceTimersByTime(60_000));
-    expect(invalidate).not.toHaveBeenCalled();
+    expect(clear).toHaveBeenCalledWith(midnight);
+  });
+
+  it('reschedules the midnight timer after it fires', async () => {
+    jest.setSystemTime(new Date('2026-11-20T07:59:50Z')); // 23:59:50 in LA
+    const { result } = await setup();
+    await act(async () => void jest.advanceTimersByTime(12_000));
+    expect(result.current).toBe('2026-11-20');
+    await act(async () => void jest.advanceTimersByTime(24 * 3600 * 1000));
+    expect(result.current).toBe('2026-11-21');
   });
 });

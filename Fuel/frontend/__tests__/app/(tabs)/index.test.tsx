@@ -25,7 +25,8 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   return { __esModule: true, default: Swipeable, SwipeDirection: { LEFT: 'left', RIGHT: 'right' } };
 });
 
-jest.mock('@/lib/useToday', () => ({ useToday: () => '2026-11-09' }));
+let mockToday = '2026-11-09';
+jest.mock('@/lib/useToday', () => ({ useToday: () => mockToday }));
 jest.mock('@/lib/haptics', () => ({ hapticLight: jest.fn(), hapticSelect: jest.fn() }));
 const mockLight = jest.mocked(hapticLight);
 const mockSelect = jest.mocked(hapticSelect);
@@ -62,7 +63,10 @@ async function renderScreen() {
   );
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockToday = '2026-11-09';
+});
 
 describe('Today screen', () => {
   it('shows the skeleton, then ring, pills, streak and meals', async () => {
@@ -176,6 +180,25 @@ describe('Today screen', () => {
       expect(mockGet).toHaveBeenCalledWith(undefined);
       expect(screen.getByText('Today')).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
+    });
+
+    it('returns to Today without a date when midnight makes the picked day today', async () => {
+      mockGet.mockResolvedValue(DAY);
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const ui = () => (
+        <QueryClientProvider client={client}>
+          <Today />
+        </QueryClientProvider>
+      );
+      const view = await render(ui());
+      await screen.findByText('Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
+      await waitFor(() => expect(mockGet).toHaveBeenCalledWith('2026-11-08'));
+      mockGet.mockClear();
+      mockToday = '2026-11-08';
+      await view.rerender(ui());
+      expect(await screen.findByText('Today')).toBeTruthy();
+      await waitFor(() => expect(mockGet).toHaveBeenCalledWith(undefined));
     });
 
     it('steps back from the server date and returns to server today without a date', async () => {
