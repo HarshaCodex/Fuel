@@ -13,7 +13,8 @@ import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { MacroPills } from '@/components/MacroPills';
 import { MealList } from '@/components/MealList';
 import { StateBlock } from '@/components/StateBlock';
-import { dateTitle, isoDate } from '@/lib/dashboardView';
+import { dateTitle } from '@/lib/dashboardView';
+import { useToday } from '@/lib/useToday';
 import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -33,7 +34,7 @@ export default function DayScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ date?: string }>();
   const date = isValidDate(params.date) ? params.date : null;
-  const todayIso = isoDate(new Date());
+  const todayIso = useToday();
   const [refreshing, setRefreshing] = useState(false);
   const q = useQuery({
     queryKey: trackingKeys.dashboard(date ?? undefined),

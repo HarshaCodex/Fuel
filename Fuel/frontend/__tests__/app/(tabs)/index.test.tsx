@@ -25,6 +25,7 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   return { __esModule: true, default: Swipeable, SwipeDirection: { LEFT: 'left', RIGHT: 'right' } };
 });
 
+jest.mock('@/lib/useToday', () => ({ useToday: () => '2026-11-09' }));
 jest.mock('@/lib/haptics', () => ({ hapticLight: jest.fn(), hapticSelect: jest.fn() }));
 const mockLight = jest.mocked(hapticLight);
 const mockSelect = jest.mocked(hapticSelect);
@@ -161,8 +162,8 @@ describe('Today screen', () => {
     expect(screen.getByRole('button', { name: 'Next day' })).toBeEnabled();
   });
 
-  describe('server date as today', () => {
-    // Device clock says 2026-11-10 while the server's today is 2026-11-09 (profile timezone).
+  describe('profile-zone date as today', () => {
+    // Device clock says 2026-11-10 while today in the profile timezone is 2026-11-09 (useToday is mocked above).
     beforeEach(() => {
       jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'], now: new Date(2026, 10, 10, 12, 0, 0) });
     });
@@ -189,13 +190,6 @@ describe('Today screen', () => {
       expect(await screen.findByText('Today')).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
       expect(mockGet.mock.calls.every(([d]) => d === undefined)).toBe(true);
-    });
-
-    it('disables Previous and hides Next until the server date is known', async () => {
-      mockGet.mockReturnValue(new Promise(() => {}));
-      await renderScreen();
-      expect(screen.getByRole('button', { name: 'Previous day' })).toBeDisabled();
-      expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     });
   });
 

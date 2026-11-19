@@ -12,9 +12,9 @@ import { MonthCalendar } from '@/components/MonthCalendar';
 import { PressableScale } from '@/components/PressableScale';
 import { SelectedDayCard } from '@/components/SelectedDayCard';
 import { StateBlock } from '@/components/StateBlock';
-import { isoDate } from '@/lib/dashboardView';
 import { hapticSelect } from '@/lib/haptics';
 import { defaultSelection, monthRange, shiftMonth, summary, type YearMonth } from '@/lib/historyView';
+import { useToday } from '@/lib/useToday';
 import { useReduceMotion } from '@/lib/useReduceMotion';
 import { shadow, space, type, useTheme } from '@/theme';
 
@@ -77,9 +77,16 @@ export default function HistoryScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  // Recomputed on every render so a screen left open past midnight moves on at the next change.
-  const todayIso = isoDate(new Date());
+  // Today in the profile timezone; it moves on at midnight and when the app returns to the foreground.
+  const todayIso = useToday();
   const [shown, setShown] = useState<YearMonth>(() => ({ year: Number(todayIso.slice(0, 4)), month: Number(todayIso.slice(5, 7)) }));
+  // Follow a month-end rollover when the current month was showing (state adjusted during render).
+  const [seenToday, setSeenToday] = useState(todayIso);
+  if (seenToday !== todayIso) {
+    const wasCurrent = shown.year === Number(seenToday.slice(0, 4)) && shown.month === Number(seenToday.slice(5, 7));
+    setSeenToday(todayIso);
+    if (wasCurrent) setShown({ year: Number(todayIso.slice(0, 4)), month: Number(todayIso.slice(5, 7)) });
+  }
   const [picked, setPicked] = useState<string | null>(null);
   const [dir, setDir] = useState(1);
   const range = monthRange(shown.year, shown.month, todayIso);
