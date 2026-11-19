@@ -81,6 +81,7 @@ const CARD_MIN_HEIGHT = 66;
 const RADIO_SIZE = 24;
 const RADIO_DOT = 8;
 const CARD_PAD = 18;
+const CARD_INSET = 20; // side inset of the option list inside the sheet
 
 const SEX_OPTIONS: Option<Gender>[] = [
   { value: 'MALE', label: 'Male', minHeight: CARD_MIN_HEIGHT },
@@ -160,7 +161,7 @@ export function CustomChangeSheet({ visible, value, onChange, onDone, onClose }:
 const styles = StyleSheet.create({
   fields: { flexDirection: 'row', gap: space.md },
   flex: { flex: 1 },
-  cards: { gap: space.sm },
+  cards: { gap: space.sm, paddingHorizontal: CARD_INSET - space.lg },
   card: { flexDirection: 'row', alignItems: 'center', gap: space.lg - 2, borderRadius: radius.tile, borderWidth: 2, paddingHorizontal: CARD_PAD, paddingVertical: space.md },
   cardText: { flex: 1, gap: 2 },
   radio: { width: RADIO_SIZE, height: RADIO_SIZE, borderRadius: radius.full, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
