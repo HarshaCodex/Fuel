@@ -74,6 +74,13 @@ system font is used if loading fails. Android needs one family per weight, so ev
 | value | 16 / 700 | | Result kcal |
 | action | 14 / 700 | | Inline actions |
 | eyebrow | 13 / 700 | uppercase, 0.06em tracking | "Recent" and "Results" labels |
+| authTitle | 30 / 36 | 700 | Auth screen titles |
+| brand | 34 / 40 | 800 | "Fuel" wordmark on sign-in |
+| tagline | 16 / 22 | 500 | Promise under the wordmark |
+| fieldLabel | 12 / 16 | 700 | Label inside a pill field |
+| link | 15 / 20 | 700 | Text buttons such as "Forgot password?" and "Later" |
+| tileCaption | 12 / 16 | 600 | Caption under a change tile amount |
+| amount | 22 / 28 | 700 | Number in an amount field |
 
 All text honours the user's font size. Cap with `maxFontSizeMultiplier`: display 1.2, tab labels and badges 1.3, everything else 2.0.
 
@@ -196,8 +203,10 @@ Purpose: request a reset code. Layout: back, title "Reset your password", `callo
 Layout uses `AuthScreen`: round 44pt "Back" button, `authTitle` title with optional `callout` subtitle, pill fields, 56pt pill primary, `link` text buttons (centred below the primary, in the body), password rules inset by `space.sm`.
 Purpose: set a new password with the emailed code. Layout: back, title "Choose a new password", Email (prefilled if coming from S03), Code field (pill, as in S02b), New password (same rule ticks as S02), primary "Reset password", text button "Send a new code". States: invalid or expired code (field error "That code didn't work. Request a new one."), weak password (rule ticks), loading, rate limited, offline (all input kept). Success: toast "Password updated" and back to S01 with the email prefilled; the user signs in again.
 
-### S04 Onboarding: body stats and goal (`onboarding`)
-Purpose: set a starting calorie and macro goal. Three short steps with a progress dots indicator (no skip loop): 1 About you (age, gender (Male or Female, as the goal formula needs), height, weight, unit toggle metric or imperial), 2 Activity (five radio rows with a plain description each), 3 Your goal (Lose, Maintain, Gain as segmented control; for Lose or Gain a stepper for the daily calorie change in 50 kcal steps from 100 to 1,000, default 500, shown as "500 kcal below your maintenance") ending with a summary card: calorie goal and three macro grams, "You can change this anytime" and primary "Start tracking". "Set up later" text button on step 1 uses the default goal (2,000 kcal, balanced macros). States: field validation, loading while goals are calculated, error with Retry, offline.
+### S04 Setup: body stats and goal (`onboarding`)
+Purpose: set a starting calorie and macro goal on one page, with the result updating live. Layout: `title1` "Set up your goal" with a text button "Later" (`link`, `accentText`, 44pt) on the right; eyebrow "About you" with a Metric/Imperial switch pill group; five tappable rows (Age, Sex, Height, Weight, Activity), each showing its value or "Add" in `accentText`, with a chevron; eyebrow "Goal" and a Lose/Maintain/Gain accent pill group; for Lose or Gain, four change tiles (250 gentle, 500 steady, 750 faster, Custom), 500 selected by default. Pinned below the scroll area: the result panel (calorie goal and protein, carbs, fat grams) and the pill primary "Start tracking". The panel shows "Fill in the details above to see your goal" until all five rows are valid, and Start stays disabled until there is a result.
+Sheets (`BottomSheet`, `radius.sheet`, scrim, grabber): Age, Height (one field in metric, Feet and Inches in imperial) and Weight use a pill field with a Done button, disabled while the value is invalid; closing without Done restores the previous value. Sex (two cards) and Activity (five cards with a plain description) apply the choice and close, with no Done. Custom change: whole kcal from 100 to 1,000 in steps of 50, with Done.
+Behaviour: each valid change saves body stats (only if they changed) and recalculates; only the newest response is shown, and the previous numbers dim while loading. "Later" records the skip and goes to Today without calling the API; the default goal is used. Server rejections of a field mark that row in `danger` and show a banner above the rows. States: empty, loading (dimmed panel), offline or error (banner with Retry above the panel, answers kept), field errors. Heights above 300 cm (for example 99 ft) are rejected, as the server does.
 
 ### S05 Dashboard / Today (`dashboard`)
 Purpose: show how today is going and what has been eaten.
