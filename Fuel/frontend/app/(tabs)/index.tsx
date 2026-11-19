@@ -210,11 +210,10 @@ export default function TodayScreen() {
                 Meals
               </Text>
               {data.entries.length === 0 ? (
-                <StateBlock
-                  variant="empty"
-                  title="Nothing logged yet"
-                  message="Tap Log food to add your first meal."
-                />
+                <>
+                  <StateBlock variant="empty" compact title="Nothing logged yet" message="Meals you log show up here." />
+                  <LogFoodButton inline onPress={logFood} />
+                </>
               ) : (
                 groupByMeal(data.entries).map((g) => (
                   <MealCard key={g.key} title={g.title} entries={g.entries} onDeleteEntry={onDeleteEntry} onEditEntry={onEditEntry} />
@@ -234,7 +233,7 @@ export default function TodayScreen() {
       {pending.last ? (
         <UndoToast message={`${pending.last.foodName} deleted`} actionLabel="Undo" onAction={onUndo} />
       ) : null}
-      <LogFoodButton onPress={logFood} />
+      {data && data.entries.length === 0 ? null : <LogFoodButton onPress={logFood} />}
     </View>
   );
 }

@@ -10,21 +10,23 @@ type Props = {
   message: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** No icon, so the block stays short enough to sit above the fold. */
+  compact?: boolean;
 };
 
 /** Centred empty or error message, with an action unless the screen already has one. The screen supplies the copy. */
-export function StateBlock({ variant, title, message, actionLabel, onAction }: Props) {
+export function StateBlock({ variant, title, message, actionLabel, onAction, compact }: Props) {
   const { colors } = useTheme();
   const isError = variant === 'error';
   return (
     <View accessibilityLiveRegion={isError ? 'assertive' : undefined} style={styles.root}>
-      <Ionicons
+      {compact ? null : <Ionicons
         name={isError ? 'alert-circle-outline' : 'restaurant-outline'}
         size={64}
         color={isError ? colors.danger : colors.textTertiary}
         accessibilityElementsHidden
         importantForAccessibility="no"
-      />
+      />}
       <Text accessibilityRole="header" style={[type.title2, styles.text, { color: colors.text }]} maxFontSizeMultiplier={2}>
         {title}
       </Text>

@@ -95,5 +95,5 @@ name: Set up body stats and goal
     timeout: 30000
 - assertVisible: "Nothing logged yet"
 - assertVisible: "Log food"
-- assertNotVisible: "Log your first food"
+- assertVisible: "Meals you log show up here."
 - takeScreenshot: 04-today-empty

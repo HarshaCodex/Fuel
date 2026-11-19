@@ -5,15 +5,15 @@ import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
 
 import { PressableScale } from './PressableScale';
 
-/** The one primary action on Today: a bottom-right pill. */
-export function LogFoodButton({ onPress }: { onPress: () => void }) {
+/** The one primary action on Today: a bottom-right pill, or in the page flow when `inline` (empty day). */
+export function LogFoodButton({ onPress, inline }: { onPress: () => void; inline?: boolean }) {
   const { colors, scheme } = useTheme();
   return (
     <PressableScale
       accessibilityRole="button"
       accessibilityLabel="Log food"
       onPress={onPress}
-      style={[styles.pill, scheme === 'dark' ? null : shadow.lg, { backgroundColor: colors.accent }]}
+      style={[inline ? styles.inline : styles.pill, scheme === 'dark' ? null : shadow.lg, { backgroundColor: colors.accent }]}
       contentStyle={styles.content}
     >
       <Ionicons name="add" size={sizing.icon} color={colors.onAccent} />
@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
     bottom: space.lg,
     borderRadius: radius.full,
   },
+  inline: { alignSelf: 'center', borderRadius: radius.full },
   content: {
     minHeight: sizing.fab,
     flexDirection: 'row',
