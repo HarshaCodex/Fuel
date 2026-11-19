@@ -308,7 +308,7 @@ docker compose down -v
 | `VERIFICATION_CODE_SECRET must ...` at startup | Missing, not Base64, or shorter than 32 bytes. Generate with `openssl rand -base64 32`. |
 | `Connection refused` on port 5432 | Postgres may still be initializing. Run `docker compose ps` and wait for `healthy`, then retry. |
 | Flyway migration errors on startup | Confirm the DB container is healthy before starting the app. |
-| `429 Too many requests` on login/register while testing | Per-IP limits (login 5/min, register 3/min, Google 10/min; see `app.rate-limit.per-ip.*`), or 10 failed logins for one email in 15 minutes (`app.rate-limit.failed-login.*`). Wait for `Retry-After`, or clear them: `docker exec fuel-redis redis-cli --scan --pattern 'rate_limit:*' \| xargs docker exec fuel-redis redis-cli del`. |
+| `429 Too many requests` on login/register while testing | Per-IP limits (login 5/min, register 3/min, Google 10/min; see `app.rate-limit.per-ip.*`), or 10 failed logins for one email in 15 minutes (`app.rate-limit.failed-login.*`). Creating custom foods is also limited to 30 per minute per user (`app.food.custom.*`), and a user may keep at most 500 custom foods (409 until some are deleted). Wait for `Retry-After`, or clear them: `docker exec fuel-redis redis-cli --scan --pattern 'rate_limit:*' \| xargs docker exec fuel-redis redis-cli del`. |
 | Java version mismatch (Option 2) | Run `java -version` — must be 25. Install via [SDKMAN](https://sdkman.io/) or from [jdk.java.net](https://jdk.java.net). |
 | Port already in use | Stop any local Postgres/Redis/app already using `5432`, `6379`, or `8080` outside Docker. |
 | Stale app image after code changes | Rebuild with `docker compose up --build` (Option 1). |
