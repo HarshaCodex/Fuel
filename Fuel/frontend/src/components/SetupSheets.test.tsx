@@ -103,7 +103,7 @@ describe('ChoiceSheet', () => {
   it('labels the radio group and closes from the scrim', async () => {
     const onClose = jest.fn();
     await render(<ChoiceSheet kind="activity" visible value={null} onSelect={noop} onClose={onClose} />);
-    expect(screen.getByLabelText('Activity level')).toBeTruthy();
+    expect(screen.getByLabelText('How active are you?')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Close', { includeHiddenElements: true }));
     expect(onClose).toHaveBeenCalled();
   });
@@ -138,9 +138,17 @@ describe('ChoiceSheet', () => {
       mockScheme.mockReturnValue(scheme);
       const { unmount } = await render(<ChoiceSheet kind="activity" visible value="LIGHT" onSelect={noop} onClose={noop} />);
       const style = StyleSheet.flatten(screen.getByRole('radio', { name: /^Lightly active/ }).props.style);
-      expect(style).toMatchObject({ borderColor: c.accent, borderWidth: 2, backgroundColor: c.accentSoft });
+      expect(style).toMatchObject({ borderColor: c.accent, borderWidth: 2, backgroundColor: c.accentSoft, minHeight: 66 });
+      const other = StyleSheet.flatten(screen.getByRole('radio', { name: /^Active,/ }).props.style);
+      expect(other).toMatchObject({ borderColor: 'transparent', backgroundColor: c.surfaceMuted });
       await unmount();
     }
+  });
+
+  it('shows the activity title and has five radios', async () => {
+    await render(<ChoiceSheet kind="activity" visible value="LIGHT" onSelect={noop} onClose={noop} />);
+    expect(screen.getByRole('header', { name: 'How active are you?' })).toBeTruthy();
+    expect(screen.getAllByRole('radio')).toHaveLength(5);
   });
 
   it('renders nothing when hidden', async () => {

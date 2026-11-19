@@ -4,7 +4,7 @@ import type { ActivityLevel, Gender } from '@/api/user';
 import { ACTIVITIES, type BodyStatsForm } from '@/lib/bodyStatsForm';
 import { hapticSelect } from '@/lib/haptics';
 import { customDeficitError, rowError } from '@/lib/setupView';
-import { radius, sizing, space, type, useTheme } from '@/theme';
+import { radius, space, type, useTheme } from '@/theme';
 
 import { BottomSheet } from './BottomSheet';
 import { PressableScale } from './PressableScale';
@@ -77,14 +77,16 @@ export function StatSheet({ kind, form, onChange, onDone, onClose }: StatProps) 
 
 type Option<T extends string> = { value: T; label: string; description?: string; minHeight: number };
 
-const SEX_CARD_MIN_HEIGHT = 88;
-const ACTIVITY_CARD_MIN_HEIGHT = 66;
+const CARD_MIN_HEIGHT = 66;
+const RADIO_SIZE = 24;
+const RADIO_DOT = 8;
+const CARD_PAD = 18;
 
 const SEX_OPTIONS: Option<Gender>[] = [
-  { value: 'MALE', label: 'Male', minHeight: SEX_CARD_MIN_HEIGHT },
-  { value: 'FEMALE', label: 'Female', minHeight: SEX_CARD_MIN_HEIGHT },
+  { value: 'MALE', label: 'Male', minHeight: CARD_MIN_HEIGHT },
+  { value: 'FEMALE', label: 'Female', minHeight: CARD_MIN_HEIGHT },
 ];
-const ACTIVITY_OPTIONS: Option<ActivityLevel>[] = ACTIVITIES.map((a) => ({ ...a, minHeight: ACTIVITY_CARD_MIN_HEIGHT }));
+const ACTIVITY_OPTIONS: Option<ActivityLevel>[] = ACTIVITIES.map((a) => ({ ...a, minHeight: CARD_MIN_HEIGHT }));
 
 function OptionCard<T extends string>({ option, selected, onSelect }: { option: Option<T>; selected: boolean; onSelect: (v: T) => void }) {
   const { colors } = useTheme();
@@ -99,17 +101,26 @@ function OptionCard<T extends string>({ option, selected, onSelect }: { option: 
       }}
       contentStyle={[
         styles.card,
-        { minHeight: option.minHeight, backgroundColor: selected ? colors.accentSoft : colors.surface, borderColor: selected ? colors.accent : colors.border, borderWidth: selected ? 2 : sizing.border },
+        { minHeight: option.minHeight, backgroundColor: selected ? colors.accentSoft : colors.surfaceMuted, borderColor: selected ? colors.accent : 'transparent' },
       ]}
     >
-      <Text style={[styles.cardLabel, { color: colors.text }]} maxFontSizeMultiplier={1.5}>
-        {option.label}
-      </Text>
-      {option.description ? (
-        <Text style={[styles.cardDesc, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
-          {option.description}
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+        style={[styles.radio, { borderColor: selected ? colors.accent : colors.borderStrong, backgroundColor: selected ? colors.accent : 'transparent' }]}
+      >
+        {selected ? <View style={[styles.radioDot, { backgroundColor: colors.onAccent }]} /> : null}
+      </View>
+      <View style={styles.cardText}>
+        <Text style={[styles.cardLabel, { color: colors.text }]} maxFontSizeMultiplier={1.5}>
+          {option.label}
         </Text>
-      ) : null}
+        {option.description ? (
+          <Text style={[styles.cardDesc, { color: colors.textSecondary }]} maxFontSizeMultiplier={1.5}>
+            {option.description}
+          </Text>
+        ) : null}
+      </View>
     </PressableScale>
   );
 }
@@ -121,7 +132,7 @@ type ChoiceProps =
 /** Sex (two cards) or activity (five cards). Choosing an option closes the sheet through `onSelect`; there is no Done. */
 export function ChoiceSheet(props: ChoiceProps) {
   const { kind, visible, onClose } = props;
-  const title = kind === 'sex' ? 'Sex' : 'Activity level';
+  const title = kind === 'sex' ? 'Sex' : 'How active are you?';
   return (
     <BottomSheet visible={visible} title={title} onClose={onClose}>
       <View accessibilityRole="radiogroup" accessibilityLabel={title} style={styles.cards}>
@@ -149,8 +160,11 @@ export function CustomChangeSheet({ visible, value, onChange, onDone, onClose }:
 const styles = StyleSheet.create({
   fields: { flexDirection: 'row', gap: space.md },
   flex: { flex: 1 },
-  cards: { gap: space.md },
-  card: { borderRadius: radius.tile, paddingHorizontal: space.lg, paddingVertical: space.md, justifyContent: 'center', gap: space.xs },
+  cards: { gap: space.sm },
+  card: { flexDirection: 'row', alignItems: 'center', gap: space.lg - 2, borderRadius: radius.tile, borderWidth: 2, paddingHorizontal: CARD_PAD, paddingVertical: space.md },
+  cardText: { flex: 1, gap: 2 },
+  radio: { width: RADIO_SIZE, height: RADIO_SIZE, borderRadius: radius.full, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  radioDot: { width: RADIO_DOT, height: RADIO_DOT, borderRadius: radius.full },
   cardLabel: { fontSize: 17, lineHeight: 24, fontFamily: 'Manrope_700Bold' },
   cardDesc: { fontSize: 14, lineHeight: 20, fontFamily: 'Manrope_500Medium' },
 });
