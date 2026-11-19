@@ -33,6 +33,7 @@ describe('StatSheet', () => {
   it('disables Done and shows no error while the field is empty', async () => {
     const onDone = jest.fn();
     await render(<StatSheet kind="age" form={form()} onChange={noop} onDone={onDone} onClose={noop} />);
+    expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled();
     await fireEvent.press(screen.getByText('Done'));
     expect(onDone).not.toHaveBeenCalled();
     expect(screen.queryByText(/Enter your age/)).toBeNull();
@@ -41,7 +42,7 @@ describe('StatSheet', () => {
   it('shows the error once a bad value is typed and keeps Done disabled', async () => {
     const onDone = jest.fn();
     await render(<StatSheet kind="age" form={form({ age: '5' })} onChange={noop} onDone={onDone} onClose={noop} />);
-    expect(screen.getAllByText(/Age must be a whole number/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Age must be a whole number/)).toHaveLength(1);
     await fireEvent.press(screen.getByText('Done'));
     expect(onDone).not.toHaveBeenCalled();
   });
@@ -77,7 +78,36 @@ describe('StatSheet', () => {
   });
 });
 
+describe('StatSheet errors and close', () => {
+  it('shows one message for an invalid imperial height', async () => {
+    await render(<StatSheet kind="height" form={form({ units: 'imperial', heightFt: '5', heightIn: '12' })} onChange={noop} onDone={noop} onClose={noop} />);
+    expect(screen.getAllByText(/Inches must be from 0 to 11.9/)).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled();
+  });
+
+  it('flags an invalid metric height', async () => {
+    await render(<StatSheet kind="height" form={form({ heightCm: '5000' })} onChange={noop} onDone={noop} onClose={noop} />);
+    expect(screen.getAllByText('Enter a valid height')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled();
+  });
+
+  it('closes from the scrim', async () => {
+    const onClose = jest.fn();
+    await render(<StatSheet kind="age" form={form()} onChange={noop} onDone={noop} onClose={onClose} />);
+    await fireEvent.press(screen.getByLabelText('Close', { includeHiddenElements: true }));
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
 describe('ChoiceSheet', () => {
+  it('labels the radio group and closes from the scrim', async () => {
+    const onClose = jest.fn();
+    await render(<ChoiceSheet kind="activity" visible value={null} onSelect={noop} onClose={onClose} />);
+    expect(screen.getByLabelText('Activity level')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Close', { includeHiddenElements: true }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('lists Male and Female as radios with the selected one marked and no Done', async () => {
     await render(<ChoiceSheet kind="sex" visible value="FEMALE" onSelect={noop} onClose={noop} />);
     expect(screen.getByRole('radio', { name: 'Female', selected: true })).toBeTruthy();
@@ -120,6 +150,13 @@ describe('ChoiceSheet', () => {
 });
 
 describe('CustomChangeSheet', () => {
+  it('closes from the scrim', async () => {
+    const onClose = jest.fn();
+    await render(<CustomChangeSheet visible value="" onChange={noop} onDone={noop} onClose={onClose} />);
+    await fireEvent.press(screen.getByLabelText('Close', { includeHiddenElements: true }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('keeps Done disabled with no error while empty', async () => {
     const onDone = jest.fn();
     await render(<CustomChangeSheet visible value="" onChange={noop} onDone={onDone} onClose={noop} />);
@@ -130,7 +167,7 @@ describe('CustomChangeSheet', () => {
 
   it('shows the range message for an out-of-range or off-step value', async () => {
     await render(<CustomChangeSheet visible value="1200" onChange={noop} onDone={noop} onClose={noop} />);
-    expect(screen.getAllByText(/Enter a whole number from 100 to 1000/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Enter a whole number from 100 to 1000/)).toHaveLength(1);
   });
 
   it('enables Done for a valid value and reports typing', async () => {

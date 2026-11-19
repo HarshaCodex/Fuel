@@ -18,7 +18,7 @@ type StatProps = {
   onChange: (patch: Partial<BodyStatsForm>) => void;
   /** Done pressed: the parent closes the sheet and recalculates. */
   onDone: () => void;
-  /** Scrim tap or Android back. */
+  /** Scrim tap or Android back. The form keeps whatever was typed, so the parent must revert it or rely on `allValid` and the row error. */
   onClose: () => void;
 };
 
@@ -46,6 +46,8 @@ export function StatSheet({ kind, form, onChange, onDone, onClose }: StatProps) 
   const error = kind ? rowError(form, kind) : undefined;
   // Stay quiet until the user has typed something; an empty field only disables Done.
   const showError = error && fields.some((f) => f.value.trim() !== '');
+  // Two side-by-side fields share one message under the row; a single field shows its own.
+  const shared = fields.length > 1;
   return (
     <BottomSheet visible={kind !== null} title={kind ? TITLES[kind] : ''} onClose={onClose} done={{ disabled: !!error, onPress: onDone }}>
       <View style={styles.fields}>
@@ -59,12 +61,12 @@ export function StatSheet({ kind, form, onChange, onDone, onClose }: StatProps) 
               keyboardType={f.keyboard}
               autoFocus={i === 0}
               onChangeText={(v) => onChange(f.patch(v))}
-              error={showError ? error : null}
+              error={showError && !shared ? error : null}
             />
           </View>
         ))}
       </View>
-      {showError ? (
+      {showError && shared ? (
         <Text accessibilityLiveRegion="polite" style={[type.caption, { color: colors.danger }]} maxFontSizeMultiplier={2}>
           {error}
         </Text>
@@ -73,13 +75,16 @@ export function StatSheet({ kind, form, onChange, onDone, onClose }: StatProps) 
   );
 }
 
-type Option<T extends string> = { value: T; label: string; description?: string; min: number };
+type Option<T extends string> = { value: T; label: string; description?: string; minHeight: number };
+
+const SEX_CARD_MIN_HEIGHT = 88;
+const ACTIVITY_CARD_MIN_HEIGHT = 66;
 
 const SEX_OPTIONS: Option<Gender>[] = [
-  { value: 'MALE', label: 'Male', min: 88 },
-  { value: 'FEMALE', label: 'Female', min: 88 },
+  { value: 'MALE', label: 'Male', minHeight: SEX_CARD_MIN_HEIGHT },
+  { value: 'FEMALE', label: 'Female', minHeight: SEX_CARD_MIN_HEIGHT },
 ];
-const ACTIVITY_OPTIONS: Option<ActivityLevel>[] = ACTIVITIES.map((a) => ({ ...a, min: 66 }));
+const ACTIVITY_OPTIONS: Option<ActivityLevel>[] = ACTIVITIES.map((a) => ({ ...a, minHeight: ACTIVITY_CARD_MIN_HEIGHT }));
 
 function OptionCard<T extends string>({ option, selected, onSelect }: { option: Option<T>; selected: boolean; onSelect: (v: T) => void }) {
   const { colors } = useTheme();
@@ -94,7 +99,7 @@ function OptionCard<T extends string>({ option, selected, onSelect }: { option: 
       }}
       contentStyle={[
         styles.card,
-        { minHeight: option.min, backgroundColor: selected ? colors.accentSoft : colors.surface, borderColor: selected ? colors.accent : colors.border, borderWidth: selected ? 2 : sizing.border },
+        { minHeight: option.minHeight, backgroundColor: selected ? colors.accentSoft : colors.surface, borderColor: selected ? colors.accent : colors.border, borderWidth: selected ? 2 : sizing.border },
       ]}
     >
       <Text style={[styles.cardLabel, { color: colors.text }]} maxFontSizeMultiplier={1.5}>
@@ -116,9 +121,10 @@ type ChoiceProps =
 /** Sex (two cards) or activity (five cards). Choosing an option closes the sheet through `onSelect`; there is no Done. */
 export function ChoiceSheet(props: ChoiceProps) {
   const { kind, visible, onClose } = props;
+  const title = kind === 'sex' ? 'Sex' : 'Activity level';
   return (
-    <BottomSheet visible={visible} title={kind === 'sex' ? 'Sex' : 'Activity level'} onClose={onClose}>
-      <View accessibilityRole="radiogroup" style={styles.cards}>
+    <BottomSheet visible={visible} title={title} onClose={onClose}>
+      <View accessibilityRole="radiogroup" accessibilityLabel={title} style={styles.cards}>
         {kind === 'sex'
           ? SEX_OPTIONS.map((o) => <OptionCard key={o.value} option={o} selected={props.value === o.value} onSelect={props.onSelect} />)
           : ACTIVITY_OPTIONS.map((o) => <OptionCard key={o.value} option={o} selected={props.value === o.value} onSelect={props.onSelect} />)}
@@ -131,17 +137,11 @@ type CustomProps = { visible: boolean; value: string; onChange: (v: string) => v
 
 /** Custom daily calorie change. Done stays disabled until `customDeficitError` is null. */
 export function CustomChangeSheet({ visible, value, onChange, onDone, onClose }: CustomProps) {
-  const { colors } = useTheme();
   const error = customDeficitError(value);
   const showError = error && value.trim() !== '';
   return (
     <BottomSheet visible={visible} title="Custom daily change" onClose={onClose} done={{ disabled: !!error, onPress: onDone }}>
       <TextField variant="pill" label="Calories per day" suffix="kcal" value={value} keyboardType="number-pad" autoFocus onChangeText={onChange} error={showError ? error : null} />
-      {showError ? (
-        <Text accessibilityLiveRegion="polite" style={[type.caption, { color: colors.danger }]} maxFontSizeMultiplier={2}>
-          {error}
-        </Text>
-      ) : null}
     </BottomSheet>
   );
 }
