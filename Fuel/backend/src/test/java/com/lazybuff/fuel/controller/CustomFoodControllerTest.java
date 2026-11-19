@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,6 +21,7 @@ import com.lazybuff.fuel.dto.CustomFoodResponse;
 import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
+import com.lazybuff.fuel.exception.RateLimitExceededException;
 import com.lazybuff.fuel.service.BarcodeService;
 import com.lazybuff.fuel.service.CustomFoodService;
 import com.lazybuff.fuel.service.FoodSearchService;
@@ -274,6 +276,38 @@ class CustomFoodControllerTest {
                 .andExpect(jsonPath("$.data.name").value("Dal"))
                 .andExpect(jsonPath("$.data.source").value("USER"))
                 .andExpect(jsonPath("$.data.createdBy").value(USER_ID.toString()));
+    }
+
+    @Test
+    @DisplayName("POST maps the custom food cap to 409 with the service message")
+    void shouldReturnConflictOnPostWhenCapReached() throws Exception {
+        String message = "You've reached the limit of 500 custom foods. Delete some to add more.";
+        when(customFoodService.create(eq(USER_ID), any(CustomFoodRequest.class)))
+                .thenThrow(new FuelException(HttpStatus.CONFLICT, message));
+
+        mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(valid()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value(message));
+    }
+
+    @Test
+    @DisplayName("POST maps the create rate limit to 429 with Retry-After header and body field")
+    void shouldReturnTooManyRequestsOnPostWhenRateLimited() throws Exception {
+        when(customFoodService.create(eq(USER_ID), any(CustomFoodRequest.class)))
+                .thenThrow(
+                        new RateLimitExceededException(
+                                "Too many custom foods created. Please try again later.",
+                                Duration.ofSeconds(37)));
+
+        mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(valid()))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "37"))
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.retryAfter").value(37))
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("Too many custom foods created. Please try again later."));
     }
 
     @Test

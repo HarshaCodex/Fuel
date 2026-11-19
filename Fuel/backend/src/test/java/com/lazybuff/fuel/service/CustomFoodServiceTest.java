@@ -3,10 +3,13 @@ package com.lazybuff.fuel.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.lazybuff.fuel.config.FoodSearchConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.dto.CustomFoodResponse;
@@ -14,12 +17,14 @@ import com.lazybuff.fuel.dto.PageResponse;
 import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.entity.User;
 import com.lazybuff.fuel.exception.FuelException;
+import com.lazybuff.fuel.exception.RateLimitExceededException;
 import com.lazybuff.fuel.mapper.CustomFoodMapper;
 import com.lazybuff.fuel.repository.FoodItemRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import com.lazybuff.fuel.util.FoodSource;
 import com.lazybuff.fuel.util.ServingUnit;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -47,13 +52,27 @@ class CustomFoodServiceTest {
 
     @Mock private UserRepository userRepository;
 
+    @Mock private RateLimiterService rateLimiterService;
+
     // The real mapper: it carries the source, unit and fiber rules the service relies on.
     private final CustomFoodMapper mapper = Mappers.getMapper(CustomFoodMapper.class);
 
     private final User user = User.builder().id(USER_ID).email("a@b.com").name("A").build();
 
+    private static final int MAX = 500;
+
+    private final FoodSearchConfig config = new FoodSearchConfig();
+
     private CustomFoodService service() {
-        return new CustomFoodService(foodItemRepository, userRepository, mapper);
+        config.getCustom().setMaxPerUser(MAX);
+        config.getCustom().setCreateRateLimit(30);
+        config.getCustom().setCreateRateLimitWindow(Duration.ofMinutes(1));
+        return new CustomFoodService(
+                foodItemRepository, userRepository, mapper, rateLimiterService, config);
+    }
+
+    private void givenLockedUser() {
+        when(userRepository.findActiveByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));
     }
 
     private void givenActiveUser() {
@@ -91,7 +110,7 @@ class CustomFoodServiceTest {
     @Test
     @DisplayName("saves a USER food owned by the caller and returns 201")
     void shouldSaveUserFoodOwnedByCaller() {
-        givenActiveUser();
+        givenLockedUser();
         when(foodItemRepository.save(any(FoodItem.class))).thenAnswer(i -> i.getArgument(0));
 
         ApiResponse<CustomFoodResponse> result = service().create(USER_ID, request());
@@ -112,9 +131,99 @@ class CustomFoodServiceTest {
     }
 
     @Test
+    @DisplayName("creates the food when the caller has one slot left")
+    void shouldCreateWhenCountIsOneBelowCap() {
+        givenLockedUser();
+        when(foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, USER_ID))
+                .thenReturn((long) MAX - 1);
+        when(foodItemRepository.save(any(FoodItem.class))).thenAnswer(i -> i.getArgument(0));
+
+        ApiResponse<CustomFoodResponse> result = service().create(USER_ID, request());
+
+        assertThat(result.getStatus()).isEqualTo(201);
+        verify(foodItemRepository).save(any(FoodItem.class));
+    }
+
+    @Test
+    @DisplayName("throws 409 with the configured limit and saves nothing at the cap")
+    void shouldThrowConflictWhenCountEqualsCap() {
+        givenLockedUser();
+        when(foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, USER_ID))
+                .thenReturn((long) MAX);
+
+        assertThatThrownBy(() -> service().create(USER_ID, request()))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> {
+                            assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.CONFLICT);
+                            assertThat(e.getMessage())
+                                    .isEqualTo(
+                                            "You've reached the limit of 500 custom foods."
+                                                    + " Delete some to add more.");
+                        });
+        verify(foodItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("throws 409 when the count is already above the cap")
+    void shouldThrowConflictWhenCountExceedsCap() {
+        givenLockedUser();
+        when(foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, USER_ID))
+                .thenReturn((long) MAX + 7);
+
+        assertThatThrownBy(() -> service().create(USER_ID, request()))
+                .isInstanceOfSatisfying(
+                        FuelException.class,
+                        e -> assertThat(e.getHttpStatus()).isEqualTo(HttpStatus.CONFLICT));
+        verify(foodItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("puts the configured cap in the 409 message")
+    void shouldUseConfiguredCapInMessage() {
+        givenLockedUser();
+        when(foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, USER_ID)).thenReturn(3L);
+        CustomFoodService small = service();
+        config.getCustom().setMaxPerUser(3);
+
+        assertThatThrownBy(() -> small.create(USER_ID, request()))
+                .hasMessage("You've reached the limit of 3 custom foods. Delete some to add more.");
+    }
+
+    @Test
+    @DisplayName("passes the configured key, limit and window to the rate limiter")
+    void shouldEnforceConfiguredRateLimitBeforeAnyLookup() {
+        givenLockedUser();
+        when(foodItemRepository.save(any(FoodItem.class))).thenAnswer(i -> i.getArgument(0));
+
+        service().create(USER_ID, request());
+
+        verify(rateLimiterService)
+                .enforce(
+                        "custom-food-create:" + USER_ID,
+                        30,
+                        Duration.ofMinutes(1),
+                        "Too many custom foods created. Please try again later.");
+    }
+
+    @Test
+    @DisplayName("propagates a rate-limit rejection without touching the database")
+    void shouldPropagateRateLimitWithoutDatabaseWork() {
+        doThrow(new RateLimitExceededException("Too many", Duration.ofSeconds(42)))
+                .when(rateLimiterService)
+                .enforce(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any());
+
+        assertThatThrownBy(() -> service().create(USER_ID, request()))
+                .isInstanceOfSatisfying(
+                        RateLimitExceededException.class,
+                        e -> assertThat(e.getRetryAfter()).isEqualTo(Duration.ofSeconds(42)));
+        verifyNoInteractions(userRepository, foodItemRepository);
+    }
+
+    @Test
     @DisplayName("throws 404 and saves nothing when the user is not found")
     void shouldThrowNotFoundOnCreateWhenUserMissing() {
-        when(userRepository.findByIdAndDeletedAtIsNull(USER_ID)).thenReturn(Optional.empty());
+        when(userRepository.findActiveByIdForUpdate(USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service().create(USER_ID, request()))
                 .isInstanceOfSatisfying(

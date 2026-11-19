@@ -3,6 +3,7 @@ package com.lazybuff.fuel.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.lazybuff.fuel.config.FoodSearchConfig;
 import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.exception.FuelException;
@@ -11,7 +12,13 @@ import com.lazybuff.fuel.repository.FoodItemRepository;
 import com.lazybuff.fuel.util.FoodSource;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +28,8 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
@@ -36,14 +45,25 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  */
 @DataJpaTest
 @Testcontainers
-@Import({CustomFoodService.class, CustomFoodMapperImpl.class})
+@Import({CustomFoodService.class, CustomFoodMapperImpl.class, FoodSearchConfig.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@TestPropertySource(
+        properties = {
+            "app.food.custom.max-per-user=3",
+            "app.food.custom.create-rate-limit=1000",
+            "app.food.custom.create-rate-limit-window=1m"
+        })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @DisplayName("CustomFoodService update and delete race against PostgreSQL")
 class CustomFoodServiceRaceIntegrationTest {
 
+    /** A cap of 3 keeps the race small. */
+    private static final int CAP = 3;
+
     @Container @ServiceConnection
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16-alpine");
+
+    @MockitoBean private RateLimiterService rateLimiterService;
 
     @Autowired private CustomFoodService service;
 
@@ -253,5 +273,49 @@ class CustomFoodServiceRaceIntegrationTest {
 
         assertThat(version(food)).isEqualTo(1L);
         assertThat(name(food)).isEqualTo("Edited");
+    }
+
+    @Test
+    @DisplayName("two concurrent creates with one slot left: one succeeds and one gets 409")
+    void shouldAllowOnlyOneConcurrentCreateWhenOneSlotLeft() throws Exception {
+        UUID owner = insertUser();
+        for (int i = 0; i < CAP - 1; i++) {
+            insertFood(owner);
+        }
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Integer>> results = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                final String name = "Racer " + i;
+                results.add(
+                        pool.submit(
+                                () -> {
+                                    start.await();
+                                    try {
+                                        return service.create(owner, request(name)).getStatus();
+                                    } catch (FuelException e) {
+                                        return e.getHttpStatus().value();
+                                    }
+                                }));
+            }
+            start.countDown();
+
+            List<Integer> statuses = new ArrayList<>();
+            for (Future<Integer> f : results) {
+                statuses.add(f.get());
+            }
+
+            assertThat(statuses).containsExactlyInAnyOrder(201, 409);
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT count(*) FROM food_items WHERE created_by = ?"
+                                            + " AND deleted_at IS NULL",
+                                    Integer.class,
+                                    owner))
+                    .isEqualTo(CAP);
+        } finally {
+            pool.shutdownNow();
+        }
     }
 }

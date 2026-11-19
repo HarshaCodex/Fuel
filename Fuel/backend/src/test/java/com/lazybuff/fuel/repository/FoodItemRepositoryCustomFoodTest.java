@@ -270,4 +270,42 @@ class FoodItemRepositoryCustomFoodTest {
 
         assertThat(foodItemRepository.findViewableWithServingSizesById(food, owner)).isEmpty();
     }
+
+    @Test
+    @DisplayName("counts only the caller's live USER foods")
+    void shouldCountOnlyCallersLiveUserFoods() {
+        UUID a = insertUser();
+        insertFood("a1", "USER", a, "2026-01-01T00:00:00Z", null);
+        insertFood("a2", "USER", a, "2026-01-02T00:00:00Z", null);
+        insertFood("a-deleted", "USER", a, "2026-01-03T00:00:00Z", "2026-01-04T00:00:00Z");
+        insertFood("a-usda", "USDA", a, "2026-01-05T00:00:00Z", null);
+        insertFood("b-food", "USER", insertUser(), "2026-01-06T00:00:00Z", null);
+
+        assertThat(foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, a)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("count is zero for a user with no custom foods")
+    void shouldCountZeroWhenNoFoods() {
+        assertThat(foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, insertUser()))
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("soft-deleting a custom food frees a slot in the count")
+    void shouldDropCountAfterSoftDelete() {
+        UUID a = insertUser();
+        UUID id = insertFood("one", "USER", a, "2026-01-01T00:00:00Z", null);
+        insertFood("two", "USER", a, "2026-01-02T00:00:00Z", null);
+        assertThat(foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, a)).isEqualTo(2);
+        FoodItem food =
+                foodItemRepository
+                        .findByIdAndSourceAndUser_Id(id, FoodSource.USER, a)
+                        .orElseThrow();
+
+        food.setDeletedAt(java.time.OffsetDateTime.now());
+        foodItemRepository.saveAndFlush(food);
+
+        assertThat(foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, a)).isEqualTo(1);
+    }
 }
