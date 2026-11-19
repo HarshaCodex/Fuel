@@ -93,4 +93,7 @@ name: Set up body stats and goal
 - extendedWaitUntil:
     visible: ".*kcal left.*"
     timeout: 30000
-- takeScreenshot: 04-today
+- assertVisible: "Nothing logged yet"
+- assertVisible: "Log food"
+- assertNotVisible: "Log your first food"
+- takeScreenshot: 04-today-empty
