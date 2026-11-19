@@ -1,0 +1,90 @@
+# A new user with no body stats lands on Setup, fills the five rows through sheets, picks a goal and reaches Today.
+# Forces Appearance to Light first (the choice survives sign-out), so the screenshots are light.
+# Creates its own verified account with no body stats (scripts/create-newcomer.js), since the lab seeds only one user.
+appId: com.harshacodex.fuel
+name: Set up body stats and goal
+---
+- runScript:
+    file: scripts/create-newcomer.js
+    env:
+      LAB_PASSWORD: ${LAB_PASSWORD}
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Appearance.*"
+    timeout: 15000
+- tapOn: "Appearance.*"
+- extendedWaitUntil:
+    visible: "Light.*"
+    timeout: 10000
+- tapOn: "Light.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Sign out"
+    timeout: 15000
+- tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 15000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${output.email}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Set up your goal"
+    timeout: 60000
+- assertVisible: "Fill in the details above to see your goal"
+- takeScreenshot: 01-setup-empty
+- tapOn: "Age"
+- inputText: "30"
+- tapOn: "Done"
+- tapOn: "Sex"
+- tapOn: "Male"
+- tapOn: "Height"
+- inputText: "180"
+- tapOn: "Done"
+- tapOn: "Weight"
+- inputText: "80"
+- tapOn: "Done"
+- tapOn: "Activity"
+- takeScreenshot: 02-activity-sheet
+- tapOn: "Moderately active"
+- extendedWaitUntil:
+    visible: "Your daily goal"
+    timeout: 30000
+- tapOn: "Lose"
+- assertVisible: "750"
+- takeScreenshot: 03-setup-lose
+- tapOn: "Imperial"
+- extendedWaitUntil:
+    visible: "Your daily goal"
+    timeout: 30000
+- takeScreenshot: 03b-setup-imperial
+- tapOn: "Start tracking"
+- extendedWaitUntil:
+    visible: ".*kcal left.*"
+    timeout: 30000
+- takeScreenshot: 04-today

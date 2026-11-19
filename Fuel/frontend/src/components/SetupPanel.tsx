@@ -3,7 +3,7 @@ import { PixelRatio, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { GoalsInput } from '@/api/user';
-import { formatGrams, formatKcal } from '@/lib/dashboardView';
+import { formatKcal } from '@/lib/dashboardView';
 import { PANEL_EMPTY, panelA11y } from '@/lib/setupView';
 import { useCountUp } from '@/lib/useCountUp';
 import { useReduceMotion } from '@/lib/useReduceMotion';
@@ -80,7 +80,7 @@ export function SetupPanel({ goals, calculating, onStart, startDisabled }: Props
                   <View key={e.key} style={styles.macro}>
                     <View style={[styles.dot, { backgroundColor: e.color }]} />
                     <Text style={[styles.macroText, numeric, { color: colors.text }]} maxFontSizeMultiplier={1.5}>
-                      {`${e.key} ${formatGrams(e.grams)} g`}
+                      {`${e.key} ${Math.round(e.grams).toLocaleString('en-US')} g`}
                     </Text>
                   </View>
                 ))}

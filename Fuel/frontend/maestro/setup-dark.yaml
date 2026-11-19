@@ -1,0 +1,85 @@
+# The Setup page and the activity sheet in Dark: the Appearance choice survives sign-out, so a newcomer sees Setup dark.
+# Creates its own verified account with no body stats (scripts/create-newcomer.js).
+appId: com.harshacodex.fuel
+name: Setup page in Dark
+---
+- runScript:
+    file: scripts/create-newcomer.js
+    env:
+      LAB_PASSWORD: ${LAB_PASSWORD}
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Appearance. System"
+    timeout: 15000
+- tapOn: "Appearance. System"
+- extendedWaitUntil:
+    visible: "Dark.*"
+    timeout: 10000
+- tapOn: "Dark.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Sign out"
+    timeout: 15000
+- tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 15000
+- takeScreenshot: 01-sign-in-dark
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${output.email}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Set up your goal"
+    timeout: 60000
+- assertVisible: "Fill in the details above to see your goal"
+- takeScreenshot: 02-setup-empty-dark
+- tapOn: "Age"
+- inputText: "30"
+- tapOn: "Done"
+- tapOn: "Sex"
+- tapOn: "Male"
+- tapOn: "Height"
+- inputText: "180"
+- tapOn: "Done"
+- tapOn: "Weight"
+- inputText: "80"
+- tapOn: "Done"
+- tapOn: "Activity"
+- takeScreenshot: 03-activity-sheet-dark
+- tapOn: "Moderately active"
+- extendedWaitUntil:
+    visible: "Your daily goal"
+    timeout: 30000
+- tapOn: "Lose"
+- assertVisible: "750"
+- takeScreenshot: 04-setup-lose-dark
+- tapOn: "Imperial"
+- extendedWaitUntil:
+    visible: "Your daily goal"
+    timeout: 30000
+- takeScreenshot: 05-setup-imperial-dark

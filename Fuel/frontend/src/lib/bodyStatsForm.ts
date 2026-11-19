@@ -38,9 +38,10 @@ export const BODY_STATS_MESSAGES = {
 
 const MIN_AGE = 13;
 const MAX_AGE = 120;
-const MAX_HEIGHT = 1000;
+const MAX_HEIGHT = 300; // the server's limit in cm
 const MAX_WEIGHT = 2000;
 const MAX_INCHES = 12; // exclusive
+const CM_PER_FOOT = 30.48;
 const CM_PER_INCH = 2.54;
 const INCHES_PER_FOOT = 12;
 const LBS_PER_KG = 2.20462;
@@ -83,7 +84,7 @@ function readHeight(form: BodyStatsForm): { value?: number; error?: string } {
   const inches = inch ? parseNumber(inch) : 0;
   if (inches === null || inches >= MAX_INCHES) return { error: m.inchesInvalid };
   const feet = roundTo(Number(ft) + inches / INCHES_PER_FOOT, FEET_DECIMALS);
-  return feet <= 0 || feet > MAX_HEIGHT ? { error: m.heightInvalid } : { value: feet };
+  return feet <= 0 || feet * CM_PER_FOOT > MAX_HEIGHT ? { error: m.heightInvalid } : { value: feet };
 }
 
 export function validateBodyStats(form: BodyStatsForm): {

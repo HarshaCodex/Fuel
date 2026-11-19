@@ -1,29 +1,22 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  putBodyStats,
-  recalculateGoals,
-  userKeys,
-  type GoalType,
-  type RecalculatedGoals,
-} from '@/api/user';
+import { putBodyStats, recalculateGoals, userKeys, type GoalType, type RecalculatedGoals } from '@/api/user';
 import { Banner } from '@/components/Banner';
-import { Button } from '@/components/Button';
-import { FormScreen } from '@/components/FormScreen';
-import { OptionRow } from '@/components/OptionRow';
-import { SegmentedControl } from '@/components/SegmentedControl';
-import { Stepper } from '@/components/Stepper';
-import { TextField } from '@/components/TextField';
+import { ChangeTiles } from '@/components/ChangeTiles';
+import { PillGroup } from '@/components/PillGroup';
+import { SetupPanel } from '@/components/SetupPanel';
+import { SetupRows } from '@/components/SetupRows';
+import { ChoiceSheet, CustomChangeSheet, StatSheet, type StatKind } from '@/components/SetupSheets';
 import { classifyAuthError } from '@/lib/authErrors';
 import {
-  ACTIVITIES,
   BODY_STATS_FIELDS,
+  BODY_STATS_UI,
   convertUnits,
   emptyBodyStatsForm,
-  GENDERS,
   UNIT_OPTIONS,
   validateBodyStats,
   type BodyStatsField,
@@ -31,68 +24,54 @@ import {
   type Units,
 } from '@/lib/bodyStatsForm';
 import { mapFieldErrors } from '@/lib/fieldErrors';
+import { allValid, customDeficitError, DEFAULT_DEFICIT, isPreset, setupRows, type SetupRowKey } from '@/lib/setupView';
 import { setOnboardingSkipped } from '@/lib/tokenStorage';
-import { radius, sizing, space, type, useTheme } from '@/theme';
+import { sizing, space, type, useTheme } from '@/theme';
 
-const OFFLINE = "You're offline. Check your connection and try again.";
 const GENERIC = "Couldn't calculate your goal. Try again.";
-const UNMATCHED = 'Some details were not accepted. Check your answers and try again.';
-const STEP1_FIELDS: readonly BodyStatsField[] = ['age', 'gender', 'height', 'weight'];
-
 const GOALS = [
   { value: 'LOSE', label: 'Lose' },
   { value: 'MAINTAIN', label: 'Maintain' },
   { value: 'GAIN', label: 'Gain' },
 ] as const;
-const TITLES = ['About you', 'How active are you?', 'Your goal'] as const;
-const DEFICIT = { min: 100, max: 1000, step: 50, initial: 500 } as const;
+const STAT_KEYS: readonly SetupRowKey[] = ['age', 'height', 'weight'];
 
-type Step = 0 | 1 | 2;
-type Calc = { status: 'idle' | 'loading' } | { status: 'ok'; goals: RecalculatedGoals } | { status: 'error'; message: string };
+type Calc = { status: 'idle' | 'loading' | 'ok' | 'error'; goals?: RecalculatedGoals; message?: string };
+type Snapshot = { form: BodyStatsForm; saved: boolean };
 
+/** One-page setup: five body-stat rows, a goal and a pinned live result. */
 export default function OnboardingScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [step, setStep] = useState<Step>(0);
   const [form, setForm] = useState<BodyStatsForm>(() => emptyBodyStatsForm());
-  const [errors, setErrors] = useState<Partial<Record<BodyStatsField, string>>>({});
+  const [serverErrors, setServerErrors] = useState<Partial<Record<BodyStatsField, string>>>({});
   const [banner, setBanner] = useState<string | null>(null);
   const [goal, setGoal] = useState<GoalType>('MAINTAIN');
-  const [deficit, setDeficit] = useState<number>(DEFICIT.initial);
+  const [deficit, setDeficit] = useState<number>(DEFAULT_DEFICIT);
   const [calc, setCalc] = useState<Calc>({ status: 'idle' });
+  const [sheet, setSheet] = useState<SetupRowKey | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customText, setCustomText] = useState('');
   const saved = useRef(false);
   const requestId = useRef(0);
+  const finishing = useRef(false);
+  const version = useRef(0); // bumped on every body-stat edit
+  const snapshot = useRef<Snapshot>({ form, saved: false });
 
-  function edit(patch: Partial<BodyStatsForm>) {
-    saved.current = false; // body stats changed, so they must be saved again before calculating
-    setForm((f) => ({ ...f, ...patch }));
-  }
-
-  function next() {
-    const { errors: all } = validateBodyStats(form);
-    const relevant = step === 0 ? STEP1_FIELDS : (['activityLevel'] as const);
-    const found = Object.fromEntries(relevant.filter((k) => all[k]).map((k) => [k, all[k]]));
-    setErrors(found);
-    if (Object.keys(found).length > 0) return;
-    setBanner(null);
-    if (step === 0) setStep(1);
-    else {
-      setStep(2);
-      void calculate(goal, deficit);
-    }
-  }
-
-  async function calculate(g: GoalType, d: number) {
+  async function calculate(f: BodyStatsForm, g: GoalType, d: number) {
     const id = ++requestId.current;
+    const startedAt = version.current;
     setBanner(null);
-    setCalc({ status: 'loading' });
+    // Keep the last numbers on screen (dimmed) while the next ones load.
+    setCalc((c) => ({ status: 'loading', goals: c.goals }));
     try {
-      const { input } = validateBodyStats(form);
+      const { input } = validateBodyStats(f);
       if (!saved.current && input) {
         await putBodyStats(input);
         // A newer request or an edit since this one started means the saved copy may be stale.
-        if (id === requestId.current) saved.current = true;
+        if (id === requestId.current && startedAt === version.current) saved.current = true;
       }
       const goals = await recalculateGoals(g === 'MAINTAIN' ? { goal: g } : { goal: g, deficit: d });
       if (id === requestId.current) setCalc({ status: 'ok', goals });
@@ -100,33 +79,95 @@ export default function OnboardingScreen() {
       if (id !== requestId.current) return;
       const mapped = mapFieldErrors(e, BODY_STATS_FIELDS);
       if (Object.keys(mapped.errors).length > 0 || mapped.hasUnmatched) {
-        setErrors(mapped.errors);
-        setBanner(UNMATCHED);
-        setStep(0);
+        setServerErrors(mapped.errors);
+        setBanner(BODY_STATS_UI.unmatched);
         setCalc({ status: 'idle' });
       } else {
-        setCalc({ status: 'error', message: classifyAuthError(e).kind === 'offline' ? OFFLINE : GENERIC });
+        setCalc({ status: 'error', message: classifyAuthError(e).kind === 'offline' ? BODY_STATS_UI.offline : GENERIC });
       }
     }
   }
 
+  /** Recalculates once all five answers are valid; until then the panel keeps its empty copy. */
+  function refresh(f: BodyStatsForm, g: GoalType, d: number) {
+    if (allValid(f)) void calculate(f, g, d);
+  }
+
+  function commit(next: BodyStatsForm) {
+    setSheet(null);
+    if (JSON.stringify(next) === JSON.stringify(snapshot.current.form)) {
+      saved.current = snapshot.current.saved; // nothing changed, so the saved copy is still current
+      return;
+    }
+    setServerErrors({});
+    refresh(next, goal, deficit);
+  }
+
+  // The sheet edits the form as you type; closing without Done puts back what was there.
+  function revert() {
+    setForm(snapshot.current.form);
+    saved.current = snapshot.current.saved;
+    setSheet(null);
+  }
+
+  function open(key: SetupRowKey) {
+    snapshot.current = { form, saved: saved.current };
+    setSheet(key);
+  }
+
+  function edit(patch: Partial<BodyStatsForm>) {
+    saved.current = false; // body stats changed, so they must be saved again before calculating
+    version.current += 1;
+    setForm((f) => ({ ...f, ...patch }));
+  }
+
+  function choose(patch: Partial<BodyStatsForm>) {
+    edit(patch);
+    commit({ ...form, ...patch });
+  }
+
+  function changeUnits(u: Units) {
+    if (u === form.units) return;
+    saved.current = false;
+    version.current += 1;
+    const next = convertUnits(form, u);
+    setForm(next);
+    setServerErrors({});
+    refresh(next, goal, deficit);
+  }
+
   function pickGoal(g: GoalType) {
     setGoal(g);
-    void calculate(g, deficit);
+    refresh(form, g, deficit);
   }
 
   function pickDeficit(d: number) {
     setDeficit(d);
-    void calculate(goal, d);
+    refresh(form, goal, d);
+  }
+
+  function openCustom() {
+    setCustomText(isPreset(deficit) ? '' : String(deficit));
+    setCustomOpen(true);
+  }
+
+  function doneCustom() {
+    if (customDeficitError(customText)) return;
+    setCustomOpen(false);
+    pickDeficit(Number(customText));
   }
 
   function finish() {
+    if (finishing.current) return; // a double tap must not navigate twice
+    finishing.current = true;
     void queryClient.invalidateQueries({ queryKey: userKeys.bodyStats });
     void queryClient.invalidateQueries({ queryKey: userKeys.goals });
     router.replace('/');
   }
 
-  async function skip() {
+  async function later() {
+    if (finishing.current) return;
+    finishing.current = true;
     try {
       await setOnboardingSkipped();
     } catch {
@@ -135,131 +176,69 @@ export default function OnboardingScreen() {
     router.replace('/');
   }
 
-  function back() {
-    requestId.current++; // drop any in-flight calculation
-    setBanner(null);
-    setStep((s) => (s > 0 ? ((s - 1) as Step) : s));
-  }
-
-  const imperial = form.units === 'imperial';
+  const statKind = sheet && STAT_KEYS.includes(sheet) ? (sheet as StatKind) : null;
   return (
-    <FormScreen>
-      <View
-        style={styles.dots}
-        accessible
-        accessibilityLabel={`Step ${step + 1} of 3`}
-        accessibilityRole="progressbar"
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + space.lg }]}
+        keyboardShouldPersistTaps="handled"
       >
-        {TITLES.map((t, i) => (
-          <View key={t} style={[styles.dot, { backgroundColor: i <= step ? colors.accent : colors.track }]} />
-        ))}
-      </View>
-      <Text style={[type.title1, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
-        {TITLES[step]}
-      </Text>
-      {banner ? <Banner variant="danger" message={banner} /> : null}
+        <View style={styles.header}>
+          <Text style={[type.title1, styles.title, { color: colors.text }]} accessibilityRole="header" maxFontSizeMultiplier={2}>
+            Set up your goal
+          </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Later" onPress={() => void later()} style={styles.later}>
+            <Text style={[type.link, { color: colors.accentText }]} maxFontSizeMultiplier={2}>
+              Later
+            </Text>
+          </Pressable>
+        </View>
+        {banner ? <Banner variant="danger" message={banner} /> : null}
 
-      {step === 0 ? (
-        <>
-          <TextField
-            label="Age"
-            value={form.age}
-            onChangeText={(age) => edit({ age })}
-            error={errors.age}
-            keyboardType="number-pad"
-          />
-          <SegmentedControl label="Gender" options={GENDERS} value={form.gender} onChange={(gender) => edit({ gender })} />
-          {errors.gender ? <Text style={[type.caption, { color: colors.danger }]}>{errors.gender}</Text> : null}
-          <SegmentedControl
-            label="Units"
-            options={UNIT_OPTIONS}
-            value={form.units}
-            onChange={(u: Units) => {
-              if (u === form.units) return;
-              saved.current = false;
-              setForm(convertUnits(form, u));
-            }}
-          />
-          {imperial ? (
-            <View style={styles.pair}>
-              <View style={styles.half}>
-                <TextField label="Height (ft)" value={form.heightFt} onChangeText={(heightFt) => edit({ heightFt })} keyboardType="number-pad" error={errors.height} />
-              </View>
-              <View style={styles.half}>
-                <TextField label="Height (in)" value={form.heightIn} onChangeText={(heightIn) => edit({ heightIn })} keyboardType="decimal-pad" />
-              </View>
-            </View>
-          ) : (
-            <TextField label="Height (cm)" value={form.heightCm} onChangeText={(heightCm) => edit({ heightCm })} keyboardType="decimal-pad" error={errors.height} />
-          )}
-          <TextField
-            label={imperial ? 'Weight (lbs)' : 'Weight (kg)'}
-            value={form.weight}
-            onChangeText={(weight) => edit({ weight })}
-            keyboardType="decimal-pad"
-            error={errors.weight}
-          />
-          <Button label="Next" onPress={next} />
-          <Button variant="text" label="Set up later" onPress={() => void skip()} />
-        </>
-      ) : null}
+        <View style={styles.eyebrowRow}>
+          <Text style={[type.eyebrow, { color: colors.textSecondary }]} accessibilityRole="header">
+            About you
+          </Text>
+          <PillGroup label="Units" options={UNIT_OPTIONS} value={form.units} onChange={changeUnits} />
+        </View>
+        <SetupRows rows={setupRows(form)} onPress={open} errors={serverErrors} />
 
-      {step === 1 ? (
-        <>
-          {ACTIVITIES.map((a) => (
-            <OptionRow
-              key={a.value}
-              label={a.label}
-              description={a.description}
-              selected={form.activityLevel === a.value}
-              onPress={() => edit({ activityLevel: a.value })}
-            />
-          ))}
-          {errors.activityLevel ? <Text style={[type.caption, { color: colors.danger }]}>{errors.activityLevel}</Text> : null}
-          <Button label="Next" onPress={next} />
-          <Button variant="text" label="Back" onPress={back} />
-        </>
-      ) : null}
+        <Text style={[type.eyebrow, { color: colors.textSecondary }]} accessibilityRole="header">
+          Goal
+        </Text>
+        <PillGroup variant="accent" label="Goal" options={GOALS} value={goal} onChange={pickGoal} />
+        {goal !== 'MAINTAIN' ? <ChangeTiles value={deficit} onSelect={pickDeficit} onCustom={openCustom} /> : null}
+      </ScrollView>
 
-      {step === 2 ? (
-        <>
-          <SegmentedControl label="Goal" options={GOALS} value={goal} onChange={pickGoal} disabled={calc.status === 'loading'} />
-          {goal !== 'MAINTAIN' ? (
-            <Stepper
-              label="Daily calorie change"
-              value={deficit}
-              min={DEFICIT.min}
-              max={DEFICIT.max}
-              step={DEFICIT.step}
-              onChange={pickDeficit}
-              disabled={calc.status === 'loading'}
-              format={(v) => `${v} kcal ${goal === 'LOSE' ? 'below' : 'above'} your maintenance`}
-            />
-          ) : null}
-          {calc.status === 'error' ? (
-            <Banner variant="danger" message={calc.message} action={{ label: 'Retry', onPress: () => void calculate(goal, deficit) }} />
-          ) : null}
-          {calc.status === 'ok' ? (
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} accessibilityLiveRegion="polite">
-              <Text style={[type.title2, { color: colors.text }]}>{`${Math.round(calc.goals.calorieGoal)} kcal a day`}</Text>
-              <Text style={[type.callout, { color: colors.textSecondary }]}>
-                {`Protein ${Math.round(calc.goals.proteinGoal)} g, Carbs ${Math.round(calc.goals.carbGoal)} g, Fat ${Math.round(calc.goals.fatGoal)} g`}
-              </Text>
-              <Text style={[type.caption, { color: colors.textSecondary }]}>You can change this anytime</Text>
-            </View>
-          ) : null}
-          <Button label="Start tracking" onPress={finish} loading={calc.status === 'loading'} disabled={calc.status !== 'ok'} />
-          <Button variant="text" label="Back" onPress={back} />
-        </>
+      {calc.status === 'error' ? (
+        <View style={styles.errorBanner}>
+          <Banner variant="danger" message={calc.message ?? GENERIC} action={{ label: 'Retry', onPress: () => refresh(form, goal, deficit) }} />
+        </View>
       ) : null}
-    </FormScreen>
+      <SetupPanel goals={calc.status === 'error' ? undefined : calc.goals} calculating={calc.status === 'loading'} onStart={finish} />
+
+      <StatSheet kind={statKind} form={form} onChange={edit} onDone={() => commit(form)} onClose={revert} />
+      <ChoiceSheet kind="sex" visible={sheet === 'gender'} value={form.gender} onSelect={(gender) => choose({ gender })} onClose={revert} />
+      <ChoiceSheet
+        kind="activity"
+        visible={sheet === 'activityLevel'}
+        value={form.activityLevel}
+        onSelect={(activityLevel) => choose({ activityLevel })}
+        onClose={revert}
+      />
+      <CustomChangeSheet visible={customOpen} value={customText} onChange={setCustomText} onDone={doneCustom} onClose={() => setCustomOpen(false)} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  dots: { flexDirection: 'row', gap: space.sm },
-  dot: { width: space.xl, height: space.sm, borderRadius: radius.full },
-  pair: { flexDirection: 'row', gap: space.md },
-  half: { flex: 1 },
-  card: { borderRadius: radius.lg, borderWidth: sizing.border, padding: space.lg, gap: space.xs },
+  root: { flex: 1 },
+  flex: { flex: 1 },
+  content: { paddingHorizontal: sizing.pageMargin, paddingBottom: space.lg, gap: space.lg },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md },
+  title: { flex: 1 },
+  later: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  eyebrowRow: { flexDirection: 'column', alignItems: 'stretch', gap: space.sm },
+  errorBanner: { paddingHorizontal: sizing.pageMargin, paddingBottom: space.md },
 });
