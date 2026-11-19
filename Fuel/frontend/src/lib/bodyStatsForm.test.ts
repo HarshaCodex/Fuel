@@ -87,6 +87,12 @@ describe('validateBodyStats', () => {
     expect(validateBodyStats(imperial(over)).errors.height).toBe(msg);
   });
 
+  it('rejects imperial heights above the server limit of 300 cm', () => {
+    expect(validateBodyStats(imperial({ heightFt: '99', heightIn: '0' })).errors.height).toBe(M.heightInvalid);
+    expect(validateBodyStats(imperial({ heightFt: '10', heightIn: '0' })).errors.height).toBe(M.heightInvalid);
+    expect(validateBodyStats(imperial({ heightFt: '9', heightIn: '10' })).errors.height).toBeUndefined();
+  });
+
   it('rejects metric height of zero or over 1000', () => {
     expect(validateBodyStats(metric({ heightCm: '0' })).errors.height).toBe(M.heightInvalid);
     expect(validateBodyStats(metric({ heightCm: '1001' })).errors.height).toBe(M.heightInvalid);
