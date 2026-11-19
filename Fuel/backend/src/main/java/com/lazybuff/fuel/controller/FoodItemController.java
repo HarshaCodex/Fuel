@@ -214,6 +214,9 @@ public class FoodItemController {
                 responseCode = "401",
                 description = "Missing or invalid access token"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Food item was changed by another request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "404",
                 description = "Food item not found")
     })
@@ -240,6 +243,9 @@ public class FoodItemController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
                 description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Food item was changed by another request"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "404",
                 description = "Food item not found")

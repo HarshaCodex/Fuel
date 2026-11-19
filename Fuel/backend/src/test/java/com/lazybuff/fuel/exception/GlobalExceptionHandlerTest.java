@@ -13,6 +13,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -71,5 +72,21 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("30");
         assertThat(response.getBody().getRetryAfter()).isEqualTo(30L);
         assertThat(response.getBody().getMessage()).isEqualTo("Slow down");
+    }
+
+    @Test
+    @DisplayName(
+            "returns 409 with a fixed message and no exception text on an optimistic lock failure")
+    void shouldReturnConflictWithoutLeakingExceptionText() {
+        ResponseEntity<ErrorResponse> response =
+                handler.handleOptimisticLock(
+                        new ObjectOptimisticLockingFailureException(
+                                "Row was updated: secret-detail", new RuntimeException("boom")));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().getStatus()).isEqualTo(409);
+        assertThat(response.getBody().getMessage())
+                .isEqualTo("Food item was changed by another request, please retry");
+        assertThat(response.getBody().getTimestamp()).isNotNull();
     }
 }

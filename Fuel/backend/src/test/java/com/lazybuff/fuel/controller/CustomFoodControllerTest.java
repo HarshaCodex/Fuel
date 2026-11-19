@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.dto.CustomFoodResponse;
+import com.lazybuff.fuel.entity.FoodItem;
 import com.lazybuff.fuel.exception.FuelException;
 import com.lazybuff.fuel.exception.GlobalExceptionHandler;
 import com.lazybuff.fuel.service.BarcodeService;
@@ -43,6 +44,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
@@ -407,6 +409,34 @@ class CustomFoodControllerTest {
         mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content(valid()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Food item not found"));
+    }
+
+    @Test
+    @DisplayName("PUT maps a stale-write failure to 409 with the fixed message")
+    void shouldReturnConflictOnPutWhenWriteIsStale() throws Exception {
+        when(customFoodService.update(eq(USER_ID), eq(FOOD_ID), any(CustomFoodRequest.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(FoodItem.class, FOOD_ID));
+
+        mockMvc.perform(put(ITEM_URL).contentType(MediaType.APPLICATION_JSON).content(valid()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("Food item was changed by another request, please retry"));
+    }
+
+    @Test
+    @DisplayName("DELETE maps a stale-write failure to 409 with the fixed message")
+    void shouldReturnConflictOnDeleteWhenWriteIsStale() throws Exception {
+        doThrow(new ObjectOptimisticLockingFailureException(FoodItem.class, FOOD_ID))
+                .when(customFoodService)
+                .delete(USER_ID, FOOD_ID);
+
+        mockMvc.perform(delete(ITEM_URL))
+                .andExpect(status().isConflict())
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("Food item was changed by another request, please retry"));
     }
 
     @Test

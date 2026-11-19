@@ -17,6 +17,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -111,4 +112,11 @@ public class FoodItem {
 
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
+
+    /**
+     * Optimistic lock; makes a stale update or delete fail instead of overwriting a concurrent one.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }
