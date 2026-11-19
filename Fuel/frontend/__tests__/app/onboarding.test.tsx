@@ -241,9 +241,61 @@ describe('Setup page', () => {
     await renderScreen();
     await fillAll();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Start tracking' }).props.accessibilityState).toMatchObject({ disabled: false }));
-    fireEvent.press(screen.getByRole('button', { name: 'Start tracking' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Start tracking' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Start tracking' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Start tracking' }));
     await waitFor(() => expect(mockReplace).toHaveBeenCalled());
     expect(mockReplace).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves once when Later is pressed twice quickly', async () => {
+    await renderScreen();
+    await press('Later');
+    await press('Later');
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled());
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves the newer age when it is edited while the first save is still pending', async () => {
+    let releasePut: () => void = () => {};
+    mockPut.mockReturnValueOnce(new Promise((r) => (releasePut = () => r({} as never))));
+    await renderScreen();
+    await fillAll();
+    await press(/^Age,/);
+    await fireEvent.changeText(screen.getByLabelText('Age'), '41');
+    releasePut();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalled());
+    await press('Done');
+    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(2));
+    expect(mockPut).toHaveBeenLastCalledWith(expect.objectContaining({ age: 41 }));
+  });
+
+  it('does not re-save after picking the same Sex and then a goal', async () => {
+    await renderScreen();
+    await fillAll();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalledTimes(1));
+    await press(/^Sex,/);
+    await radio('Male');
+    await radio('Lose');
+    await waitFor(() => expect(mockRecalc).toHaveBeenLastCalledWith({ goal: 'LOSE', deficit: 500 }));
+    expect(mockPut).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Start disabled while a recalculation is loading', async () => {
+    await renderScreen();
+    await fillAll();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalledTimes(1));
+    mockRecalc.mockReturnValueOnce(new Promise(() => {}));
+    await radio('Lose');
+    expect(screen.getByRole('button', { name: 'Start tracking' }).props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
+  it('recalculates with the custom amount when its sheet is done', async () => {
+    await renderScreen();
+    await fillAll();
+    await radio('Lose');
+    await radio(/^Custom/);
+    await fireEvent.changeText(screen.getByLabelText('Calories per day'), '100');
+    await press('Done');
+    await waitFor(() => expect(mockRecalc).toHaveBeenLastCalledWith({ goal: 'LOSE', deficit: 100 }));
   });
 });

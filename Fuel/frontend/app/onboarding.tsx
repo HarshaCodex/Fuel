@@ -57,10 +57,12 @@ export default function OnboardingScreen() {
   const saved = useRef(false);
   const requestId = useRef(0);
   const finishing = useRef(false);
+  const version = useRef(0); // bumped on every body-stat edit
   const snapshot = useRef<Snapshot>({ form, saved: false });
 
   async function calculate(f: BodyStatsForm, g: GoalType, d: number) {
     const id = ++requestId.current;
+    const startedAt = version.current;
     setBanner(null);
     // Keep the last numbers on screen (dimmed) while the next ones load.
     setCalc((c) => ({ status: 'loading', goals: c.goals }));
@@ -69,7 +71,7 @@ export default function OnboardingScreen() {
       if (!saved.current && input) {
         await putBodyStats(input);
         // A newer request or an edit since this one started means the saved copy may be stale.
-        if (id === requestId.current) saved.current = true;
+        if (id === requestId.current && startedAt === version.current) saved.current = true;
       }
       const goals = await recalculateGoals(g === 'MAINTAIN' ? { goal: g } : { goal: g, deficit: d });
       if (id === requestId.current) setCalc({ status: 'ok', goals });
@@ -93,7 +95,10 @@ export default function OnboardingScreen() {
 
   function commit(next: BodyStatsForm) {
     setSheet(null);
-    if (JSON.stringify(next) === JSON.stringify(snapshot.current.form)) return;
+    if (JSON.stringify(next) === JSON.stringify(snapshot.current.form)) {
+      saved.current = snapshot.current.saved; // nothing changed, so the saved copy is still current
+      return;
+    }
     setServerErrors({});
     refresh(next, goal, deficit);
   }
@@ -112,6 +117,7 @@ export default function OnboardingScreen() {
 
   function edit(patch: Partial<BodyStatsForm>) {
     saved.current = false; // body stats changed, so they must be saved again before calculating
+    version.current += 1;
     setForm((f) => ({ ...f, ...patch }));
   }
 
@@ -123,6 +129,7 @@ export default function OnboardingScreen() {
   function changeUnits(u: Units) {
     if (u === form.units) return;
     saved.current = false;
+    version.current += 1;
     const next = convertUnits(form, u);
     setForm(next);
     setServerErrors({});
@@ -159,6 +166,8 @@ export default function OnboardingScreen() {
   }
 
   async function later() {
+    if (finishing.current) return;
+    finishing.current = true;
     try {
       await setOnboardingSkipped();
     } catch {
