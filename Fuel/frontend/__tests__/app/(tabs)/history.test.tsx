@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AccessibilityInfo } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { getDashboard, getHistory, type HistoryDay } from '@/api/tracking';
@@ -20,10 +20,13 @@ jest.mock('@/api/tracking', () => ({
   getDashboard: jest.fn(),
 }));
 
+let mockToday = '';
+jest.mock('@/lib/useToday', () => ({ useToday: () => mockToday }));
 const mockGet = jest.mocked(getHistory);
 const mockDash = jest.mocked(getDashboard);
 const TODAY = isoDate(new Date());
 const YESTERDAY = addDays(TODAY, -1);
+mockToday = TODAY;
 const day = (date: string, calories: number): HistoryDay => ({
   date, calories, calorieGoal: 2200, protein: 120, carbs: 140, fat: 45, fiber: 20, entryCount: 4,
 });
@@ -40,10 +43,27 @@ async function renderScreen() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockToday = TODAY;
   mockDash.mockResolvedValue(dashboard(5));
 });
 
 describe('History screen', () => {
+  it('follows a month-end rollover from the profile-zone date', async () => {
+    mockGet.mockResolvedValue([]);
+    mockToday = '2026-10-31';
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const ui = () => (
+      <QueryClientProvider client={client}>
+        <History />
+      </QueryClientProvider>
+    );
+    const view = await render(ui());
+    await waitFor(() => expect(mockGet).toHaveBeenLastCalledWith('2026-10-01', '2026-10-31'));
+    mockToday = '2026-11-01';
+    await view.rerender(ui());
+    await waitFor(() => expect(mockGet).toHaveBeenLastCalledWith('2026-11-01', '2026-11-01'));
+  });
+
   it('shows skeleton rings with usable arrows while loading, then the card and summary', async () => {
     let resolve: (d: HistoryDay[]) => void = () => {};
     mockGet.mockReturnValue(new Promise((r) => (resolve = r)));

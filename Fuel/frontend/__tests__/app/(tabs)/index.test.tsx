@@ -25,6 +25,8 @@ jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   return { __esModule: true, default: Swipeable, SwipeDirection: { LEFT: 'left', RIGHT: 'right' } };
 });
 
+let mockToday = '2026-11-09';
+jest.mock('@/lib/useToday', () => ({ useToday: () => mockToday }));
 jest.mock('@/lib/haptics', () => ({ hapticLight: jest.fn(), hapticSelect: jest.fn() }));
 const mockLight = jest.mocked(hapticLight);
 const mockSelect = jest.mocked(hapticSelect);
@@ -61,7 +63,10 @@ async function renderScreen() {
   );
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockToday = '2026-11-09';
+});
 
 describe('Today screen', () => {
   it('shows the skeleton, then ring, pills, streak and meals', async () => {
@@ -161,8 +166,8 @@ describe('Today screen', () => {
     expect(screen.getByRole('button', { name: 'Next day' })).toBeEnabled();
   });
 
-  describe('server date as today', () => {
-    // Device clock says 2026-11-10 while the server's today is 2026-11-09 (profile timezone).
+  describe('profile-zone date as today', () => {
+    // Device clock says 2026-11-10 while today in the profile timezone is 2026-11-09 (useToday is mocked above).
     beforeEach(() => {
       jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'], now: new Date(2026, 10, 10, 12, 0, 0) });
     });
@@ -177,6 +182,25 @@ describe('Today screen', () => {
       expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     });
 
+    it('returns to Today without a date when midnight makes the picked day today', async () => {
+      mockGet.mockResolvedValue(DAY);
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const ui = () => (
+        <QueryClientProvider client={client}>
+          <Today />
+        </QueryClientProvider>
+      );
+      const view = await render(ui());
+      await screen.findByText('Greek yogurt');
+      await fireEvent.press(screen.getByRole('button', { name: 'Previous day' }));
+      await waitFor(() => expect(mockGet).toHaveBeenCalledWith('2026-11-08'));
+      mockGet.mockClear();
+      mockToday = '2026-11-08';
+      await view.rerender(ui());
+      expect(await screen.findByText('Today')).toBeTruthy();
+      await waitFor(() => expect(mockGet).toHaveBeenCalledWith(undefined));
+    });
+
     it('steps back from the server date and returns to server today without a date', async () => {
       mockGet.mockResolvedValue(DAY);
       await renderScreen();
@@ -189,13 +213,6 @@ describe('Today screen', () => {
       expect(await screen.findByText('Today')).toBeTruthy();
       expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
       expect(mockGet.mock.calls.every(([d]) => d === undefined)).toBe(true);
-    });
-
-    it('disables Previous and hides Next until the server date is known', async () => {
-      mockGet.mockReturnValue(new Promise(() => {}));
-      await renderScreen();
-      expect(screen.getByRole('button', { name: 'Previous day' })).toBeDisabled();
-      expect(screen.queryByRole('button', { name: 'Next day' })).toBeNull();
     });
   });
 

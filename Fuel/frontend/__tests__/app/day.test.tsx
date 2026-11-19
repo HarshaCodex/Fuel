@@ -28,6 +28,8 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/api/tracking', () => ({ ...jest.requireActual('@/api/tracking'), getDashboard: jest.fn() }));
 
+let mockToday = '2026-11-19';
+jest.mock('@/lib/useToday', () => ({ useToday: () => mockToday }));
 const mockGet = jest.mocked(getDashboard);
 const macro = (consumed: number, goal: number) => ({ consumed, goal, unit: 'g' as const });
 const DAY: Dashboard = {
@@ -51,9 +53,30 @@ async function renderScreen() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockParams = { date: '2026-11-03' };
+  mockToday = '2026-11-19';
 });
 
 describe('Day screen', () => {
+  it('labels the day from today in the profile zone', async () => {
+    mockGet.mockResolvedValue(DAY);
+    await renderScreen();
+    expect(await screen.findByText('Tue, Nov 3')).toBeTruthy();
+    mockToday = '2026-11-04';
+    await screen.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <Day />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('Yesterday')).toBeTruthy();
+    mockToday = '2026-11-03';
+    await screen.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <Day />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText('Today')).toBeTruthy();
+  });
+
   it('shows the requested day read-only: ring, pills and meals, no streak or actions', async () => {
     let resolve: (d: Dashboard) => void = () => {};
     mockGet.mockReturnValue(new Promise((r) => (resolve = r)));
@@ -82,7 +105,7 @@ describe('Day screen', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
-  it.each([[undefined], ['nope'], ['2026-13-40'], ['2026-02-30'], ['2026-11-03/../x'], [['2026-11-03', '2026-11-04']]])(
+  it.each([[undefined], ['nope'], ['2026-13-40'], ['2026-02-30'], ['2026-11-03/../x'], [['2026-11-03', '2026-11-19']]])(
     'shows an error and sends no request for the date %p',
     async (date) => {
       mockParams = { date };

@@ -26,6 +26,7 @@ import { UndoToast } from '@/components/UndoToast';
 import { editFactor, withEditedEntry, withoutEntries } from '@/lib/dashboardTotals';
 import { addDays, dateTitle, groupByMeal, isFutureDate, longDateLabel } from '@/lib/dashboardView';
 import { hapticLight, hapticSelect } from '@/lib/haptics';
+import { useToday } from '@/lib/useToday';
 import { usePendingDeletes } from '@/lib/usePendingDeletes';
 import { sizing, space, type, useTheme } from '@/theme';
 
@@ -51,7 +52,7 @@ export default function TodayScreen() {
   const router = useRouter();
   // null means "today as the server sees it": the request omits the date and the response says which day that is.
   const [selected, setSelected] = useState<string | null>(null);
-  const [serverToday, setServerToday] = useState<string | null>(null);
+  const today = useToday();
   const [refreshing, setRefreshing] = useState(false);
   const isToday = selected === null;
   const date = selected ?? undefined;
@@ -59,10 +60,8 @@ export default function TodayScreen() {
     queryKey: trackingKeys.dashboard(date),
     queryFn: () => getDashboard(date),
   });
-  const todayFromServer = isToday ? q.data?.date : undefined;
-  // Remember the server's today so it survives while another day is selected (state adjusted during render).
-  if (todayFromServer && todayFromServer !== serverToday) setServerToday(todayFromServer);
-  const today = todayFromServer ?? serverToday;
+  // When midnight makes the picked day today, go back to the default view (state adjusted during render).
+  if (selected === today) setSelected(null);
   const shown = selected ?? q.data?.date ?? today;
   const goTo = (target: string) => setSelected(target === today ? null : target);
   const qc = useQueryClient();
@@ -159,20 +158,19 @@ export default function TodayScreen() {
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <Text accessibilityRole="header" style={[type.title1, { color: colors.text }]} maxFontSizeMultiplier={2}>
-              {selected && today ? dateTitle(selected, today) : 'Today'}
+              {selected ? dateTitle(selected, today) : 'Today'}
             </Text>
             <DateButton
               icon="chevron-back"
               label="Previous day"
-              disabled={!today}
-              onPress={() => today && goTo(addDays(selected ?? today, -1))}
+              onPress={() => goTo(addDays(selected ?? today, -1))}
             />
             {isToday ? null : (
               <DateButton
                 icon="chevron-forward"
                 label="Next day"
-                disabled={!today || isFutureDate(addDays(selected, 1), today)}
-                onPress={() => today && selected && goTo(addDays(selected, 1))}
+                disabled={isFutureDate(addDays(selected, 1), today)}
+                onPress={() => selected && goTo(addDays(selected, 1))}
               />
             )}
           </View>
