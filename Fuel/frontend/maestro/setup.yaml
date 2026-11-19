@@ -83,8 +83,9 @@ name: Set up body stats and goal
     visible: "Your daily goal"
     timeout: 30000
 - extendedWaitUntil:
-    visible: "Start tracking"
-    enabled: true
+    visible:
+      text: "Start tracking"
+      enabled: true
     timeout: 30000
 - takeScreenshot: 03b-setup-imperial
 - tapOn: "Start tracking"

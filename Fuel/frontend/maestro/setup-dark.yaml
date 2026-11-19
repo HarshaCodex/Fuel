@@ -83,7 +83,8 @@ name: Setup page in Dark
     visible: "Your daily goal"
     timeout: 30000
 - extendedWaitUntil:
-    visible: "Start tracking"
-    enabled: true
+    visible:
+      text: "Start tracking"
+      enabled: true
     timeout: 30000
 - takeScreenshot: 05-setup-imperial-dark
