@@ -78,6 +78,11 @@ name: Set up body stats and goal
 - tapOn: "Lose"
 - assertVisible: "750"
 - takeScreenshot: 03-setup-lose
+- tapOn: "Imperial"
+- extendedWaitUntil:
+    visible: "Your daily goal"
+    timeout: 30000
+- takeScreenshot: 03b-setup-imperial
 - tapOn: "Start tracking"
 - extendedWaitUntil:
     visible: ".*kcal left.*"

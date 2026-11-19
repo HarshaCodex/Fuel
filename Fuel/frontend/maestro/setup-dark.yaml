@@ -78,3 +78,8 @@ name: Setup page in Dark
 - tapOn: "Lose"
 - assertVisible: "750"
 - takeScreenshot: 04-setup-lose-dark
+- tapOn: "Imperial"
+- extendedWaitUntil:
+    visible: "Your daily goal"
+    timeout: 30000
+- takeScreenshot: 05-setup-imperial-dark
