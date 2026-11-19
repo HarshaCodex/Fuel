@@ -24,6 +24,7 @@ public interface CustomFoodMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "version", ignore = true)
     FoodItem toEntity(CustomFoodRequest request);
 
     /** Replaces the editable fields of an existing food; ownership and identity stay untouched. */
@@ -37,6 +38,7 @@ public interface CustomFoodMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "version", ignore = true)
     void updateEntity(CustomFoodRequest request, @MappingTarget FoodItem foodItem);
 
     @Mapping(target = "createdBy", source = "user.id")
