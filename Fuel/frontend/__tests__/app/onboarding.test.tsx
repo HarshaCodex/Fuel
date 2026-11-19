@@ -227,4 +227,13 @@ describe('Setup page', () => {
     await press('Later');
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
+
+  it('leaves without saving when Later is pressed after partial entry', async () => {
+    await renderScreen();
+    await setStat('Age', 'Age', '30');
+    await press('Later');
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    expect(mockPut).not.toHaveBeenCalled();
+    expect(mockRecalc).not.toHaveBeenCalled();
+  });
 });
