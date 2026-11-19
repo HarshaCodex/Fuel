@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { ApiError, NetworkError } from '@/api/errors';
 import { putBodyStats, recalculateGoals } from '@/api/user';
@@ -9,6 +9,7 @@ import { setOnboardingSkipped } from '@/lib/tokenStorage';
 import Onboarding from '../../app/onboarding';
 
 jest.mock('@/lib/tokenStorage');
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({ useRouter: () => ({ replace: mockReplace }) }));
@@ -16,151 +17,214 @@ jest.mock('@/api/user', () => ({ ...jest.requireActual('@/api/user'), putBodySta
 
 const mockPut = jest.mocked(putBodyStats);
 const mockRecalc = jest.mocked(recalculateGoals);
+const mockSkip = jest.mocked(setOnboardingSkipped);
 const GOALS = { calorieGoal: 2200, proteinGoal: 150, carbGoal: 250, fatGoal: 70, isAutoCalculated: true, tdee: 2200, deficit: 0, formula: 'f', macroSplit: 'm' };
+const BANNER = 'Some details were not accepted. Check your answers and try again.';
 
-const press = (name: string) => fireEvent.press(screen.getByRole('button', { name }));
+const press = (name: string | RegExp) => fireEvent.press(screen.getByRole('button', { name }));
 const radio = (name: string | RegExp) => fireEvent.press(screen.getByRole('radio', { name }));
 
+let client: QueryClient;
 async function renderScreen() {
+  client = new QueryClient();
   await render(
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <Onboarding />
     </QueryClientProvider>,
   );
 }
-async function toStep3() {
-  await renderScreen();
-  await fireEvent.changeText(screen.getByLabelText('Age'), '30');
+
+/** Opens a stat row, types into its sheet field and presses Done. */
+async function setStat(row: string, field: string, text: string) {
+  await press(new RegExp(`^${row},`));
+  await fireEvent.changeText(screen.getByLabelText(field), text);
+  await press('Done');
+}
+async function fillAll() {
+  await setStat('Age', 'Age', '30');
+  await press(/^Sex,/);
   await radio('Male');
-  await fireEvent.changeText(screen.getByLabelText('Height (cm)'), '180');
-  await fireEvent.changeText(screen.getByLabelText('Weight (kg)'), '80');
-  await press('Next');
+  await setStat('Height', 'Height', '180');
+  await setStat('Weight', 'Weight', '80');
+  await press(/^Activity,/);
   await radio(/Moderately active/);
-  await press('Next');
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockPut.mockResolvedValue({} as never);
   mockRecalc.mockResolvedValue(GOALS);
+  mockSkip.mockResolvedValue(undefined as never);
 });
 
-describe('Onboarding', () => {
-  it('blocks step 1 until every field is valid', async () => {
+describe('Setup page', () => {
+  it('shows empty rows, the empty panel and a disabled Start until all five are valid', async () => {
     await renderScreen();
-    await press('Next');
-    expect(screen.getByText('Enter your age')).toBeTruthy();
-    expect(screen.getByText('Choose one')).toBeTruthy();
-    expect(screen.getByLabelText('Step 1 of 3')).toBeTruthy();
-    expect(mockPut).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Age, not set')).toBeTruthy();
+    expect(screen.getAllByText('Add')).toHaveLength(5);
+    expect(screen.getByLabelText('Fill in the details above to see your goal')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start tracking' }).props.accessibilityState).toMatchObject({ disabled: true });
+    await setStat('Age', 'Age', '30');
+    expect(screen.getByLabelText('Age, 30')).toBeTruthy();
+    expect(mockRecalc).not.toHaveBeenCalled();
   });
 
-  it('requires an activity level on step 2', async () => {
+  it('saves stats, calculates once all five are filled and finishes', async () => {
     await renderScreen();
-    await fireEvent.changeText(screen.getByLabelText('Age'), '30');
-    await radio('Male');
-    await fireEvent.changeText(screen.getByLabelText('Height (cm)'), '180');
-    await fireEvent.changeText(screen.getByLabelText('Weight (kg)'), '80');
-    await press('Next');
-    await press('Next');
-    expect(screen.getByText('Choose your activity level')).toBeTruthy();
-  });
-
-  it('saves stats, shows the calculated targets and finishes', async () => {
-    await toStep3();
-    await waitFor(() => expect(screen.getByText('2200 kcal a day')).toBeTruthy());
+    await fillAll();
+    await waitFor(() => expect(screen.getByLabelText(/Daily goal 2,?200 calories/)).toBeTruthy());
     expect(mockPut).toHaveBeenCalledWith(expect.objectContaining({ age: 30, heightUnit: 'cm', weightUnit: 'kg', gender: 'MALE', activityLevel: 'MODERATE' }));
     expect(mockRecalc).toHaveBeenLastCalledWith({ goal: 'MAINTAIN' });
     await press('Start tracking');
     expect(mockReplace).toHaveBeenCalledWith('/');
   });
 
-  it('recalculates with the chosen deficit without re-saving stats', async () => {
-    await toStep3();
-    await waitFor(() => expect(screen.getByText('2200 kcal a day')).toBeTruthy());
+  it('invalidates the profile queries when starting', async () => {
+    await renderScreen();
+    const spy = jest.spyOn(client, 'invalidateQueries');
+    await fillAll();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start tracking' }).props.accessibilityState).toMatchObject({ disabled: false }));
+    await press('Start tracking');
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it('hides the change tiles for Maintain and shows them with 500 selected for Lose and Gain', async () => {
+    await renderScreen();
+    expect(screen.queryByLabelText('Daily calorie change')).toBeNull();
+    await radio('Lose');
+    expect(screen.getByRole('radio', { name: '500 calories a day, steady' }).props.accessibilityState).toMatchObject({ selected: true });
+    await radio('Gain');
+    expect(screen.getByLabelText('Daily calorie change')).toBeTruthy();
+    await radio('Maintain');
+    expect(screen.queryByLabelText('Daily calorie change')).toBeNull();
+  });
+
+  it('recalculates on goal and tile changes without re-saving unchanged stats', async () => {
+    await renderScreen();
+    await fillAll();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalledTimes(1));
     await radio('Lose');
     await waitFor(() => expect(mockRecalc).toHaveBeenLastCalledWith({ goal: 'LOSE', deficit: 500 }));
-    await press('Increase Daily calorie change');
-    await waitFor(() => expect(mockRecalc).toHaveBeenLastCalledWith({ goal: 'LOSE', deficit: 550 }));
+    await radio('750 calories a day, faster');
+    await waitFor(() => expect(mockRecalc).toHaveBeenLastCalledWith({ goal: 'LOSE', deficit: 750 }));
     expect(mockPut).toHaveBeenCalledTimes(1);
+  });
+
+  it('saves again after a body stat is edited', async () => {
+    await renderScreen();
+    await fillAll();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalledTimes(1));
+    await setStat('Weight', 'Weight', '75');
+    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(2));
+    expect(mockPut).toHaveBeenLastCalledWith(expect.objectContaining({ weight: 75 }));
+  });
+
+  it('does not save or recalculate when a sheet is closed with Done and nothing changed', async () => {
+    await renderScreen();
+    await fillAll();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalledTimes(1));
+    await press(/^Age,/);
+    await press('Done');
+    expect(mockPut).toHaveBeenCalledTimes(1);
+    expect(mockRecalc).toHaveBeenCalledTimes(1);
+  });
+
+  it('reverts a sheet edit when it is closed without Done', async () => {
+    await renderScreen();
+    await fillAll();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalledTimes(1));
+    await press(/^Age,/);
+    await fireEvent.changeText(screen.getByLabelText('Age'), '999');
+    await fireEvent.press(screen.getByLabelText('Close', { includeHiddenElements: true }));
+    expect(screen.getByLabelText('Age, 30')).toBeTruthy();
+    expect(mockPut).toHaveBeenCalledTimes(1);
+    expect(mockRecalc).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Done for an invalid age', async () => {
+    await renderScreen();
+    await press(/^Age,/);
+    await fireEvent.changeText(screen.getByLabelText('Age'), '5');
+    expect(screen.getByRole('button', { name: 'Done' }).props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
+  it('accepts custom changes of 100 and 1000 and rejects 75 and 1050', async () => {
+    await renderScreen();
+    await radio('Lose');
+    const custom = async (text: string) => {
+      await radio(/^Custom/);
+      await fireEvent.changeText(screen.getByLabelText('Calories per day'), text);
+    };
+    await custom('75');
+    expect(screen.getByRole('button', { name: 'Done' }).props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.changeText(screen.getByLabelText('Calories per day'), '1050');
+    expect(screen.getByRole('button', { name: 'Done' }).props.accessibilityState).toMatchObject({ disabled: true });
+    await fireEvent.changeText(screen.getByLabelText('Calories per day'), '100');
+    expect(screen.getByRole('button', { name: 'Done' }).props.accessibilityState).toMatchObject({ disabled: false });
+    await press('Done');
+    expect(screen.getByRole('radio', { name: 'Custom amount, 100 calories a day' })).toBeTruthy();
+    await custom('1000');
+    await press('Done');
+    expect(screen.getByRole('radio', { name: 'Custom amount, 1000 calories a day' })).toBeTruthy();
+  });
+
+  it('applies only the latest response when answers change quickly', async () => {
+    let resolveFirst: (g: typeof GOALS) => void = () => {};
+    mockRecalc.mockReturnValueOnce(new Promise((r) => (resolveFirst = r)));
+    await renderScreen();
+    await fillAll();
+    await radio('Lose');
+    mockRecalc.mockResolvedValueOnce({ ...GOALS, calorieGoal: 1700 });
+    await radio('750 calories a day, faster');
+    await waitFor(() => expect(screen.getByLabelText(/Daily goal 1,?700 calories/)).toBeTruthy());
+    resolveFirst({ ...GOALS, calorieGoal: 9999 });
+    await waitFor(() => expect(screen.getByLabelText(/Daily goal 1,?700 calories/)).toBeTruthy());
+    expect(screen.queryByLabelText(/9,?999/)).toBeNull();
+  });
+
+  it('sends feet and pounds after switching to imperial', async () => {
+    await renderScreen();
+    await fillAll();
+    await waitFor(() => expect(mockRecalc).toHaveBeenCalledTimes(1));
+    await radio('Imperial');
+    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(2));
+    expect(mockPut).toHaveBeenLastCalledWith(expect.objectContaining({ heightUnit: 'ft', weightUnit: 'lbs' }));
   });
 
   it('offers Retry when offline and keeps the answers', async () => {
     mockRecalc.mockRejectedValueOnce(new NetworkError());
-    await toStep3();
+    await renderScreen();
+    await fillAll();
     await waitFor(() => expect(screen.getByText(/You're offline/)).toBeTruthy());
     expect(screen.getByRole('button', { name: 'Start tracking' }).props.accessibilityState).toMatchObject({ disabled: true });
+    expect(screen.getByLabelText('Age, 30')).toBeTruthy();
     await press('Retry');
-    await waitFor(() => expect(screen.getByText('2200 kcal a day')).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText(/Daily goal 2,?200 calories/)).toBeTruthy());
   });
 
-  it('returns to step 1 with the server message next to the field on a 400', async () => {
+  it('marks the rejected row and shows the banner on a 400', async () => {
     mockPut.mockRejectedValueOnce(new ApiError(400, 'bad', [{ field: 'age', message: 'Age is not allowed' }]));
-    await toStep3();
-    await waitFor(() => expect(screen.getByText('Age is not allowed')).toBeTruthy());
-    expect(screen.getByLabelText('Age').props.value).toBe('30');
-  });
-
-  it('disables the goal controls while a calculation is running', async () => {
-    let release: (g: typeof GOALS) => void = () => undefined;
-    mockRecalc.mockReturnValueOnce(new Promise((r) => (release = r)));
-    await toStep3();
-    expect(screen.getByRole('radio', { name: 'Lose' }).props.accessibilityState).toMatchObject({ disabled: true });
-    await act(async () => release(GOALS));
-    await waitFor(() => expect(screen.getByRole('radio', { name: 'Lose' }).props.accessibilityState.disabled).toBe(false));
-  });
-
-  it('saves again when stats were edited while an earlier save was in flight', async () => {
-    let release: (v: never) => void = () => undefined;
-    mockPut.mockReturnValueOnce(new Promise((r) => (release = r)));
-    await toStep3();
-    await press('Back');
-    await radio(/Active\./);
-    await act(async () => release({} as never));
-    await press('Next');
-    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(2));
-    expect(mockPut).toHaveBeenLastCalledWith(expect.objectContaining({ activityLevel: 'ACTIVE' }));
-  });
-
-  it('clears the not-accepted banner once the user moves on', async () => {
-    mockPut.mockRejectedValueOnce(new ApiError(400, 'bad', [{ field: 'unknownField', message: 'x' }]));
-    await toStep3();
-    await waitFor(() => expect(screen.getByText(/not accepted/)).toBeTruthy());
-    await press('Next');
-    expect(screen.queryByText(/not accepted/)).toBeNull();
-  });
-
-  it('sends feet and pounds after switching to imperial and keeps answers on Back', async () => {
     await renderScreen();
-    await fireEvent.changeText(screen.getByLabelText('Age'), '30');
-    await radio('Male');
-    await fireEvent.changeText(screen.getByLabelText('Height (cm)'), '180');
-    await fireEvent.changeText(screen.getByLabelText('Weight (kg)'), '80');
-    await radio('Imperial');
-    expect(screen.getByLabelText('Weight (lbs)').props.value).toBe('176.4');
-    await press('Next');
-    await radio(/Moderately active/);
-    await press('Next');
-    await waitFor(() => expect(mockPut).toHaveBeenCalledWith(expect.objectContaining({ heightUnit: 'ft', weightUnit: 'lbs' })));
-    await radio('Gain');
-    await waitFor(() => expect(screen.getByText('500 kcal above your maintenance')).toBeTruthy());
-    await press('Back');
-    await press('Back');
-    expect(screen.getByLabelText('Age').props.value).toBe('30');
+    await fillAll();
+    await waitFor(() => expect(screen.getByText(BANNER)).toBeTruthy());
+    expect(screen.getByLabelText('Age, 30. Age is not allowed')).toBeTruthy();
+    expect(mockRecalc).not.toHaveBeenCalled();
   });
 
-  it('sets up later without calling the API', async () => {
+  it('records the skip and leaves without any API call when Later is pressed', async () => {
     await renderScreen();
-    await press('Set up later');
-    expect(setOnboardingSkipped).toHaveBeenCalled();
+    await press('Later');
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
+    expect(mockSkip).toHaveBeenCalled();
     expect(mockPut).not.toHaveBeenCalled();
+    expect(mockRecalc).not.toHaveBeenCalled();
   });
 
-  it('still leaves when the skip flag cannot be stored', async () => {
-    jest.mocked(setOnboardingSkipped).mockRejectedValueOnce(new Error('keychain'));
+  it('still leaves when the skip cannot be stored', async () => {
+    mockSkip.mockRejectedValueOnce(new Error('storage'));
     await renderScreen();
-    await press('Set up later');
+    await press('Later');
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 });
