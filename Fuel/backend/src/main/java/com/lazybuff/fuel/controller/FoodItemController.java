@@ -168,7 +168,13 @@ public class FoodItemController {
                 description = "Invalid input"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "401",
-                description = "Missing or invalid access token")
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "The caller already has the maximum number of custom foods"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many custom foods created; see the Retry-After header")
     })
     @PostMapping(
             path = "/custom",

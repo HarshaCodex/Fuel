@@ -1,6 +1,7 @@
 package com.lazybuff.fuel.service;
 
 import com.lazybuff.fuel.annotation.LogArguments;
+import com.lazybuff.fuel.config.FoodSearchConfig;
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.CustomFoodRequest;
 import com.lazybuff.fuel.dto.CustomFoodResponse;
@@ -36,11 +37,37 @@ public class CustomFoodService {
 
     private final CustomFoodMapper customFoodMapper;
 
+    private final RateLimiterService rateLimiterService;
+
+    private final FoodSearchConfig foodSearchConfig;
+
     @Transactional
     public ApiResponse<CustomFoodResponse> create(UUID userId, CustomFoodRequest request) {
 
+        final FoodSearchConfig.Custom limits = foodSearchConfig.getCustom();
+        rateLimiterService.enforce(
+                "custom-food-create:" + userId,
+                limits.getCreateRateLimit(),
+                limits.getCreateRateLimitWindow(),
+                "Too many custom foods created. Please try again later.");
+
         try {
-            User user = findActiveUser(userId);
+            // The row lock serializes concurrent creates so two can't both pass the cap check.
+            User user =
+                    userRepository
+                            .findActiveByIdForUpdate(userId)
+                            .orElseThrow(
+                                    () ->
+                                            new FuelException(
+                                                    HttpStatus.NOT_FOUND, "User not found"));
+            if (foodItemRepository.countBySourceAndUser_Id(FoodSource.USER, userId)
+                    >= limits.getMaxPerUser()) {
+                throw new FuelException(
+                        HttpStatus.CONFLICT,
+                        "You've reached the limit of "
+                                + limits.getMaxPerUser()
+                                + " custom foods. Delete some to add more.");
+            }
             FoodItem foodItem = customFoodMapper.toEntity(request);
             foodItem.setUser(user);
 

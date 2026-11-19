@@ -20,6 +20,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FoodItemRepository extends JpaRepository<FoodItem, UUID> {
 
+    /** Live foods of {@code source} owned by the user; soft-deleted rows are excluded. */
+    long countBySourceAndUser_Id(FoodSource source, UUID userId);
+
     @EntityGraph(attributePaths = "servingSizes")
     Optional<FoodItem> findWithServingSizesById(UUID id);
 

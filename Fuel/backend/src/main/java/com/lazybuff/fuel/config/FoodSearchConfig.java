@@ -21,6 +21,8 @@ public class FoodSearchConfig {
 
     private Barcode barcode = new Barcode();
 
+    private Custom custom = new Custom();
+
     /** USDA FoodData Central connection. */
     @Getter
     @Setter
@@ -94,5 +96,20 @@ public class FoodSearchConfig {
 
         /** Length of the per-user rate-limit window. */
         private Duration rateLimitWindow;
+    }
+
+    /** Limits on creating custom foods. */
+    @Getter
+    @Setter
+    public static class Custom {
+
+        /** Most live (not deleted) custom foods one user may own. */
+        private int maxPerUser;
+
+        /** Most custom foods one user may try to create per window. */
+        private int createRateLimit;
+
+        /** Length of the per-user create rate-limit window. */
+        private Duration createRateLimitWindow;
     }
 }
