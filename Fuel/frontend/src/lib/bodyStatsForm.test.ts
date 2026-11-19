@@ -113,13 +113,36 @@ describe('convertUnits', () => {
 
   it('converts metric to imperial', () => {
     const r = convertUnits(metric({ heightCm: '180', weight: '80' }), 'imperial');
-    expect(r).toMatchObject({ units: 'imperial', heightFt: '5', heightIn: '10.9', weight: '176.4' });
+    expect(r).toMatchObject({ units: 'imperial', heightFt: '5', heightIn: '11', weight: '176.4' });
   });
 
   it('round trip drifts no more than 0.1', () => {
     const back = convertUnits(convertUnits(metric({ heightCm: '175', weight: '72.5' }), 'imperial'), 'metric');
     expect(Math.abs(Number(back.heightCm) - 175)).toBeLessThanOrEqual(0.1 + 1e-9);
     expect(Math.abs(Number(back.weight) - 72.5)).toBeLessThanOrEqual(0.1 + 1e-9);
+  });
+
+  it('restores the exact metric values after cm to ft/in to cm', () => {
+    const back = convertUnits(convertUnits(metric({ heightCm: '175.3', weight: '72.45' }), 'imperial'), 'metric');
+    expect(back).toMatchObject({ units: 'metric', heightCm: '175.3', weight: '72.45' });
+  });
+
+  it('restores the exact imperial values after lb to kg to lb', () => {
+    const f = imperial({ heightFt: '5', heightIn: '10.5', weight: '176.3' });
+    const back = convertUnits(convertUnits(f, 'metric'), 'imperial');
+    expect(back).toMatchObject({ units: 'imperial', heightFt: '5', heightIn: '10.5', weight: '176.3' });
+  });
+
+  it('converts from the current values once the shown ones are edited', () => {
+    const imp = convertUnits(metric({ heightCm: '180', weight: '80' }), 'imperial');
+    const back = convertUnits({ ...imp, weight: '200' }, 'metric');
+    expect(back.weight).toBe('90.7');
+  });
+
+  it('sends the original metric input after a units switch alone', () => {
+    const base = metric({ heightCm: '175.3', weight: '72.45' });
+    const switched = convertUnits(base, 'imperial');
+    expect(validateBodyStats(switched).input).toEqual(validateBodyStats(base).input);
   });
 
   it('keeps blanks blank', () => {
@@ -165,7 +188,7 @@ describe('formFromBodyStats', () => {
 
   it('seeds an imperial form', () => {
     expect(formFromBodyStats(saved, 'imperial')).toMatchObject({
-      units: 'imperial', heightFt: '5', heightIn: '10.9', weight: '176.4',
+      units: 'imperial', heightFt: '5', heightIn: '11', weight: '176.4',
     });
   });
 

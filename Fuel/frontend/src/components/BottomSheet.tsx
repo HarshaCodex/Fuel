@@ -15,12 +15,14 @@ type Props = {
   children: ReactNode;
   /** The 56pt action slot under the content. Omit for a sheet that closes on selection. */
   done?: { label?: string; disabled?: boolean; onPress: () => void };
+  /** Extra side padding on the title, to line it up with content inset further than the sheet padding. */
+  titleInset?: number;
 };
 
 const SLIDE_FROM = 320;
 
 /** Modal bottom sheet: slides up (fades with Reduce Motion), closes on scrim tap or Android back. */
-export function BottomSheet({ visible, title, onClose, children, done }: Props) {
+export function BottomSheet({ visible, title, onClose, children, done, titleInset = 0 }: Props) {
   const { colors, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const reduce = useReduceMotion();
@@ -55,7 +57,7 @@ export function BottomSheet({ visible, title, onClose, children, done }: Props) 
         >
           <View accessibilityElementsHidden importantForAccessibility="no" style={[styles.grabber, { backgroundColor: colors.borderStrong }]} />
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <Text accessibilityRole="header" maxFontSizeMultiplier={2} style={[styles.title, { color: colors.text }]}>
+            <Text accessibilityRole="header" maxFontSizeMultiplier={2} style={[styles.title, { color: colors.text, paddingHorizontal: titleInset }]}>
               {title}
             </Text>
             {children}

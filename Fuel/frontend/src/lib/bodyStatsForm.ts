@@ -2,8 +2,16 @@ import type { ActivityLevel, BodyStats, BodyStatsInput, Gender } from '@/api/use
 
 export type Units = 'metric' | 'imperial';
 
+type Measures = { heightCm: string; heightFt: string; heightIn: string; weight: string };
+
 export type BodyStatsForm = {
   units: Units;
+  /**
+   * Set after a units switch: the values as typed in the other system (`entered`) and what the switch displayed
+   * (`shown`). While the shown values are untouched, `entered` stays the source of truth, so switching back or
+   * saving never drifts through rounding.
+   */
+  origin?: { units: Units; entered: Measures; shown: Measures };
   age: string;
   heightCm: string;
   heightFt: string;
@@ -69,6 +77,16 @@ export function parseNumber(text: string): number | null {
 const roundTo = (n: number, scale: number) => Math.round(n * scale) / scale;
 const show = (n: number) => String(roundTo(n, DISPLAY_DECIMALS));
 
+const measures = (f: BodyStatsForm): Measures => ({ heightCm: f.heightCm, heightFt: f.heightFt, heightIn: f.heightIn, weight: f.weight });
+
+/** The origin record while the displayed values still match what the switch showed, otherwise null. */
+function untouchedOrigin(f: BodyStatsForm): NonNullable<BodyStatsForm['origin']> | null {
+  const o = f.origin;
+  if (!o) return null;
+  const now = measures(f);
+  return (Object.keys(now) as (keyof Measures)[]).every((k) => now[k] === o.shown[k]) ? o : null;
+}
+
 function readHeight(form: BodyStatsForm): { value?: number; error?: string } {
   const m = BODY_STATS_MESSAGES;
   if (form.units === 'metric') {
@@ -87,10 +105,13 @@ function readHeight(form: BodyStatsForm): { value?: number; error?: string } {
   return feet <= 0 || feet * CM_PER_FOOT > MAX_HEIGHT ? { error: m.heightInvalid } : { value: feet };
 }
 
-export function validateBodyStats(form: BodyStatsForm): {
+export function validateBodyStats(shownForm: BodyStatsForm): {
   errors: Partial<Record<BodyStatsField, string>>;
   input?: BodyStatsInput;
 } {
+  // Untouched after a units switch: validate and send what was actually entered, not its rounded display.
+  const origin = untouchedOrigin(shownForm);
+  const form: BodyStatsForm = origin ? { ...shownForm, units: origin.units, ...origin.entered, origin: undefined } : shownForm;
   const m = BODY_STATS_MESSAGES;
   const errors: Partial<Record<BodyStatsField, string>> = {};
 
@@ -127,6 +148,8 @@ export function validateBodyStats(form: BodyStatsForm): {
 /** Converts typed values between unit systems. Blanks stay blank; unparseable text is left untouched. */
 export function convertUnits(form: BodyStatsForm, to: Units): BodyStatsForm {
   if (form.units === to) return form;
+  const origin = untouchedOrigin(form);
+  if (origin && origin.units === to) return { ...form, units: to, ...origin.entered, origin: undefined };
   const next: BodyStatsForm = { ...form, units: to };
 
   const weight = parseNumber(form.weight);
@@ -139,15 +162,9 @@ export function convertUnits(form: BodyStatsForm, to: Units): BodyStatsForm {
       next.heightFt = '';
       next.heightIn = '';
     } else if (cm !== null) {
-      const totalIn = roundTo(cm / CM_PER_INCH, DISPLAY_DECIMALS);
-      let feet = Math.floor(totalIn / INCHES_PER_FOOT);
-      let inches = roundTo(totalIn - feet * INCHES_PER_FOOT, DISPLAY_DECIMALS);
-      if (inches >= INCHES_PER_FOOT) {
-        feet += 1;
-        inches = 0;
-      }
-      next.heightFt = String(feet);
-      next.heightIn = String(inches);
+      const totalIn = Math.round(cm / CM_PER_INCH); // whole inches
+      next.heightFt = String(Math.floor(totalIn / INCHES_PER_FOOT));
+      next.heightIn = String(totalIn % INCHES_PER_FOOT);
     }
   } else {
     const ft = form.heightFt.trim();
@@ -159,6 +176,7 @@ export function convertUnits(form: BodyStatsForm, to: Units): BodyStatsForm {
       next.heightCm = show((feet * INCHES_PER_FOOT + inches) * CM_PER_INCH);
     }
   }
+  next.origin = { units: form.units, entered: measures(form), shown: measures(next) };
   return next;
 }
 

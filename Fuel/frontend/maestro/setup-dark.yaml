@@ -62,6 +62,7 @@ name: Setup page in Dark
 - inputText: "30"
 - tapOn: "Done"
 - tapOn: "Sex"
+- takeScreenshot: 02a-sex-sheet-dark
 - tapOn: "Male"
 - tapOn: "Height"
 - inputText: "180"
@@ -81,5 +82,10 @@ name: Setup page in Dark
 - tapOn: "Imperial"
 - extendedWaitUntil:
     visible: "Your daily goal"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      text: "Start tracking"
+      enabled: true
     timeout: 30000
 - takeScreenshot: 05-setup-imperial-dark

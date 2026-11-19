@@ -183,13 +183,13 @@ describe('Setup page', () => {
     expect(screen.queryByLabelText(/9,?999/)).toBeNull();
   });
 
-  it('sends feet and pounds after switching to imperial', async () => {
+  it('sends the entered cm and kg again after a units switch alone', async () => {
     await renderScreen();
     await fillAll();
     await waitFor(() => expect(mockRecalc).toHaveBeenCalledTimes(1));
     await radio('Imperial');
     await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(2));
-    expect(mockPut).toHaveBeenLastCalledWith(expect.objectContaining({ heightUnit: 'ft', weightUnit: 'lbs' }));
+    expect(mockPut).toHaveBeenLastCalledWith(expect.objectContaining({ height: 180, heightUnit: 'cm', weight: 80, weightUnit: 'kg' }));
   });
 
   it('offers Retry when offline and keeps the answers', async () => {

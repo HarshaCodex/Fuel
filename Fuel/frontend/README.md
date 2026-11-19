@@ -52,8 +52,9 @@ cp .env.example .env
 `maestro/` holds end-to-end flows that drive a real Android build on an emulator against a local backend with
 seeded test data. Run them with `maestro test -e LAB_EMAIL=<email> -e LAB_PASSWORD=<password> maestro/` once the app
 is installed and the backend is up. Most flows start by signing in as the seeded test user, so that account must
-exist; the auth flows (register, forgot password, wrong password, sign out) start signed out and use their own
-steps. `pull-to-refresh.yaml` also runs small host-side scripts from `maestro/scripts/` that call the backend
+exist; register.yaml, the setup flows, forgot password, wrong password and sign out start signed out and use their
+own steps (register.yaml and the setup flows work with a fresh account rather than the seeded user).
+`pull-to-refresh.yaml` also runs small host-side scripts from `maestro/scripts/` that call the backend
 (default `http://localhost:8090`; override with `-e API_BASE_URL=<url>`) to add and remove a probe entry.
 
 ## Folder layout
