@@ -26,7 +26,7 @@ import {
 import { mapFieldErrors } from '@/lib/fieldErrors';
 import { allValid, customDeficitError, DEFAULT_DEFICIT, isPreset, setupRows, type SetupRowKey } from '@/lib/setupView';
 import { setOnboardingSkipped } from '@/lib/tokenStorage';
-import { space, type, useTheme } from '@/theme';
+import { sizing, space, type, useTheme } from '@/theme';
 
 const GENERIC = "Couldn't calculate your goal. Try again.";
 const GOALS = [
@@ -235,10 +235,10 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   flex: { flex: 1 },
-  content: { paddingHorizontal: space.xl, paddingBottom: space.lg, gap: space.lg },
+  content: { paddingHorizontal: sizing.pageMargin, paddingBottom: space.lg, gap: space.lg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md },
   title: { flex: 1 },
   later: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
-  eyebrowRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md },
-  errorBanner: { paddingHorizontal: space.xl, paddingBottom: space.md },
+  eyebrowRow: { flexDirection: 'column', alignItems: 'stretch', gap: space.sm },
+  errorBanner: { paddingHorizontal: sizing.pageMargin, paddingBottom: space.md },
 });

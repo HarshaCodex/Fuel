@@ -9,7 +9,7 @@ const imperial: BodyStatsForm = { ...emptyBodyStatsForm('imperial'), age: '31', 
 describe('setupRows', () => {
   it('shows values and a11y for a metric form', () => {
     const rows = setupRows(metric);
-    expect(rows.map((r) => r.value)).toEqual(['31', 'Male', '178 cm', '80 kg', 'Moderate']);
+    expect(rows.map((r) => r.value)).toEqual(['31', 'Male', '178 cm', '80 kg', 'Moderately active']);
     expect(rows.map((r) => r.label)).toEqual(['Age', 'Sex', 'Height', 'Weight', 'Activity']);
     expect(rows[0].a11y).toBe('Age, 31');
   });

@@ -1,8 +1,7 @@
 import type { GoalsInput } from '@/api/user';
 
-import { validateBodyStats, type BodyStatsField, type BodyStatsForm } from './bodyStatsForm';
+import { ACTIVITIES, validateBodyStats, type BodyStatsField, type BodyStatsForm } from './bodyStatsForm';
 import { formatKcal } from './dashboardView';
-import { activityShort } from './profileView';
 
 export type SetupRowKey = BodyStatsField;
 export type SetupRow = { key: SetupRowKey; label: string; value?: string; a11y: string };
@@ -35,7 +34,7 @@ export function setupRows(form: BodyStatsForm): SetupRow[] {
     gender: form.gender ? GENDER_LABEL[form.gender] : undefined,
     height: heightValue(form),
     weight: weightValue(form),
-    activityLevel: form.activityLevel ? activityShort(form.activityLevel) : undefined,
+    activityLevel: form.activityLevel ? ACTIVITIES.find((a) => a.value === form.activityLevel)?.label : undefined,
   };
   return (Object.keys(ROW_LABELS) as SetupRowKey[]).map((key) => ({
     key,

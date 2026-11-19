@@ -30,6 +30,12 @@ describe('SetupPanel', () => {
     expect(screen.getByRole('button', { name: 'Start tracking' })).toBeDisabled();
   });
 
+  it('rounds macro grams to whole numbers', async () => {
+    await render(<SetupPanel goals={{ ...goals, proteinGoal: 225.9, fatGoal: 50.2 }} onStart={() => {}} />);
+    expect(screen.getByText('P 226 g')).toBeTruthy();
+    expect(screen.getByText('F 50 g')).toBeTruthy();
+  });
+
   it('shows the goal, macros and a live-region label', async () => {
     await render(<SetupPanel goals={goals} onStart={() => {}} />);
     expect(screen.getByText('2,200')).toBeTruthy();

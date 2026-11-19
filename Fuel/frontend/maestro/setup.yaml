@@ -1,4 +1,5 @@
 # A new user with no body stats lands on Setup, fills the five rows through sheets, picks a goal and reaches Today.
+# Forces Appearance to Light first (the choice survives sign-out), so the screenshots are light.
 # Creates its own verified account with no body stats (scripts/create-newcomer.js), since the lab seeds only one user.
 appId: com.harshacodex.fuel
 name: Set up body stats and goal
@@ -12,6 +13,36 @@ name: Set up body stats and goal
 - extendedWaitUntil:
     visible: "Create an account"
     timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Appearance.*"
+    timeout: 15000
+- tapOn: "Appearance.*"
+- extendedWaitUntil:
+    visible: "Light.*"
+    timeout: 10000
+- tapOn: "Light.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Sign out"
+    timeout: 15000
+- tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 15000
 - tapOn:
     text: "Email"
     index: 1
