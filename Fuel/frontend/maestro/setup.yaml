@@ -1,8 +1,12 @@
 # A new user with no body stats lands on Setup, fills the five rows through sheets, picks a goal and reaches Today.
-# Needs a verified account without body stats: LAB_NEWCOMER_EMAIL (password LAB_PASSWORD).
+# Creates its own verified account with no body stats (scripts/create-newcomer.js), since the lab seeds only one user.
 appId: com.harshacodex.fuel
 name: Set up body stats and goal
 ---
+- runScript:
+    file: scripts/create-newcomer.js
+    env:
+      LAB_PASSWORD: ${LAB_PASSWORD}
 - launchApp:
     clearState: true
 - extendedWaitUntil:
@@ -11,7 +15,7 @@ name: Set up body stats and goal
 - tapOn:
     text: "Email"
     index: 1
-- inputText: ${LAB_NEWCOMER_EMAIL}
+- inputText: ${output.email}
 - tapOn:
     text: "Password"
     index: 1
