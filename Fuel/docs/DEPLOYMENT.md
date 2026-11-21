@@ -19,6 +19,25 @@ cross-region latency adds up quickly.
 
 ---
 
+## Before you start
+
+You need accounts with Render, Neon, Upstash and Resend, plus GitHub access to this repo. Sentry
+is optional. Have these ready:
+
+- **A domain** for sending email (for example one you already own). Without one, Resend only
+  delivers to your own account address, which is enough to try staging alone but not for anyone
+  else (see step 3).
+- **`USDA_API_KEY`**, the free key from api.data.gov. Food search returns errors without it.
+- **Google client IDs** if Google sign-in should work ([OAUTH_SETUP.md](OAUTH_SETUP.md)). Apple
+  sign-in needs an Apple Developer membership; leave `APPLE_CLIENT_IDS` empty until then.
+
+Set up **staging first** and run the smoke test below before touching production. The Blueprint
+creates both services at once, and production builds from `main` on a paid plan, so if `main`
+isn't ready yet, suspend `fuel-api` in Render right after applying the Blueprint and resume it
+when you merge into `main`.
+
+---
+
 ## One-time setup
 
 Do this once per environment (staging, then production).
@@ -53,6 +72,10 @@ treat a Redis outage as urgent.
 
 The app connects to Resend at startup and refuses to start with wrong credentials.
 
+**No domain yet?** For a staging test by yourself, set `MAIL_FROM=onboarding@resend.dev`. Resend
+then only delivers to the address you signed up to Resend with, so register with that address.
+Switch to your own domain before anyone else uses the app.
+
 ### 4. Sentry (optional, recommended)
 
 Create a Java project and copy its DSN into `SENTRY_DSN`. Without it, nothing is reported.
@@ -71,6 +94,28 @@ Create a Java project and copy its DSN into `SENTRY_DSN`. Without it, nothing is
 3. Apply. The first deploy runs the Flyway migrations.
 4. Optional: add a custom domain such as `api.<your-domain>` in the service settings; Render
    issues the TLS certificate.
+5. Add the variables the Blueprint doesn't ask for, in the service's **Environment** tab:
+   `OFF_USER_AGENT` (recommended) and, later, the `APPLE_*` keys. Saving triggers a redeploy.
+
+### 6. Point the app at the backend
+
+In `Fuel/frontend/.env`, set `EXPO_PUBLIC_API_BASE_URL` to the service URL Render shows, for
+example `https://fuel-api-staging.onrender.com`, with no trailing slash, then restart Expo with
+`npx expo start -c`. This value is bundled into the app and is public, which is fine: it is not a
+secret. The free staging instance sleeps when idle, so the first request after a while can take
+about a minute.
+
+---
+
+## Entering and changing secrets
+
+- Secrets are typed into the Render dashboard only: once when the Blueprint asks, later in the
+  service's **Environment** tab. Paste them nowhere else: not in the repo, issues, PRs or chats.
+- Staging and production each get their own values. Never copy your local `.env` values.
+- Rotating: change the value in the dashboard and save; Render redeploys. Changing `JWT_SECRET`
+  signs everyone out, `VERIFICATION_CODE_SECRET` only voids codes in flight, and the database,
+  Redis and Resend credentials should be changed at the provider first, then in Render.
+- If a secret leaks, rotate it at the provider straight away, then update Render.
 
 ---
 
