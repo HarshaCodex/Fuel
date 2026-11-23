@@ -27,13 +27,14 @@ import {
   type FormValues,
 } from '@/lib/customFoodForm';
 import { mapFieldErrors } from '@/lib/fieldErrors';
+import { rateLimitMessage } from '@/lib/authErrors';
 import { hapticLight } from '@/lib/haptics';
 import { mealForHour } from '@/lib/mealLabel';
 import { sizing, space, type, useTheme } from '@/theme';
 
 type Input = ComponentRef<typeof TextInput>;
 type Fields = Partial<Record<CustomFoodField, string>>;
-type Problem = { kind: 'offline' | 'generic' | 'log' | 'gone'; message: string };
+type Problem = { kind: 'offline' | 'generic' | 'log' | 'gone' | 'conflict'; message: string };
 
 const OFFLINE = "You're offline. Check your connection and try again.";
 const GENERIC = "Couldn't save this food. Try again.";
@@ -171,6 +172,8 @@ export default function ManualEntryScreen() {
       if (e instanceof NetworkError) setProblem({ kind: 'offline', message: OFFLINE });
       else if (editing && e instanceof ApiError && e.status === 404) setProblem({ kind: 'gone', message: GONE });
       else if (createdRef.current) setProblem({ kind: 'log', message: LOG_FAILED });
+      else if (e instanceof ApiError && e.status === 409 && e.message) setProblem({ kind: 'conflict', message: e.message });
+      else if (e instanceof ApiError && e.status === 429) setProblem({ kind: 'generic', message: rateLimitMessage(e.retryAfter) });
       else {
         const mapped = mapFieldErrors(e, FIELDS);
         setServerErrors(mapped.errors);
@@ -219,7 +222,7 @@ export default function ManualEntryScreen() {
             <Banner
               variant={problem.kind === 'offline' ? 'caution' : 'danger'}
               message={problem.message}
-              action={problem.kind === 'gone' ? undefined : { label: 'Retry', onPress: () => void submit(intentLogs.current) }}
+              action={problem.kind === 'gone' || problem.kind === 'conflict' ? undefined : { label: 'Retry', onPress: () => void submit(intentLogs.current) }}
             />
           ) : null}
           {field('name', 'Name', { autoFocus: !editing, autoCapitalize: 'sentences' })}

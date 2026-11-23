@@ -273,6 +273,28 @@ describe('Manual entry screen', () => {
     );
   });
 
+  it('shows the server message on a 409 and keeps the typed values', async () => {
+    mockCreate.mockRejectedValueOnce(new ApiError(409, 'You have reached the limit of custom foods', []));
+    await renderScreen();
+    await fillValid();
+    await press('Log food');
+    expect(await screen.findByText('You have reached the limit of custom foods')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.getByDisplayValue(' Oats ')).toBeTruthy();
+    expect(screen.getByDisplayValue('150')).toBeTruthy();
+    expect(mockEntry).not.toHaveBeenCalled();
+  });
+
+  it('shows the rate-limit message on a 429 and keeps the typed values', async () => {
+    mockCreate.mockRejectedValueOnce(new ApiError(429, 'slow down', [], 120));
+    await renderScreen();
+    await fillValid();
+    await press('Log food');
+    expect(await screen.findByText('Too many tries. Try again in 2 minutes')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.getByDisplayValue(' Oats ')).toBeTruthy();
+  });
+
   it('goes back at once when nothing was typed', async () => {
     await renderScreen();
     await press('Back');
