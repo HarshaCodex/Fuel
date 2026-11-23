@@ -1,0 +1,56 @@
+# Invalid registration input shows field errors and password rules; a valid new account reaches verify-email.
+appId: com.harshacodex.fuel
+name: Register a new account
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn: "Create an account"
+- extendedWaitUntil:
+    visible: "Create account"
+    timeout: 15000
+- takeScreenshot: 01-register
+- tapOn: "Create account"
+- assertVisible: "Enter your name."
+- assertVisible: "Enter a valid email address."
+- assertVisible: "Choose a password that meets all the rules."
+- assertVisible: ".*A lowercase letter.*"
+- assertVisible: ".*A symbol.*"
+- takeScreenshot: 02-field-errors
+- tapOn:
+    text: "Name"
+    index: 1
+- inputText: "Lab Newcomer"
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: "weak"
+- hideKeyboard
+- takeScreenshot: 03-weak-password
+- tapOn: "Create account"
+- assertVisible: "Choose a password that meets all the rules."
+- tapOn:
+    text: "Password"
+    index: 1
+- eraseText: 10
+- inputText: "Fuel-Lab-2026!"
+- hideKeyboard
+- evalScript: ${output.email = 'lab+' + Date.now() + '@example.com'}
+- tapOn:
+    text: "Email"
+    index: 1
+- eraseText: 80
+- inputText: ${output.email}
+- hideKeyboard
+- takeScreenshot: 04-filled
+- tapOn: "Create account"
+- extendedWaitUntil:
+    visible: "Check your email"
+    timeout: 30000
+- takeScreenshot: 05-verify-email

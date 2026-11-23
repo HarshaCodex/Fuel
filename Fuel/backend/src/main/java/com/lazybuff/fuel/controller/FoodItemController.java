@@ -1,28 +1,142 @@
 package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
+import com.lazybuff.fuel.dto.CustomFoodRequest;
+import com.lazybuff.fuel.dto.CustomFoodResponse;
 import com.lazybuff.fuel.dto.FoodItemDetail;
+import com.lazybuff.fuel.dto.FoodSearchItem;
+import com.lazybuff.fuel.dto.PageResponse;
+import com.lazybuff.fuel.dto.RecentFoodItem;
+import com.lazybuff.fuel.service.BarcodeService;
+import com.lazybuff.fuel.service.CustomFoodService;
+import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
+import com.lazybuff.fuel.service.RecentFoodService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@Validated
 @RequiredArgsConstructor
 @RequestMapping("/api/food")
 @Tag(name = "Food", description = "Food lookup")
 public class FoodItemController {
 
     private final FoodService foodService;
+
+    private final CustomFoodService customFoodService;
+
+    private final FoodSearchService foodSearchService;
+
+    private final BarcodeService barcodeService;
+
+    private final RecentFoodService recentFoodService;
+
+    @Operation(summary = "Search USDA foods and the caller's own custom foods by name")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Page of matching foods; custom foods come first on page 0"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Invalid query, page or size"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many uncached searches from this user; see Retry-After"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "502",
+                description = "USDA rejected the request or answered unusably"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "503",
+                description = "USDA is unreachable, rate limiting or failing")
+    })
+    @GetMapping(path = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<PageResponse<FoodSearchItem>>> searchFoods(
+            @AuthenticationPrincipal String userId,
+            @RequestParam @Size(min = 2, max = 100) String q,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(1000) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
+
+        return ResponseEntity.ok(foodSearchService.search(UUID.fromString(userId), q, page, size));
+    }
+
+    @Operation(summary = "Look up a food by barcode (8 to 14 digits) in Open Food Facts, then USDA")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Food found; saved with an internal id and the canonical barcode"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Barcode is not 8 to 14 digits"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "Food item not found"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many uncached lookups from this user; see Retry-After"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "502",
+                description = "A food database rejected the request or answered unusably"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "503",
+                description = "A food database is unreachable, rate limiting or failing")
+    })
+    @GetMapping(path = "/barcode/{code}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<FoodItemDetail>> getFoodByBarcode(
+            @AuthenticationPrincipal String userId,
+            @PathVariable @Pattern(regexp = "\\d{8,14}") String code) {
+
+        return ResponseEntity.ok(barcodeService.lookup(UUID.fromString(userId), code));
+    }
+
+    @Operation(summary = "List the foods the caller logged most recently, newest first")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Distinct foods by latest log time; empty when nothing is logged"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "limit is not a number from 1 to 30"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token")
+    })
+    @GetMapping(path = "/recent", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<List<RecentFoodItem>>> getRecentFoods(
+            @AuthenticationPrincipal String userId,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(30) int limit) {
+
+        return ResponseEntity.ok(recentFoodService.recent(UUID.fromString(userId), limit));
+    }
 
     @Operation(summary = "Get a food item with its serving sizes")
     @ApiResponses({
@@ -34,12 +148,119 @@ public class FoodItemController {
                 description = "Missing or invalid access token"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
                 responseCode = "404",
-                description = "Food item not found")
+                description = "Food item not found, or another user's custom food")
     })
     @GetMapping(path = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponse<FoodItemDetail>> getFoodById(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<FoodItemDetail>> getFoodById(
+            @AuthenticationPrincipal String userId, @PathVariable UUID id) {
 
-        ApiResponse<FoodItemDetail> response = foodService.getFoodById(id);
+        ApiResponse<FoodItemDetail> response = foodService.getFoodById(id, UUID.fromString(userId));
         return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @Operation(summary = "Create a custom food owned by the caller")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "201",
+                description = "Custom food created"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Invalid input"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "The caller already has the maximum number of custom foods"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "429",
+                description = "Too many custom foods created; see the Retry-After header")
+    })
+    @PostMapping(
+            path = "/custom",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<CustomFoodResponse>> createCustomFood(
+            @AuthenticationPrincipal String userId, @Valid @RequestBody CustomFoodRequest request) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(customFoodService.create(UUID.fromString(userId), request));
+    }
+
+    @Operation(summary = "List the caller's custom foods, newest first")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Page of custom foods"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Invalid page or size"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token")
+    })
+    @GetMapping(path = "/custom", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<PageResponse<CustomFoodResponse>>> listCustomFoods(
+            @AuthenticationPrincipal String userId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
+
+        return ResponseEntity.ok(customFoodService.list(UUID.fromString(userId), page, size));
+    }
+
+    @Operation(summary = "Replace a custom food owned by the caller")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Custom food updated"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Invalid input"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Food item was changed by another request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "Food item not found")
+    })
+    @PutMapping(
+            path = "/custom/{id}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<CustomFoodResponse>> updateCustomFood(
+            @AuthenticationPrincipal String userId,
+            @PathVariable UUID id,
+            @Valid @RequestBody CustomFoodRequest request) {
+
+        return ResponseEntity.ok(customFoodService.update(UUID.fromString(userId), id, request));
+    }
+
+    @Operation(summary = "Soft-delete a custom food owned by the caller")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "204",
+                description = "Custom food deleted"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Malformed id"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "409",
+                description = "Food item was changed by another request"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "Food item not found")
+    })
+    @DeleteMapping(path = "/custom/{id}")
+    public ResponseEntity<Void> deleteCustomFood(
+            @AuthenticationPrincipal String userId, @PathVariable UUID id) {
+
+        customFoodService.delete(UUID.fromString(userId), id);
+        return ResponseEntity.noContent().build();
     }
 }

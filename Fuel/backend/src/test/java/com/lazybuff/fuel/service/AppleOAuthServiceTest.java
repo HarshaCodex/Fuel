@@ -3,6 +3,7 @@ package com.lazybuff.fuel.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -53,12 +54,12 @@ class AppleOAuthServiceTest {
                 .thenReturn(
                         new OAuthIdentity(
                                 AuthProvider.APPLE, APPLE_SUB, TestDataFactory.EMAIL, null));
-        when(oAuthAccountService.signIn(any(), any()))
+        when(oAuthAccountService.signIn(any(), any(), any()))
                 .thenReturn(ApiResponse.<UserData>builder().status(200).build());
 
         appleOAuthService.authenticate(request, TestDataFactory.CLIENT_INFO);
 
-        verify(oAuthAccountService).signIn(identityCaptor.capture(), any());
+        verify(oAuthAccountService).signIn(identityCaptor.capture(), any(), any());
         return identityCaptor.getValue();
     }
 
@@ -97,6 +98,27 @@ class AppleOAuthServiceTest {
         OAuthIdentity identity = signInWith(request(new OAuthAppleRequest.FullName(" ", "")));
 
         assertThat(identity.name()).isNull();
+    }
+
+    @Test
+    @DisplayName("passes the requested timezone on to the shared sign-in")
+    void shouldPassTimezoneToSignIn() throws Exception {
+        when(appleIdTokenVerifier.verify(IDENTITY_TOKEN))
+                .thenReturn(
+                        new OAuthIdentity(
+                                AuthProvider.APPLE, APPLE_SUB, TestDataFactory.EMAIL, null));
+        when(oAuthAccountService.signIn(any(), any(), any()))
+                .thenReturn(ApiResponse.<UserData>builder().status(200).build());
+        OAuthAppleRequest withTimezone =
+                OAuthAppleRequest.builder()
+                        .identityToken(IDENTITY_TOKEN)
+                        .timezone("Asia/Kolkata")
+                        .build();
+
+        appleOAuthService.authenticate(withTimezone, TestDataFactory.CLIENT_INFO);
+
+        verify(oAuthAccountService)
+                .signIn(any(), eq("Asia/Kolkata"), eq(TestDataFactory.CLIENT_INFO));
     }
 
     @Test

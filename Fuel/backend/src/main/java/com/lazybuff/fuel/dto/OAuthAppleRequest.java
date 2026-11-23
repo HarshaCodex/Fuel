@@ -39,6 +39,14 @@ public class OAuthAppleRequest {
     @Valid
     private FullName fullName;
 
+    @Schema(
+            description =
+                    "IANA timezone id, e.g. Asia/Kolkata. Used only when a new account is created;"
+                            + " defaults to UTC when omitted.",
+            example = "Asia/Kolkata")
+    @Size(max = 50, message = "Timezone must be at most 50 characters.")
+    private String timezone;
+
     /** Name parts as returned by Apple's sign-in SDKs. */
     public record FullName(
             @Size(max = 100, message = "Given name is too long.") String givenName,

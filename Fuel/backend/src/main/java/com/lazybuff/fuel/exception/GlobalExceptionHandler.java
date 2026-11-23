@@ -9,11 +9,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -72,6 +76,44 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(
+            MissingServletRequestParameterException ex) {
+        ErrorResponse errorResponse =
+                ErrorResponse.builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message("Validation failed")
+                        .errors(
+                                List.of(
+                                        Error.builder()
+                                                .field(ex.getParameterName())
+                                                .message("Required")
+                                                .build()))
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex) {
+        ErrorResponse errorResponse =
+                ErrorResponse.builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message("Validation failed")
+                        .errors(
+                                List.of(
+                                        Error.builder()
+                                                .field(ex.getName())
+                                                .message("Invalid value")
+                                                .build()))
+                        .timestamp(LocalDateTime.now())
+                        .build();
+
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorizedException(
             BadCredentialsException exception) {
@@ -113,6 +155,20 @@ public class GlobalExceptionHandler {
                 .body(errorResponse);
     }
 
+    /** A concurrent write changed the row first; the exception text is not echoed to the client. */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(
+            ObjectOptimisticLockingFailureException ex) {
+        log.warn("Optimistic lock conflict on {}", ex.getPersistentClassName());
+        ErrorResponse errorResponse =
+                ErrorResponse.builder()
+                        .status(HttpStatus.CONFLICT.value())
+                        .message("Food item was changed by another request, please retry")
+                        .timestamp(LocalDateTime.now())
+                        .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
     @ExceptionHandler(FuelException.class)
     public ResponseEntity<ErrorResponse> handleFuelException(FuelException ex) {
         ErrorResponse errorResponse =
@@ -122,6 +178,18 @@ public class GlobalExceptionHandler {
                         .timestamp(LocalDateTime.now())
                         .build();
         return ResponseEntity.status(ex.getHttpStatus()).body(errorResponse);
+    }
+
+    /** Unparseable or wrongly-typed JSON; the Jackson message is not echoed to the client. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        ErrorResponse errorResponse =
+                ErrorResponse.builder()
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .message("Malformed request body")
+                        .timestamp(LocalDateTime.now())
+                        .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
     /** Unknown routes; without this the catch-all below turns them into 500s. */

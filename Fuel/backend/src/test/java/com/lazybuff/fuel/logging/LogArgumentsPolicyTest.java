@@ -7,6 +7,7 @@ import com.lazybuff.fuel.scheduler.DeletedAccountPurge;
 import com.lazybuff.fuel.scheduler.RefreshTokenCleanUp;
 import com.lazybuff.fuel.service.AppleOAuthService;
 import com.lazybuff.fuel.service.AuthService;
+import com.lazybuff.fuel.service.BodyStatsService;
 import com.lazybuff.fuel.service.EmailService;
 import com.lazybuff.fuel.service.GoogleOAuthService;
 import com.lazybuff.fuel.service.JwtService;
@@ -29,6 +30,7 @@ class LogArgumentsPolicyTest {
     private static final List<Class<?>> SENSITIVE_CLASSES =
             List.of(
                     AuthService.class,
+                    BodyStatsService.class,
                     OAuthAccountService.class,
                     GoogleOAuthService.class,
                     AppleOAuthService.class,

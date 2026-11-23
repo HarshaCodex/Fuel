@@ -1,0 +1,78 @@
+# History shows the month calendar, changes month, opens the selected day and comes back to the same month.
+appId: com.harshacodex.fuel
+name: History and past days
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: "Previous month"
+    timeout: 15000
+- assertVisible: "Within goal"
+- assertVisible: "Today"
+- assertVisible:
+    text: "Next month"
+    enabled: false
+- takeScreenshot: 01-history-month-light
+- tapOn: "Previous month"
+- extendedWaitUntil:
+    visible:
+      text: "Next month"
+      enabled: true
+    timeout: 15000
+- takeScreenshot: 02-history-earlier-month
+- tapOn: "Next month"
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 15000
+- tapOn:
+    text: "Today, .* kcal.*"
+- extendedWaitUntil:
+    visible: "Meals"
+    timeout: 15000
+# The day screen has a Back button; History has neither the button nor "Meals".
+- assertVisible: "Back"
+- takeScreenshot: 03-day-from-history
+- tapOn: "Back"
+- extendedWaitUntil:
+    visible: "Previous month"
+    timeout: 15000
+- assertVisible:
+    text: "Next month"
+    enabled: false
+- takeScreenshot: 04-back-month-kept
+# Same screen in dark mode.
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Appearance. System"
+    timeout: 15000
+- tapOn: "Appearance. System"
+- extendedWaitUntil:
+    visible: "Dark.*"
+    timeout: 10000
+- tapOn: "Dark.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Appearance. Dark"
+    timeout: 10000
+- tapOn: "History"
+- extendedWaitUntil:
+    visible: "Previous month"
+    timeout: 15000
+- takeScreenshot: 05-history-month-dark

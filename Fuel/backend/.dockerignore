@@ -3,9 +3,14 @@ target/
 .gitignore
 .gitattributes
 .env
+.env.*
 docker-compose.yml
 Dockerfile
 .dockerignore
 *.md
 .vscode/
 .idea/
+*.iml
+mvnw.cmd
+# Local-only Postgres init scripts
+docker/

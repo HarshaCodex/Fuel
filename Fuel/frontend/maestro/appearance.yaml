@@ -1,0 +1,97 @@
+# Appearance: switch to Dark, check it sticks across a relaunch, then go back to System.
+appId: com.harshacodex.fuel
+name: Appearance
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Appearance. System"
+    timeout: 15000
+- tapOn: "Appearance. System"
+- extendedWaitUntil:
+    visible: "Dark.*"
+    timeout: 10000
+- tapOn: "Dark.*"
+- assertVisible:
+    text: "Dark.*"
+    selected: true
+- takeScreenshot: 01-dark-picker
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Appearance. Dark"
+    timeout: 10000
+- takeScreenshot: 02-dark-profile
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 60000
+- takeScreenshot: 02b-dark-today
+- tapOn: "Log food"
+- extendedWaitUntil:
+    visible: "Manual"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: 02c-dark-quick-log
+- inputText: "chicken"
+- extendedWaitUntil:
+    visible: "Chicken breast, roasted"
+    timeout: 30000
+- takeScreenshot: 02d-dark-quick-log-typing
+- tapOn: "Chicken breast, roasted"
+- extendedWaitUntil:
+    visible: "Custom"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- takeScreenshot: 02e-dark-food-detail
+- tapOn: "Custom"
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- takeScreenshot: 02f-dark-food-detail-custom
+- hideKeyboard
+- tapOn: "Back"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Open debugger to view warnings."
+    commands:
+      - tapOn:
+          point: "92%,92%"
+- tapOn: "Profile"
+- assertVisible: "Appearance. Dark"
+- takeScreenshot: 03-dark-after-relaunch
+- tapOn: "Appearance. Dark"
+- tapOn: "System.*"
+- tapOn: "Close"
+- assertVisible: "Appearance. System"
+- takeScreenshot: 04-system

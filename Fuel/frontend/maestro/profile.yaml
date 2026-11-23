@@ -1,0 +1,54 @@
+# Profile shows the seeded account, goals and body stats.
+appId: com.harshacodex.fuel
+name: Profile shows goals and body stats
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Lab User"
+    timeout: 15000
+- assertVisible: ${LAB_EMAIL}
+- assertVisible: "Daily goal"
+- assertVisible: "Default targets|From body stats|Set by you"
+- assertVisible: "2,200"
+- assertVisible: "165 g"
+- assertVisible: "178 cm"
+- assertVisible: "80 kg"
+- assertVisible: "Moderate"
+- takeScreenshot: 01-profile-light
+- scroll
+- takeScreenshot: 02-profile-scrolled
+# Dark capture: switch Appearance to Dark, then back to System so later flows are unaffected.
+- tapOn: "Appearance. System"
+- extendedWaitUntil:
+    visible: "Dark.*"
+    timeout: 10000
+- tapOn: "Dark.*"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible: "Appearance. Dark"
+    timeout: 10000
+- takeScreenshot: 03-profile-dark
+- tapOn: "Appearance. Dark"
+- extendedWaitUntil:
+    visible: "System.*"
+    timeout: 10000
+- tapOn: "System.*"
+- tapOn: "Close"

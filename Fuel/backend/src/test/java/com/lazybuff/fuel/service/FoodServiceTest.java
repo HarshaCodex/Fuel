@@ -28,6 +28,8 @@ import org.springframework.http.HttpStatus;
 @DisplayName("FoodService")
 class FoodServiceTest {
 
+    private static final UUID USER_ID = TestDataFactory.USER_ID;
+
     @Mock private FoodItemRepository foodItemRepository;
     @Mock private FoodItemToFoodItemDetailMapper foodItemDetailMapper;
 
@@ -49,7 +51,8 @@ class FoodServiceTest {
 
         @BeforeEach
         void stubHit() {
-            when(foodItemRepository.findWithServingSizesById(TestDataFactory.FOOD_ID))
+            when(foodItemRepository.findViewableWithServingSizesById(
+                            TestDataFactory.FOOD_ID, USER_ID))
                     .thenReturn(Optional.of(persistedFoodItem));
             when(foodItemDetailMapper.foodItemToFoodItemDetail(persistedFoodItem))
                     .thenReturn(foodItemDetail);
@@ -58,7 +61,8 @@ class FoodServiceTest {
         @Test
         @DisplayName("returns a 200 response carrying the mapped food item")
         void returnsOkResponse() {
-            ApiResponse<FoodItemDetail> response = foodService.getFoodById(TestDataFactory.FOOD_ID);
+            ApiResponse<FoodItemDetail> response =
+                    foodService.getFoodById(TestDataFactory.FOOD_ID, USER_ID);
 
             assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
             assertThat(response.getMessage()).isEqualTo("Success");
@@ -67,11 +71,12 @@ class FoodServiceTest {
         }
 
         @Test
-        @DisplayName("fetches through the serving-sizes entity graph, not a plain findById")
+        @DisplayName("fetches through the owner-scoped serving-sizes query, not a plain findById")
         void usesEntityGraphQuery() {
-            foodService.getFoodById(TestDataFactory.FOOD_ID);
+            foodService.getFoodById(TestDataFactory.FOOD_ID, USER_ID);
 
-            verify(foodItemRepository).findWithServingSizesById(TestDataFactory.FOOD_ID);
+            verify(foodItemRepository)
+                    .findViewableWithServingSizesById(TestDataFactory.FOOD_ID, USER_ID);
         }
     }
 
@@ -83,10 +88,10 @@ class FoodServiceTest {
         @DisplayName("throws a 404 FuelException when no food item matches the id")
         void throwsNotFound() {
             UUID missingId = UUID.randomUUID();
-            when(foodItemRepository.findWithServingSizesById(missingId))
+            when(foodItemRepository.findViewableWithServingSizesById(missingId, USER_ID))
                     .thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> foodService.getFoodById(missingId))
+            assertThatThrownBy(() -> foodService.getFoodById(missingId, USER_ID))
                     .isInstanceOf(FuelException.class)
                     .hasMessage("Food item not found")
                     .extracting(exception -> ((FuelException) exception).getHttpStatus())
@@ -97,10 +102,10 @@ class FoodServiceTest {
         @DisplayName("never invokes the mapper")
         void doesNotMap() {
             UUID missingId = UUID.randomUUID();
-            when(foodItemRepository.findWithServingSizesById(missingId))
+            when(foodItemRepository.findViewableWithServingSizesById(missingId, USER_ID))
                     .thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> foodService.getFoodById(missingId))
+            assertThatThrownBy(() -> foodService.getFoodById(missingId, USER_ID))
                     .isInstanceOf(FuelException.class);
 
             verifyNoInteractions(foodItemDetailMapper);
@@ -114,10 +119,11 @@ class FoodServiceTest {
         @Test
         @DisplayName("propagates a repository failure instead of swallowing it")
         void propagatesRepositoryFailure() {
-            when(foodItemRepository.findWithServingSizesById(TestDataFactory.FOOD_ID))
+            when(foodItemRepository.findViewableWithServingSizesById(
+                            TestDataFactory.FOOD_ID, USER_ID))
                     .thenThrow(new IllegalStateException("connection reset"));
 
-            assertThatThrownBy(() -> foodService.getFoodById(TestDataFactory.FOOD_ID))
+            assertThatThrownBy(() -> foodService.getFoodById(TestDataFactory.FOOD_ID, USER_ID))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("connection reset");
         }
@@ -125,12 +131,13 @@ class FoodServiceTest {
         @Test
         @DisplayName("propagates a mapping failure instead of swallowing it")
         void propagatesMappingFailure() {
-            when(foodItemRepository.findWithServingSizesById(TestDataFactory.FOOD_ID))
+            when(foodItemRepository.findViewableWithServingSizesById(
+                            TestDataFactory.FOOD_ID, USER_ID))
                     .thenReturn(Optional.of(persistedFoodItem));
             when(foodItemDetailMapper.foodItemToFoodItemDetail(any(FoodItem.class)))
                     .thenThrow(new IllegalArgumentException("bad serving size"));
 
-            assertThatThrownBy(() -> foodService.getFoodById(TestDataFactory.FOOD_ID))
+            assertThatThrownBy(() -> foodService.getFoodById(TestDataFactory.FOOD_ID, USER_ID))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("bad serving size");
         }

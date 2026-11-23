@@ -1,0 +1,42 @@
+import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text } from 'react-native';
+
+import { radius, shadow, sizing, space, type, useTheme } from '@/theme';
+
+import { PressableScale } from './PressableScale';
+
+/** The one primary action on Today: a bottom-right pill, or in the page flow when `inline` (empty day). */
+export function LogFoodButton({ onPress, inline }: { onPress: () => void; inline?: boolean }) {
+  const { colors, scheme } = useTheme();
+  return (
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel="Log food"
+      onPress={onPress}
+      style={[inline ? styles.inline : styles.pill, scheme === 'dark' ? null : shadow.lg, { backgroundColor: colors.accent }]}
+      contentStyle={styles.content}
+    >
+      <Ionicons name="add" size={sizing.icon} color={colors.onAccent} />
+      <Text style={[type.headline, { color: colors.onAccent }]} maxFontSizeMultiplier={1.3}>
+        Log food
+      </Text>
+    </PressableScale>
+  );
+}
+
+const styles = StyleSheet.create({
+  pill: {
+    position: 'absolute',
+    right: 20,
+    bottom: space.lg,
+    borderRadius: radius.full,
+  },
+  inline: { alignSelf: 'center', borderRadius: radius.full, marginBottom: space.lg },
+  content: {
+    minHeight: sizing.fab,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.xl,
+  },
+});

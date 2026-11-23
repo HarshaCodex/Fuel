@@ -1,5 +1,6 @@
 package com.lazybuff.fuel.config;
 
+import com.lazybuff.fuel.logging.MdcTaskDecorator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
@@ -20,6 +21,8 @@ public class AsyncConfig {
         executor.setQueueCapacity(100);
 
         executor.setThreadNamePrefix("email-");
+        // Email logs keep the request ID of the request that triggered them (#108).
+        executor.setTaskDecorator(new MdcTaskDecorator());
 
         executor.initialize();
 

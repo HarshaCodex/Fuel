@@ -2,6 +2,7 @@ package com.lazybuff.fuel.controller;
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.DeleteAccountRequest;
+import com.lazybuff.fuel.dto.UpdateProfileRequest;
 import com.lazybuff.fuel.dto.UserProfile;
 import com.lazybuff.fuel.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -51,6 +53,40 @@ public class UserController {
             @AuthenticationPrincipal String userId) {
 
         ApiResponse<UserProfile> response = userService.getProfile(UUID.fromString(userId));
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    /** Updates the caller's name and/or timezone. */
+    @Operation(
+            summary = "Update the signed-in user's profile",
+            description =
+                    "Send only the fields to change; omitted or null fields are left unchanged."
+                            + " Returns the full updated profile.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "200",
+                description = "Updated profile"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "400",
+                description = "Blank or too long name, or a timezone that is not an IANA id"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "401",
+                description = "Missing or invalid access token"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                responseCode = "404",
+                description = "User no longer exists (deleted)")
+    })
+    @PutMapping(
+            path = "/profile",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<UserProfile>> updateProfile(
+            @AuthenticationPrincipal String userId,
+            @Valid @RequestBody UpdateProfileRequest request) {
+
+        ApiResponse<UserProfile> response =
+                userService.updateProfile(UUID.fromString(userId), request);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

@@ -1,0 +1,39 @@
+# Sign out from Profile returns to sign-in, and relaunching the app stays signed out.
+appId: com.harshacodex.fuel
+name: Sign out
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 90000
+- tapOn:
+    text: "Email"
+    index: 1
+- inputText: ${LAB_EMAIL}
+- tapOn:
+    text: "Password"
+    index: 1
+- inputText: ${LAB_PASSWORD}
+- hideKeyboard
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "kcal left"
+    timeout: 30000
+- takeScreenshot: 01-today
+- tapOn: "Profile"
+- extendedWaitUntil:
+    visible: "Sign out"
+    timeout: 15000
+- takeScreenshot: 02-profile
+- tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 15000
+- takeScreenshot: 03-signed-out
+- launchApp
+- extendedWaitUntil:
+    visible: "Create an account"
+    timeout: 60000
+- assertNotVisible: "kcal left"
+- takeScreenshot: 04-relaunched

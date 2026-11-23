@@ -25,13 +25,17 @@ public class FoodService {
 
     private final FoodItemToFoodItemDetailMapper foodItemDetailMapper;
 
+    /**
+     * A shared food, or one of the caller's own custom foods. Another user's custom food is a 404,
+     * so its id can't be used to tell whether it exists.
+     */
     @Transactional(readOnly = true)
-    public ApiResponse<FoodItemDetail> getFoodById(UUID id) {
+    public ApiResponse<FoodItemDetail> getFoodById(UUID id, UUID userId) {
 
         try {
             FoodItem foodItem =
                     foodItemRepository
-                            .findWithServingSizesById(id)
+                            .findViewableWithServingSizesById(id, userId)
                             .orElseThrow(
                                     () ->
                                             new FuelException(

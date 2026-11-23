@@ -2,6 +2,7 @@ package com.lazybuff.fuel.scheduler;
 
 import com.lazybuff.fuel.config.AccountDeletionConfig;
 import com.lazybuff.fuel.repository.FoodItemRepository;
+import com.lazybuff.fuel.repository.TrackingEntryRepository;
 import com.lazybuff.fuel.repository.UserRepository;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,8 @@ public class DeletedAccountPurge {
 
     private final FoodItemRepository foodItemRepository;
 
+    private final TrackingEntryRepository trackingEntryRepository;
+
     private final AccountDeletionConfig accountDeletionConfig;
 
     @Scheduled(cron = "${app.account-deletion.purge-cron}")
@@ -30,9 +33,15 @@ public class DeletedAccountPurge {
     public void purgeDeletedAccounts() {
         Instant cutoff = Instant.now().minus(accountDeletionConfig.getRetention());
 
+        // Entries first: they reference the custom foods, which are deleted next.
+        int entries = trackingEntryRepository.deleteEntriesOfUsersDeletedBefore(cutoff);
         int foods = foodItemRepository.deleteCustomFoodsOfUsersDeletedBefore(cutoff);
         int users = userRepository.purgeDeletedBefore(cutoff);
 
-        log.info("Purged {} deleted accounts and {} of their custom foods", users, foods);
+        log.info(
+                "Purged {} deleted accounts, {} of their custom foods and {} tracking entries",
+                users,
+                foods,
+                entries);
     }
 }

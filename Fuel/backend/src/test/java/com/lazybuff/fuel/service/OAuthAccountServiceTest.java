@@ -106,7 +106,7 @@ class OAuthAccountServiceTest {
         stubTokens();
 
         ApiResponse<UserData> response =
-                oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO);
+                oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO);
 
         assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
         assertThat(response.getMessage()).isEqualTo("Google authentication successful");
@@ -128,7 +128,7 @@ class OAuthAccountServiceTest {
         stubTokens();
 
         ApiResponse<UserData> response =
-                oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO);
+                oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO);
 
         verify(userRepository).save(userCaptor.capture());
         assertThat(userCaptor.getValue().getEmail()).isEqualTo(TestDataFactory.EMAIL);
@@ -143,6 +143,72 @@ class OAuthAccountServiceTest {
     }
 
     @Test
+    @DisplayName("creates a new user in the requested timezone")
+    void shouldCreateUserWithRequestedTimezone() throws Exception {
+        stubIdentity(TestDataFactory.NAME);
+        stubNoLinkedGoogleAccount();
+        when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL)).thenReturn(null);
+        when(userRepository.save(any(User.class))).thenReturn(persistedUser);
+        stubTokens();
+
+        oAuthAccountService.signIn(identity, "Asia/Kolkata", TestDataFactory.CLIENT_INFO);
+
+        verify(userRepository).save(userCaptor.capture());
+        assertThat(userCaptor.getValue().getTimezone()).isEqualTo("Asia/Kolkata");
+    }
+
+    @Test
+    @DisplayName("defaults a new user's timezone to UTC when none is sent")
+    void shouldDefaultTimezoneToUtcWhenOmitted() throws Exception {
+        stubIdentity(TestDataFactory.NAME);
+        stubNoLinkedGoogleAccount();
+        when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL)).thenReturn(null);
+        when(userRepository.save(any(User.class))).thenReturn(persistedUser);
+        stubTokens();
+
+        oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO);
+
+        verify(userRepository).save(userCaptor.capture());
+        assertThat(userCaptor.getValue().getTimezone()).isEqualTo("UTC");
+    }
+
+    @Test
+    @DisplayName("rejects an invalid timezone with 400 and creates no user")
+    void shouldRejectInvalidTimezoneWithoutCreatingUser() {
+        stubIdentity(TestDataFactory.NAME);
+        stubNoLinkedGoogleAccount();
+        when(userRepository.findByEmailAndDeletedAtIsNull(TestDataFactory.EMAIL)).thenReturn(null);
+
+        assertThatThrownBy(
+                        () ->
+                                oAuthAccountService.signIn(
+                                        identity, "Mars/Olympus", TestDataFactory.CLIENT_INFO))
+                .isInstanceOf(FuelException.class)
+                .hasMessage("Invalid timezone.")
+                .extracting(e -> ((FuelException) e).getHttpStatus())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(userRepository, never()).save(any());
+        verify(userAuthProviderRepository, never()).save(any());
+        verify(userGoalsRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("leaves an existing user's timezone unchanged")
+    void shouldNotChangeTimezoneOfExistingUser() throws Exception {
+        stubIdentity(TestDataFactory.NAME);
+        persistedUser.setTimezone("Europe/Paris");
+        when(userAuthProviderRepository.findByProviderAndProviderIdAndUser_DeletedAtIsNull(
+                        AuthProvider.GOOGLE, GOOGLE_SUB))
+                .thenReturn(Optional.of(googleProvider(persistedUser)));
+        stubTokens();
+
+        oAuthAccountService.signIn(identity, "Asia/Kolkata", TestDataFactory.CLIENT_INFO);
+
+        assertThat(persistedUser.getTimezone()).isEqualTo("Europe/Paris");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("falls back to the email's local part when Google sends no name")
     void shouldFallBackToEmailLocalPartForName() throws Exception {
         stubIdentity(null);
@@ -151,7 +217,7 @@ class OAuthAccountServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(persistedUser);
         stubTokens();
 
-        oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO);
+        oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO);
 
         verify(userRepository).save(userCaptor.capture());
         assertThat(userCaptor.getValue().getName()).isEqualTo("john.doe");
@@ -171,7 +237,7 @@ class OAuthAccountServiceTest {
         stubTokens();
 
         ApiResponse<UserData> response =
-                oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO);
+                oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO);
 
         verify(userAuthProviderRepository).save(authProviderCaptor.capture());
         assertThat(authProviderCaptor.getValue().getUser()).isSameAs(persistedUser);
@@ -198,7 +264,7 @@ class OAuthAccountServiceTest {
         stubTokens();
 
         ApiResponse<UserData> response =
-                oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO);
+                oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO);
 
         verify(userAuthProviderRepository).delete(emailProvider);
         verify(refreshTokenService).revokeAll(TestDataFactory.USER_ID);
@@ -218,7 +284,10 @@ class OAuthAccountServiceTest {
                         TestDataFactory.USER_ID, AuthProvider.GOOGLE))
                 .thenReturn(googleProvider(persistedUser));
 
-        assertThatThrownBy(() -> oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO))
+        assertThatThrownBy(
+                        () ->
+                                oAuthAccountService.signIn(
+                                        identity, null, TestDataFactory.CLIENT_INFO))
                 .isInstanceOf(FuelException.class)
                 .hasMessage("This account is already linked to a different Google account.")
                 .extracting(e -> ((FuelException) e).getHttpStatus())
@@ -243,7 +312,7 @@ class OAuthAccountServiceTest {
         stubTokens();
 
         ApiResponse<UserData> response =
-                oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO);
+                oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO);
 
         verify(userAuthProviderRepository).save(authProviderCaptor.capture());
         assertThat(authProviderCaptor.getValue().getProvider()).isEqualTo(AuthProvider.APPLE);
@@ -261,7 +330,7 @@ class OAuthAccountServiceTest {
         stubTokens();
 
         ApiResponse<UserData> response =
-                oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO);
+                oAuthAccountService.signIn(identity, null, TestDataFactory.CLIENT_INFO);
 
         assertThat(response.getData().getUserId()).isEqualTo(TestDataFactory.USER_ID.toString());
         verify(userRepository, never()).findByEmailAndDeletedAtIsNull(any());
@@ -275,7 +344,10 @@ class OAuthAccountServiceTest {
                         AuthProvider.APPLE, "apple-sub"))
                 .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> oAuthAccountService.signIn(identity, TestDataFactory.CLIENT_INFO))
+        assertThatThrownBy(
+                        () ->
+                                oAuthAccountService.signIn(
+                                        identity, null, TestDataFactory.CLIENT_INFO))
                 .isInstanceOf(FuelException.class)
                 .extracting(e -> ((FuelException) e).getHttpStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);

@@ -1,5 +1,6 @@
 package com.lazybuff.fuel.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -22,4 +23,12 @@ public class OAuthGoogleRequest {
     @NotBlank(message = "ID token field cannot be blank.")
     @Size(max = 4096, message = "ID token is too long.")
     private String idToken;
+
+    @Schema(
+            description =
+                    "IANA timezone id, e.g. Asia/Kolkata. Used only when a new account is created;"
+                            + " defaults to UTC when omitted.",
+            example = "Asia/Kolkata")
+    @Size(max = 50, message = "Timezone must be at most 50 characters.")
+    private String timezone;
 }

@@ -7,6 +7,11 @@ The mobile apps sign users in with Google or Apple and send the resulting token 
 | `POST /api/auth/oauth/google` | Google **ID token** | `GOOGLE_CLIENT_IDS` |
 | `POST /api/auth/oauth/apple` | Apple **identity token** | `APPLE_CLIENT_IDS` |
 
+Both requests accept an optional `timezone` (IANA id such as `Asia/Kolkata`, max 50 characters).
+It is applied only when the sign-in creates a new account and defaults to `UTC` when omitted; an
+invalid id returns `400 Invalid timezone.` and creates no account. Existing accounts keep their
+timezone (change it with `PUT /api/user/profile`).
+
 The backend verifies each token itself against the provider's public keys (no client secret
 needed). One of the checks is the token's audience (`aud` claim): it must be one of **our** app
 identifiers, otherwise a token issued to some other app could be used to sign in here. The two

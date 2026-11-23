@@ -13,10 +13,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.lazybuff.fuel.dto.ApiResponse;
 import com.lazybuff.fuel.dto.FoodItemDetail;
+import com.lazybuff.fuel.service.BarcodeService;
+import com.lazybuff.fuel.service.CustomFoodService;
+import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
+import com.lazybuff.fuel.service.RecentFoodService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +31,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -33,14 +42,42 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class FoodItemControllerTest {
 
     private static final UUID FOOD_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+    private static final UUID USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     @Mock private FoodService foodService;
+
+    @Mock private CustomFoodService customFoodService;
+
+    @Mock private FoodSearchService foodSearchService;
+
+    @Mock private RecentFoodService recentFoodService;
+
+    @Mock private BarcodeService barcodeService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new FoodItemController(foodService)).build();
+        mockMvc =
+                MockMvcBuilders.standaloneSetup(
+                                new FoodItemController(
+                                        foodService,
+                                        customFoodService,
+                                        foodSearchService,
+                                        barcodeService,
+                                        recentFoodService))
+                        .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                        .build();
+
+        SecurityContextHolder.getContext()
+                .setAuthentication(
+                        new UsernamePasswordAuthenticationToken(
+                                USER_ID.toString(), null, List.of()));
+    }
+
+    @AfterEach
+    void clearAuthentication() {
+        SecurityContextHolder.clearContext();
     }
 
     private static ApiResponse<FoodItemDetail> okResponse() {
@@ -65,7 +102,7 @@ class FoodItemControllerTest {
         @Test
         @DisplayName("returns the service response body rather than an empty 200")
         void returnsServiceResponse() throws Exception {
-            when(foodService.getFoodById(FOOD_ID)).thenReturn(okResponse());
+            when(foodService.getFoodById(FOOD_ID, USER_ID)).thenReturn(okResponse());
 
             mockMvc.perform(get("/api/food/{id}", FOOD_ID))
                     .andExpect(status().isOk())
@@ -77,13 +114,13 @@ class FoodItemControllerTest {
         }
 
         @Test
-        @DisplayName("binds the path variable and delegates to the service")
+        @DisplayName("passes the path id and the signed-in user to the service")
         void delegatesToService() throws Exception {
-            when(foodService.getFoodById(FOOD_ID)).thenReturn(okResponse());
+            when(foodService.getFoodById(FOOD_ID, USER_ID)).thenReturn(okResponse());
 
             mockMvc.perform(get("/api/food/{id}", FOOD_ID));
 
-            verify(foodService).getFoodById(FOOD_ID);
+            verify(foodService).getFoodById(FOOD_ID, USER_ID);
         }
     }
 
@@ -101,7 +138,7 @@ class FoodItemControllerTest {
             mockMvc.perform(delete("/api/food/{id}", FOOD_ID))
                     .andExpect(status().isMethodNotAllowed());
 
-            verify(foodService, never()).getFoodById(any(UUID.class));
+            verify(foodService, never()).getFoodById(any(UUID.class), any(UUID.class));
         }
     }
 }

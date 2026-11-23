@@ -5,22 +5,30 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.lazybuff.fuel.controller.FoodItemController;
+import com.lazybuff.fuel.logging.RequestIdFilter;
 import com.lazybuff.fuel.security.RestAccessDeniedHandler;
 import com.lazybuff.fuel.security.RestAuthEntryPoint;
+import com.lazybuff.fuel.service.BarcodeService;
+import com.lazybuff.fuel.service.CustomFoodService;
+import com.lazybuff.fuel.service.FoodSearchService;
 import com.lazybuff.fuel.service.FoodService;
 import com.lazybuff.fuel.service.JwtService;
 import com.lazybuff.fuel.service.RateLimiterService;
+import com.lazybuff.fuel.service.RecentFoodService;
 import io.jsonwebtoken.JwtException;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterProperties;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.web.SecurityFilterChain;
@@ -34,7 +42,8 @@ import org.springframework.test.web.servlet.MockMvc;
     SecurityConfig.class,
     RestAuthEntryPoint.class,
     RestAccessDeniedHandler.class,
-    IpRateLimitConfig.class
+    IpRateLimitConfig.class,
+    RequestIdFilter.class
 })
 @DisplayName("SecurityConfig")
 class SecurityConfigTest {
@@ -48,6 +57,12 @@ class SecurityConfigTest {
     @MockitoBean private JwtService jwtService;
 
     @MockitoBean private FoodService foodService;
+    @MockitoBean private CustomFoodService customFoodService;
+    @MockitoBean private FoodSearchService foodSearchService;
+
+    @MockitoBean private RecentFoodService recentFoodService;
+
+    @MockitoBean private BarcodeService barcodeService;
 
     // WebConfig (a WebMvcConfigurer, so part of the slice) needs it to register rate-limit
     // interceptors.
@@ -61,6 +76,31 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.message").value("Invalid or missing credentials."))
                 .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void shouldAddGeneratedRequestIdHeaderTo401() throws Exception {
+        mockMvc.perform(get(PROTECTED_URL))
+                .andExpect(status().isUnauthorized())
+                .andExpect(
+                        header().string(
+                                        RequestIdFilter.HEADER,
+                                        org.hamcrest.Matchers.not(
+                                                org.hamcrest.Matchers.blankOrNullString())));
+    }
+
+    @Test
+    void shouldEchoValidIncomingRequestIdOn401() throws Exception {
+        mockMvc.perform(get(PROTECTED_URL).header(RequestIdFilter.HEADER, "client-id-12345"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string(RequestIdFilter.HEADER, "client-id-12345"));
+    }
+
+    @Test
+    void shouldRunRequestIdFilterBeforeSpringSecurity() {
+        final Order order = RequestIdFilter.class.getAnnotation(Order.class);
+
+        assertThat(order.value()).isLessThan(SecurityFilterProperties.DEFAULT_FILTER_ORDER);
     }
 
     @Test

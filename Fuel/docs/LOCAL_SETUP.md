@@ -50,6 +50,8 @@ APPLE_CLIENT_IDS=<ios-bundle-id>,<services-id>
 APPLE_TEAM_ID=<team-id>
 APPLE_KEY_ID=<key-id>
 APPLE_PRIVATE_KEY=<contents of the .p8 file>
+# Needed for GET /api/food/search (free key from https://api.data.gov/signup/)
+USDA_API_KEY=<usda-api-key>
 ```
 
 Notes:
@@ -80,6 +82,16 @@ Notes:
   Certificates, Identifiers & Profiles. If it is unset, every Apple sign-in returns 401.
   See [OAUTH_SETUP.md](OAUTH_SETUP.md) for which value each platform needs (including Expo Go) and
   how to debug a 401.
+- `USDA_API_KEY` is a free key from [api.data.gov](https://api.data.gov/signup/) for USDA FoodData
+  Central. `GET /api/food/search` calls USDA with it (sent as the `X-Api-Key` header) and caches
+  each result page in Redis for 24 hours. If it is unset, the endpoint returns 503; the rest of
+  the app is unaffected. Searches that miss the cache are limited per user
+  (`app.food.search.rate-limit` per `rate-limit-window`, default 30 per minute); beyond that the
+  endpoint returns 429.
+- Open Food Facts needs no key. When USDA returns fewer than 5 results on the first page, search
+  appends matching OFF products (`source` = `OFF`); if OFF is slow or down, the USDA results are
+  still returned. Optionally set `OFF_USER_AGENT` (app name plus a contact address, as OFF asks);
+  it defaults to `Fuel/1.0`.
 
 ---
 
@@ -216,6 +228,12 @@ Both return `{"status":"UP"}` with `200`; readiness returns `503` / `DOWN` while
 unreachable. Redis isn't part of the check, because the rate limiters keep working (fail open)
 without it. No other actuator endpoint is exposed.
 
+**Request IDs:** every response carries an `X-Request-Id` header, and every log line of that
+request (including async email work) is tagged with the same ID: `[<id>]` on the console,
+`"requestId"` in the prod JSON logs, and a `requestId` tag on Sentry errors. Search the logs for an
+ID to see one request from start to finish. Clients may send their own `X-Request-Id` (8–64
+letters, digits, `.`, `_` or `-`); anything else is replaced with a UUID.
+
 **Smoke-test the auth endpoint:**
 
 ```bash
@@ -290,7 +308,7 @@ docker compose down -v
 | `VERIFICATION_CODE_SECRET must ...` at startup | Missing, not Base64, or shorter than 32 bytes. Generate with `openssl rand -base64 32`. |
 | `Connection refused` on port 5432 | Postgres may still be initializing. Run `docker compose ps` and wait for `healthy`, then retry. |
 | Flyway migration errors on startup | Confirm the DB container is healthy before starting the app. |
-| `429 Too many requests` on login/register while testing | Per-IP limits (login 5/min, register 3/min, Google 10/min; see `app.rate-limit.per-ip.*`), or 10 failed logins for one email in 15 minutes (`app.rate-limit.failed-login.*`). Wait for `Retry-After`, or clear them: `docker exec fuel-redis redis-cli --scan --pattern 'rate_limit:*' \| xargs docker exec fuel-redis redis-cli del`. |
+| `429 Too many requests` on login/register while testing | Per-IP limits (login 5/min, register 3/min, Google 10/min; see `app.rate-limit.per-ip.*`), or 10 failed logins for one email in 15 minutes (`app.rate-limit.failed-login.*`). Creating custom foods is also limited to 30 per minute per user (`app.food.custom.*`), and a user may keep at most 500 custom foods (409 until some are deleted). Wait for `Retry-After`, or clear them: `docker exec fuel-redis redis-cli --scan --pattern 'rate_limit:*' \| xargs docker exec fuel-redis redis-cli del`. |
 | Java version mismatch (Option 2) | Run `java -version` — must be 25. Install via [SDKMAN](https://sdkman.io/) or from [jdk.java.net](https://jdk.java.net). |
 | Port already in use | Stop any local Postgres/Redis/app already using `5432`, `6379`, or `8080` outside Docker. |
 | Stale app image after code changes | Rebuild with `docker compose up --build` (Option 1). |

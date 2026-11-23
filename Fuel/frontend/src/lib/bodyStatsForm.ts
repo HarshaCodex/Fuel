@@ -1,0 +1,220 @@
+import type { ActivityLevel, BodyStats, BodyStatsInput, Gender } from '@/api/user';
+
+export type Units = 'metric' | 'imperial';
+
+type Measures = { heightCm: string; heightFt: string; heightIn: string; weight: string };
+
+export type BodyStatsForm = {
+  units: Units;
+  /**
+   * Set after a units switch: the values as typed in the other system (`entered`) and what the switch displayed
+   * (`shown`). While the shown values are untouched, `entered` stays the source of truth, so switching back or
+   * saving never drifts through rounding.
+   */
+  origin?: { units: Units; entered: Measures; shown: Measures };
+  age: string;
+  heightCm: string;
+  heightFt: string;
+  heightIn: string;
+  weight: string;
+  gender: Gender | null;
+  activityLevel: ActivityLevel | null;
+};
+
+export type BodyStatsField = 'age' | 'gender' | 'height' | 'weight' | 'activityLevel';
+export const BODY_STATS_FIELDS: readonly BodyStatsField[] = ['age', 'gender', 'height', 'weight', 'activityLevel'];
+
+export const BODY_STATS_UI = {
+  offline: "You're offline. Check your connection and try again.",
+  generic: "Couldn't save your body stats. Try again.",
+  unmatched: 'Some details were not accepted. Check your answers and try again.',
+  loadFailed: "Couldn't load your body stats.",
+} as const;
+
+export const BODY_STATS_MESSAGES = {
+  ageRequired: 'Enter your age',
+  ageRange: 'Age must be a whole number from 13 to 120',
+  genderRequired: 'Choose one',
+  activityRequired: 'Choose your activity level',
+  heightRequired: 'Enter your height',
+  heightInvalid: 'Enter a valid height',
+  feetInvalid: 'Feet must be a whole number',
+  inchesInvalid: 'Inches must be from 0 to 11.9',
+  weightRequired: 'Enter your weight',
+  weightInvalid: 'Enter a valid weight',
+} as const;
+
+const MIN_AGE = 13;
+const MAX_AGE = 120;
+const MAX_HEIGHT = 300; // the server's limit in cm
+const MAX_WEIGHT = 2000;
+const MAX_INCHES = 12; // exclusive
+const CM_PER_FOOT = 30.48;
+const CM_PER_INCH = 2.54;
+const INCHES_PER_FOOT = 12;
+const LBS_PER_KG = 2.20462;
+const FEET_DECIMALS = 1000;
+const DISPLAY_DECIMALS = 10;
+
+export const emptyBodyStatsForm = (units: Units = 'metric'): BodyStatsForm => ({
+  units,
+  age: '',
+  heightCm: '',
+  heightFt: '',
+  heightIn: '',
+  weight: '',
+  gender: null,
+  activityLevel: null,
+});
+
+/** Parses plain decimals (comma or dot). Returns null for blank, signs, exponents and junk. */
+export function parseNumber(text: string): number | null {
+  const t = text.trim().replace(',', '.');
+  if (!/^(\d+(\.\d+)?|\.\d+)$/.test(t)) return null;
+  return Number(t);
+}
+
+const roundTo = (n: number, scale: number) => Math.round(n * scale) / scale;
+const show = (n: number) => String(roundTo(n, DISPLAY_DECIMALS));
+
+const measures = (f: BodyStatsForm): Measures => ({ heightCm: f.heightCm, heightFt: f.heightFt, heightIn: f.heightIn, weight: f.weight });
+
+/** The origin record while the displayed values still match what the switch showed, otherwise null. */
+function untouchedOrigin(f: BodyStatsForm): NonNullable<BodyStatsForm['origin']> | null {
+  const o = f.origin;
+  if (!o) return null;
+  const now = measures(f);
+  return (Object.keys(now) as (keyof Measures)[]).every((k) => now[k] === o.shown[k]) ? o : null;
+}
+
+function readHeight(form: BodyStatsForm): { value?: number; error?: string } {
+  const m = BODY_STATS_MESSAGES;
+  if (form.units === 'metric') {
+    if (!form.heightCm.trim()) return { error: m.heightRequired };
+    const cm = parseNumber(form.heightCm);
+    return cm === null || cm <= 0 || cm > MAX_HEIGHT ? { error: m.heightInvalid } : { value: cm };
+  }
+  const ft = form.heightFt.trim();
+  const inch = form.heightIn.trim();
+  if (!ft && !inch) return { error: m.heightRequired };
+  if (!ft) return { error: m.feetInvalid };
+  if (!/^\d+$/.test(ft)) return { error: m.feetInvalid };
+  const inches = inch ? parseNumber(inch) : 0;
+  if (inches === null || inches >= MAX_INCHES) return { error: m.inchesInvalid };
+  const feet = roundTo(Number(ft) + inches / INCHES_PER_FOOT, FEET_DECIMALS);
+  return feet <= 0 || feet * CM_PER_FOOT > MAX_HEIGHT ? { error: m.heightInvalid } : { value: feet };
+}
+
+export function validateBodyStats(shownForm: BodyStatsForm): {
+  errors: Partial<Record<BodyStatsField, string>>;
+  input?: BodyStatsInput;
+} {
+  // Untouched after a units switch: validate and send what was actually entered, not its rounded display.
+  const origin = untouchedOrigin(shownForm);
+  const form: BodyStatsForm = origin ? { ...shownForm, units: origin.units, ...origin.entered, origin: undefined } : shownForm;
+  const m = BODY_STATS_MESSAGES;
+  const errors: Partial<Record<BodyStatsField, string>> = {};
+
+  const ageNum = parseNumber(form.age);
+  if (!form.age.trim()) errors.age = m.ageRequired;
+  else if (ageNum === null || !Number.isInteger(ageNum) || ageNum < MIN_AGE || ageNum > MAX_AGE) errors.age = m.ageRange;
+
+  if (!form.gender) errors.gender = m.genderRequired;
+
+  const height = readHeight(form);
+  if (height.error) errors.height = height.error;
+
+  const weightNum = parseNumber(form.weight);
+  if (!form.weight.trim()) errors.weight = m.weightRequired;
+  else if (weightNum === null || weightNum <= 0 || weightNum > MAX_WEIGHT) errors.weight = m.weightInvalid;
+
+  if (!form.activityLevel) errors.activityLevel = m.activityRequired;
+
+  if (Object.keys(errors).length > 0) return { errors };
+  return {
+    errors,
+    input: {
+      height: height.value as number,
+      heightUnit: form.units === 'metric' ? 'cm' : 'ft',
+      weight: weightNum as number,
+      weightUnit: form.units === 'metric' ? 'kg' : 'lbs',
+      age: ageNum as number,
+      gender: form.gender as Gender,
+      activityLevel: form.activityLevel as ActivityLevel,
+    },
+  };
+}
+
+/** Converts typed values between unit systems. Blanks stay blank; unparseable text is left untouched. */
+export function convertUnits(form: BodyStatsForm, to: Units): BodyStatsForm {
+  if (form.units === to) return form;
+  const origin = untouchedOrigin(form);
+  if (origin && origin.units === to) return { ...form, units: to, ...origin.entered, origin: undefined };
+  const next: BodyStatsForm = { ...form, units: to };
+
+  const weight = parseNumber(form.weight);
+  if (!form.weight.trim()) next.weight = '';
+  else if (weight !== null) next.weight = show(to === 'imperial' ? weight * LBS_PER_KG : weight / LBS_PER_KG);
+
+  if (to === 'imperial') {
+    const cm = parseNumber(form.heightCm);
+    if (!form.heightCm.trim()) {
+      next.heightFt = '';
+      next.heightIn = '';
+    } else if (cm !== null) {
+      const totalIn = Math.round(cm / CM_PER_INCH); // whole inches
+      next.heightFt = String(Math.floor(totalIn / INCHES_PER_FOOT));
+      next.heightIn = String(totalIn % INCHES_PER_FOOT);
+    }
+  } else {
+    const ft = form.heightFt.trim();
+    const inch = form.heightIn.trim();
+    const feet = parseNumber(ft);
+    const inches = inch ? parseNumber(inch) : 0;
+    if (!ft && !inch) next.heightCm = '';
+    else if (feet !== null && inches !== null) {
+      next.heightCm = show((feet * INCHES_PER_FOOT + inches) * CM_PER_INCH);
+    }
+  }
+  next.origin = { units: form.units, entered: measures(form), shown: measures(next) };
+  return next;
+}
+
+/** Seeds the edit form from a saved record (always cm/kg). */
+export function formFromBodyStats(stats: BodyStats, units: Units): BodyStatsForm {
+  const metric: BodyStatsForm = {
+    units: 'metric',
+    age: String(stats.age),
+    heightCm: show(stats.height),
+    heightFt: '',
+    heightIn: '',
+    weight: show(stats.weight),
+    gender: stats.gender,
+    activityLevel: stats.activityLevel,
+  };
+  return convertUnits(metric, units);
+}
+
+export const GENDERS = [
+  { value: 'MALE', label: 'Male' },
+  { value: 'FEMALE', label: 'Female' },
+] as const;
+export const UNIT_OPTIONS = [
+  { value: 'metric', label: 'Metric' },
+  { value: 'imperial', label: 'Imperial' },
+] as const;
+export const ACTIVITIES: readonly { value: ActivityLevel; label: string; description: string }[] = [
+  { value: 'SEDENTARY', label: 'Sedentary', description: 'Little or no exercise, desk job' },
+  { value: 'LIGHT', label: 'Lightly active', description: 'Light exercise 1 to 3 days a week' },
+  { value: 'MODERATE', label: 'Moderately active', description: 'Moderate exercise 3 to 5 days a week' },
+  { value: 'ACTIVE', label: 'Active', description: 'Hard exercise 6 to 7 days a week' },
+  { value: 'VERY_ACTIVE', label: 'Very active', description: 'Hard daily exercise or a physical job' },
+];
+
+/** One line for the Profile card, e.g. "180 cm, 80 kg, 30 years". Always metric as stored. */
+export function summarizeBodyStats(stats: BodyStats): string {
+  const gender = stats.gender === 'MALE' ? 'Male' : 'Female';
+  return `${show(stats.height)} cm, ${show(stats.weight)} kg, ${stats.age} years, ${gender}`;
+}
+
+export const activityLabel = (level: ActivityLevel): string => ACTIVITIES.find((a) => a.value === level)?.label ?? level;
